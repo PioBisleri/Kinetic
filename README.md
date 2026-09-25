@@ -157,7 +157,16 @@ drives the body heat map (red → grey over 48–72 h).
   ride parents, tombstones, RLS `schema.sql`, offline-tested with fake
   transport) + export (JSON backup / CSV via share sheet) + light theme
   polish (semantic colors bound to the theme)
-- **Phase 8** hardening & store release
+- **Phase 8 ✅** smart logging + device integration — next-weight suggestion
+  engine (double progression + auto-deload, kg-native, plate-grid snapped)
+  with a tap-to-apply chip in the set editor; exercise progress screen
+  (e1RM/volume trend chart, all-time PR tiles, last-vs-previous session
+  deltas); AMOLED true-black option; "Start Workout" home-screen shortcut;
+  weekly workout reminders (timezone-scheduled, exact when the platform
+  allows, boot re-arm via `ScheduledNotificationBootReceiver`)
+- **Phase 9** home-screen widget + volume landmarks
+- **Phase 10** end-to-end encrypted sync (before the Supabase project goes
+  live — `schema.sql` must not be run until then)
 
 ## Commands
 

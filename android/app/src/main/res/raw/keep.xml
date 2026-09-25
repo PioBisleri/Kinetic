@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Icons resolved by NAME from Dart (ResourceIdentifier lookup) — the
+     resource shrinker cannot trace those references, so keep them. -->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@drawable/ic_stat_kinetic" />

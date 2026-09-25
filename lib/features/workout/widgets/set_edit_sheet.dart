@@ -6,6 +6,8 @@ import '../../../core/database/database.dart';
 import '../../../core/settings/settings.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/weight_units.dart';
+import '../application/suggestion_provider.dart';
+import '../domain/suggestion_engine.dart';
 import 'plate_bar.dart';
 
 /// What the editor hands back — the caller decides how to persist.
@@ -238,6 +240,16 @@ class _SetEditSheetState extends ConsumerState<SetEditSheet> {
             style: TextStyle(color: context.textSecondary),
           ),
           const SizedBox(height: 16),
+          if (!_isCardio && widget.setNumber == null) ...[
+            _SuggestionChip(
+              exerciseId: widget.exercise.id,
+              onApply: (kg) => setState(() {
+                _draft.weightKg = kg;
+                _weight.text = formatWeight(kg, unit);
+              }),
+            ),
+            const SizedBox(height: 12),
+          ],
 
           if (!_isCardio) ...[
             Wrap(
@@ -351,6 +363,70 @@ class _SetEditSheetState extends ConsumerState<SetEditSheet> {
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Tappable "try this" chip driven by the suggestion engine — shown for
+/// new sets once a suggestion resolves (loading or none → no chip).
+class _SuggestionChip extends ConsumerWidget {
+  const _SuggestionChip({required this.exerciseId, required this.onApply});
+
+  final String exerciseId;
+  final void Function(double weightKg) onApply;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final unit = ref.watch(settingsProvider).unit;
+    final suggestion =
+        ref.watch(exerciseSuggestionProvider(exerciseId)).value;
+    if (suggestion == null) return const SizedBox.shrink();
+
+    final icon = switch (suggestion.action) {
+      SuggestionAction.start => Icons.flag_rounded,
+      SuggestionAction.progress => Icons.arrow_upward_rounded,
+      SuggestionAction.repeat => Icons.repeat_rounded,
+      SuggestionAction.deload => Icons.arrow_downward_rounded,
+    };
+    final unitLabel = unit == UnitSystem.kg ? 'kg' : 'lb';
+
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: InkWell(
+        key: const Key('apply-suggestion'),
+        borderRadius: BorderRadius.circular(10),
+        onTap: () => onApply(suggestion.weightKg),
+        child: Container(
+          padding:
+              const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+          decoration: BoxDecoration(
+            color: AppColors.accent.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+                color: AppColors.accent.withValues(alpha: 0.4)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 14, color: AppColors.accent),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  'Try ${formatWeight(suggestion.weightKg, unit)} $unitLabel'
+                  ' · ${suggestion.reason}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppColors.accent,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:quick_actions/quick_actions.dart';
 
+import 'core/notifications/weekly_reminder_service.dart';
 import 'core/settings/settings.dart';
 import 'core/sync/sync_providers.dart';
 import 'core/theme/app_theme.dart';
@@ -13,6 +15,7 @@ import 'features/routines/exercise_edit_page.dart';
 import 'features/routines/exercise_library_page.dart';
 import 'features/routines/routine_editor_page.dart';
 import 'features/routines/routines_page.dart';
+import 'features/workout/application/workout_session_notifier.dart';
 import 'features/workout/live_workout_page.dart';
 
 final _routerProvider = Provider<GoRouter>((ref) {
@@ -95,10 +98,58 @@ class KineticApp extends ConsumerStatefulWidget {
 
 class _KineticAppState extends ConsumerState<KineticApp>
     with WidgetsBindingObserver {
+  static const _quickActions = QuickActions();
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _initQuickActions();
+    _rearmReminder();
+  }
+
+  /// Re-arm the weekly reminder on every launch. The plugin's boot receiver
+  /// restores pending alarms across reboots; this catches the rest — time
+  /// zone changes, missed restores — and is idempotent (same stable id).
+  Future<void> _rearmReminder() async {
+    try {
+      final s = ref.read(settingsProvider);
+      if (!s.reminderEnabled) return;
+      await ref.read(weeklyReminderProvider).schedule(
+            weekday: s.reminderWeekday,
+            hour: s.reminderHour,
+            minute: s.reminderMinute,
+          );
+    } catch (_) {}
+  }
+
+  /// Home-screen shortcut: "Start Workout" boots (or resumes) a session and
+  /// jumps straight into the logger. Every call is guarded — the platform
+  /// channel is absent in widget tests and a missing shortcut must never
+  /// break startup.
+  Future<void> _initQuickActions() async {
+    try {
+      await _quickActions.initialize(_onQuickAction);
+      await _quickActions.setShortcutItems(const [
+        ShortcutItem(
+          type: 'start_workout',
+          localizedTitle: 'Start Workout',
+          icon: 'ic_stat_kinetic', // resolved by name from res/drawable
+        ),
+      ]);
+    } catch (_) {}
+  }
+
+  Future<void> _onQuickAction(String shortcutType) async {
+    if (shortcutType != 'start_workout') return;
+    try {
+      await ref.read(workoutSessionProvider.notifier).startWorkout();
+      if (!mounted) return;
+      final router = ref.read(_routerProvider);
+      // The app may already be sitting on the logger (relaunch from the
+      // background via the same shortcut) — don't stack a second page.
+      if (router.state.uri.path != '/workout') router.push('/workout');
+    } catch (_) {}
   }
 
   @override
@@ -123,7 +174,7 @@ class _KineticAppState extends ConsumerState<KineticApp>
       title: 'Kinetic',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
-      darkTheme: AppTheme.dark,
+      darkTheme: AppTheme.dark(amoled: settings.amoledBlack),
       themeMode: settings.themeMode,
       routerConfig: router,
     );

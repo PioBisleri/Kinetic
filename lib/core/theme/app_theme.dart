@@ -8,6 +8,13 @@ abstract final class AppColors {
   static const surfaceElevated = Color(0xFF1E2128);
   static const border = Color(0xFF2A2E37);
 
+  // AMOLED true-black surfaces (dark brightness only) — pure-black
+  // background plus near-black card/input layers that still separate.
+  static const amoledBackground = Color(0xFF000000);
+  static const amoledSurface = Color(0xFF0A0B0D);
+  static const amoledElevated = Color(0xFF141619);
+  static const amoledBorder = Color(0xFF232529);
+
   // Text
   static const textPrimary = Color(0xFFF2F4F8);
   static const textSecondary = Color(0xFF9AA1AE);
@@ -39,15 +46,38 @@ abstract final class AppColors {
       };
 }
 
+/// Carries the AMOLED preference inside [ThemeData] so the
+/// [AppColorsContext] getters (which only see `Theme.of`) can resolve the
+/// true-black variants without a Riverpod dependency.
+class AmoledTokens extends ThemeExtension<AmoledTokens> {
+  const AmoledTokens({required this.enabled});
+
+  final bool enabled;
+
+  @override
+  AmoledTokens copyWith({bool? enabled}) =>
+      AmoledTokens(enabled: enabled ?? this.enabled);
+
+  @override
+  AmoledTokens lerp(ThemeExtension<AmoledTokens>? other, double t) =>
+      other is AmoledTokens ? other : this;
+}
+
 /// Theme-bound accessors for the semantic palette above.
 ///
 /// Widget code reads these as `context.textPrimary` etc. instead of the
 /// statics so light mode gets readable values while dark stays exactly the
-/// constants above. Each mapping mirrors its colorScheme counterpart
+/// constants above — unless AMOLED black is on, where surfaces swap to the
+/// true-black variants. Each mapping mirrors its colorScheme counterpart
 /// (onSurface / surface / surfaceContainer / outline / scaffoldBackground),
 /// which [AppTheme] seeds from the same numbers for dark.
 extension AppColorsContext on BuildContext {
   bool get _isDark => Theme.of(this).brightness == Brightness.dark;
+
+  /// True only in dark brightness with the AMOLED toggle on.
+  bool get _amoled =>
+      _isDark &&
+      (Theme.of(this).extension<AmoledTokens>()?.enabled ?? false);
 
   Color get textPrimary =>
       _isDark ? AppColors.textPrimary : const Color(0xFF14161A);
@@ -55,20 +85,35 @@ extension AppColorsContext on BuildContext {
       _isDark ? AppColors.textSecondary : const Color(0xFF4E5666);
   Color get textTertiary =>
       _isDark ? AppColors.textTertiary : const Color(0xFF818899);
-  Color get surface => _isDark ? AppColors.surface : Colors.white;
-  Color get surfaceElevated =>
-      _isDark ? AppColors.surfaceElevated : const Color(0xFFF0F1F4);
-  Color get background =>
-      _isDark ? AppColors.background : const Color(0xFFF6F7F9);
-  Color get border => _isDark ? AppColors.border : const Color(0xFFE1E4EA);
+  Color get surface => _amoled
+      ? AppColors.amoledSurface
+      : _isDark
+          ? AppColors.surface
+          : Colors.white;
+  Color get surfaceElevated => _amoled
+      ? AppColors.amoledElevated
+      : _isDark
+          ? AppColors.surfaceElevated
+          : const Color(0xFFF0F1F4);
+  Color get background => _amoled
+      ? AppColors.amoledBackground
+      : _isDark
+          ? AppColors.background
+          : const Color(0xFFF6F7F9);
+  Color get border => _amoled
+      ? AppColors.amoledBorder
+      : _isDark
+          ? AppColors.border
+          : const Color(0xFFE1E4EA);
 }
 
 abstract final class AppTheme {
-  static ThemeData get dark => _base(
+  static ThemeData dark({bool amoled = false}) => _base(
         brightness: Brightness.dark,
-        scaffold: AppColors.background,
-        surface: AppColors.surface,
+        scaffold: amoled ? AppColors.amoledBackground : AppColors.background,
+        surface: amoled ? AppColors.amoledSurface : AppColors.surface,
         onSurface: AppColors.textPrimary,
+        amoled: amoled,
       );
 
   static ThemeData get light => _base(
@@ -83,16 +128,22 @@ abstract final class AppTheme {
     required Color scaffold,
     required Color surface,
     required Color onSurface,
+    bool amoled = false,
   }) {
     final isDark = brightness == Brightness.dark;
+    // Dark-branch surfaces — swapped for the AMOLED variants when active;
+    // light values are spelled out per-site below to keep exact parity.
+    final darkElev =
+        amoled ? AppColors.amoledElevated : AppColors.surfaceElevated;
+    final darkBorder = amoled ? AppColors.amoledBorder : AppColors.border;
     final scheme = ColorScheme.fromSeed(
       seedColor: AppColors.accent,
       brightness: brightness,
     ).copyWith(
       surface: surface,
       onSurface: onSurface,
-      surfaceContainer: isDark ? AppColors.surfaceElevated : const Color(0xFFF0F1F4),
-      outline: isDark ? AppColors.border : const Color(0xFFE1E4EA),
+      surfaceContainer: isDark ? darkElev : const Color(0xFFF0F1F4),
+      outline: isDark ? darkBorder : const Color(0xFFE1E4EA),
       primary: AppColors.accent,
       onPrimary: const Color(0xFF04211A),
     );
@@ -102,6 +153,7 @@ abstract final class AppTheme {
       brightness: brightness,
       colorScheme: scheme,
       scaffoldBackgroundColor: scaffold,
+      extensions: [AmoledTokens(enabled: amoled)],
       fontFamily: 'Roboto',
       appBarTheme: AppBarTheme(
         backgroundColor: scaffold,
@@ -115,17 +167,18 @@ abstract final class AppTheme {
         ),
       ),
       cardTheme: CardThemeData(
-        color: isDark ? AppColors.surface : Colors.white,
+        color: surface,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
-          side: BorderSide(color: isDark ? AppColors.border : const Color(0xFFE7E9EE)),
+          side: BorderSide(
+              color: isDark ? darkBorder : const Color(0xFFE7E9EE)),
         ),
       ),
       navigationBarTheme: NavigationBarThemeData(
-        backgroundColor: isDark ? AppColors.surface : Colors.white,
+        backgroundColor: surface,
         surfaceTintColor: Colors.transparent,
         indicatorColor: AppColors.accent.withValues(
             alpha: isDark ? 0.16 : 0.12),
@@ -134,7 +187,7 @@ abstract final class AppTheme {
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: isDark ? AppColors.surfaceElevated : const Color(0xFFF0F1F4),
+        fillColor: isDark ? darkElev : const Color(0xFFF0F1F4),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide.none,
@@ -154,12 +207,13 @@ abstract final class AppTheme {
         ),
       ),
       dividerTheme: DividerThemeData(
-        color: isDark ? AppColors.border : const Color(0xFFE7E9EE),
+        color: isDark ? darkBorder : const Color(0xFFE7E9EE),
         thickness: 1,
       ),
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
-        backgroundColor: isDark ? AppColors.surfaceElevated : const Color(0xFF1D2026),
+        backgroundColor:
+            isDark ? darkElev : const Color(0xFF1D2026),
         contentTextStyle: const TextStyle(color: AppColors.textPrimary),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),

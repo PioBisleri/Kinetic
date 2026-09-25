@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/database/database.dart';
 import '../../core/theme/app_theme.dart';
 import 'widgets/exercise_animation.dart';
+import 'widgets/exercise_progress_card.dart';
 
 /// One exercise row, watched live.
 final exerciseProvider = StreamProvider.autoDispose.family<Exercise?, String>(
@@ -133,6 +134,10 @@ class ExerciseDetailPage extends ConsumerWidget {
               ),
               const SizedBox(height: 16),
               _DetailsCard(exercise: e, equipment: equipment),
+              if (e.defaultMetric == 'weight_reps') ...[
+                const SizedBox(height: 16),
+                ExerciseProgressCard(exerciseId: exerciseId),
+              ],
               const SizedBox(height: 16),
               Card(
                 child: Padding(

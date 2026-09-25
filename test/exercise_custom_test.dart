@@ -199,6 +199,18 @@ void main() {
     expect(find.text('Custom exercise'), findsOneWidget);
     expect(find.byKey(const Key('anim-placeholder')), findsOneWidget);
     expect(find.text('No animation'), findsOneWidget);
+
+    // The progress card joins this screen above the muscle rows, which can
+    // push the contributions past the ListView's build window — scroll them
+    // into the tree before asserting. (No Lottie on a custom exercise, so
+    // settling is safe here.)
+    await tester.scrollUntilVisible(
+      find.text('40%'),
+      200,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.pumpAndSettle();
+
     expect(find.byKey(const Key('contribution-chest')), findsOneWidget);
     expect(find.text('100%'), findsOneWidget);
     expect(find.text('40%'), findsOneWidget); // glutes secondary

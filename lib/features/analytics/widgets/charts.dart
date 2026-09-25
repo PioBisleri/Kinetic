@@ -271,27 +271,33 @@ class WeeklyVolumeChart extends StatelessWidget {
   }
 }
 
-/// Estimated-1RM progression for one exercise.
+/// Which day-level series an [ExerciseTrendChart] plots.
+enum ExerciseSeries { e1rm, volume }
+
+/// Estimated-1RM (or daily-volume) progression for one exercise.
 class ExerciseTrendChart extends StatelessWidget {
   const ExerciseTrendChart({
     super.key,
     required this.rows,
     required this.since,
     required this.unit,
+    this.series = ExerciseSeries.e1rm,
   });
 
   final List<ExerciseHistoryData> rows;
-  final DateTime since; // window stal DateTime since; // window start — maps dates to x positions
+  final DateTime since; // window start — maps dates to x positions
   final UnitSystem unit;
+  final ExerciseSeries series;
 
   @override
   Widget build(BuildContext context) {
     final spots = <FlSpot>[];
     for (final r in rows) {
-      if (r.bestE1Rm <= 0) continue;
+      final v = series == ExerciseSeries.e1rm ? r.bestE1Rm : r.totalVolume;
+      if (v <= 0) continue;
       spots.add(FlSpot(
         daysBetween(since, r.date).toDouble(),
-        kgToDisplay(r.bestE1Rm, unit),
+        kgToDisplay(v, unit),
       ));
     }
     spots.sort((a, b) => a.x.compareTo(b.x));
@@ -301,7 +307,9 @@ class ExerciseTrendChart extends StatelessWidget {
         padding: EdgeInsets.symmetric(vertical: 24),
         child: Center(
           child: Text(
-            'No strength data in this window.',
+            series == ExerciseSeries.e1rm
+                ? 'No strength data in this window.'
+                : 'No volume data in this window.',
             style: TextStyle(fontSize: 12, color: context.textTertiary),
           ),
         ),
@@ -358,7 +366,8 @@ class ExerciseTrendChart extends StatelessWidget {
               getTooltipItems: (touched) => [
                 for (final t in touched)
                   LineTooltipItem(
-                    '${t.y.toStringAsFixed(1)} ${_unitLabel(unit)}\n'
+                    '${series == ExerciseSeries.e1rm ? t.y.toStringAsFixed(1) : compactNumber(t.y)} '
+                    '${_unitLabel(unit)}\n'
                     '${_dateLabel(addDays(since, t.x.round()))}',
                     TextStyle(
                       color: context.textPrimary,

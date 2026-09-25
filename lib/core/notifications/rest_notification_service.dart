@@ -24,6 +24,7 @@ class RestNotificationService {
       channelDescription: 'Notifies when your rest period ends',
       importance: Importance.high,
       priority: Priority.high,
+      icon: 'ic_stat_kinetic', // flat-white dumbbell in res/drawable
     ),
     iOS: DarwinNotificationDetails(),
   );

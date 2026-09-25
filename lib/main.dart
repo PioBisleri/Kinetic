@@ -7,6 +7,7 @@ import 'app.dart';
 import 'core/database/database.dart';
 import 'core/database/seed_service.dart';
 import 'core/notifications/rest_notification_service.dart';
+import 'core/notifications/weekly_reminder_service.dart';
 import 'core/settings/settings.dart';
 import 'core/sync/sync_providers.dart';
 import 'features/analytics/application/rollup_service.dart';
@@ -43,12 +44,17 @@ Future<void> main() async {
   final notifications = RestNotificationService(enabled: true);
   await notifications.init();
 
+  // Weekly workout reminder channel — enabled instance; arming/cancelling
+  // is driven by settings (and re-armed at startup, see KineticApp).
+  final reminder = WeeklyReminderService(enabled: true);
+
   runApp(
     ProviderScope(
       overrides: [
         databaseProvider.overrideWithValue(db),
         sharedPreferencesProvider.overrideWithValue(prefs),
         restNotificationProvider.overrideWithValue(notifications),
+        weeklyReminderProvider.overrideWithValue(reminder),
         // Only true when the dart-defines were present AND initialize above
         // succeeded — providers below use this to avoid touching
         // `Supabase.instance`, which asserts when uninitialized.

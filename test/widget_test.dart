@@ -174,6 +174,75 @@ void main() {
     await endApp(tester);
   });
 
+  testWidgets('suggestion chip offers the next weight from prior sessions',
+      (tester) async {
+    await pumpApp(tester);
+
+    // --- session one: log 60 × 10 and finish -----------------------------
+    await tester.tap(find.text('Start Workout'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('add-exercise-empty')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'bench');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Barbell Bench Press'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('add-set-barbell-bench-press')));
+    await tester.pumpAndSettle();
+    // Fresh history (and the active session is excluded) → no chip yet.
+    expect(find.byKey(const Key('apply-suggestion')), findsNothing);
+    await tester.enterText(find.byKey(const Key('set-weight-input')), '60');
+    await tester.enterText(find.byKey(const Key('set-reps-input')), '10');
+    await tester.ensureVisible(find.byKey(const Key('set-save')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('set-save')));
+    await tester.pumpAndSettle();
+    expect(find.text('60 kg × 10'), findsOneWidget);
+
+    // Finish session one.
+    await tester.tap(find.text('Finish'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Finish'));
+    await tester.pumpAndSettle();
+
+    // --- session two: the chip suggests +1 increment ---------------------
+    await tester.tap(find.text('Start Workout'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('add-exercise-empty')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'bench');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Barbell Bench Press'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('add-set-barbell-bench-press')));
+    await tester.pumpAndSettle();
+    // The editor must be open before we blame the chip for being absent.
+    expect(find.byKey(const Key('set-weight-input')), findsOneWidget);
+    // 10 reps repped out → one increment above last session's 60 kg.
+    expect(find.byKey(const Key('apply-suggestion')), findsOneWidget);
+    expect(find.textContaining('Try 62.5 kg'), findsOneWidget);
+
+    // Tapping the chip prefills the weight field…
+    await tester.tap(find.byKey(const Key('apply-suggestion')));
+    await tester.pumpAndSettle();
+    final weightField =
+        tester.widget<TextField>(find.byKey(const Key('set-weight-input')));
+    expect(weightField.controller!.text, '62.5');
+
+    // No in-session last set here, so reps need entering explicitly.
+    await tester.enterText(find.byKey(const Key('set-reps-input')), '10');
+    // …and saving logs the suggested load.
+    await tester.ensureVisible(find.byKey(const Key('set-save')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('set-save')));
+    await tester.pumpAndSettle();
+    expect(find.text('62.5 kg × 10'), findsOneWidget);
+
+    await endApp(tester);
+  });
+
   testWidgets('build a routine end-to-end: targets, sets, superset',
       (tester) async {
     await pumpApp(tester);

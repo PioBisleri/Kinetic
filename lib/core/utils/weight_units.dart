@@ -25,6 +25,9 @@ String _trim(double v) {
   return v.toStringAsFixed(2).replaceFirst(RegExp(r'\.?0+$'), '');
 }
 
+/// Display-unit suffix: 'kg' or 'lb'.
+String unitLabel(UnitSystem unit) => unit == UnitSystem.kg ? 'kg' : 'lb';
+
 /// Big-stepper increment in display units → kg.
 /// 2.5 kg / 5 lb matches the smallest common plate jump.
 double stepKg(UnitSystem unit) =>
