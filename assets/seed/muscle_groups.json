@@ -1,0 +1,44 @@
+{
+  "version": 1,
+  "muscles": [
+    { "id": "chest",           "name": "Chest",           "parent": null,       "order": 0,  "heatmap_nodes": ["front.chest_l", "front.chest_r"] },
+    { "id": "upper_chest",     "name": "Upper Chest",     "parent": "chest",    "order": 1,  "heatmap_nodes": ["front.upper_chest_l", "front.upper_chest_r"] },
+
+    { "id": "lats",            "name": "Lats",            "parent": "back",     "order": 10, "heatmap_nodes": ["back.lats_l", "back.lats_r"] },
+    { "id": "traps",           "name": "Traps",           "parent": "back",     "order": 11, "heatmap_nodes": ["back.traps_l", "back.traps_r"] },
+    { "id": "rhomboids",       "name": "Rhomboids",       "parent": "back",     "order": 12, "heatmap_nodes": ["back.rhomboids_l", "back.rhomboids_r"] },
+    { "id": "spinal_erectors", "name": "Spinal Erectors", "parent": "back",     "order": 13, "heatmap_nodes": ["back.spinal_erectors"] },
+
+    { "id": "front_delts",     "name": "Front Delts",     "parent": "shoulders","order": 20, "heatmap_nodes": ["front.front_delts_l", "front.front_delts_r"] },
+    { "id": "side_delts",      "name": "Side Delts",      "parent": "shoulders","order": 21, "heatmap_nodes": ["front.side_delts_l", "front.side_delts_r"] },
+    { "id": "rear_delts",      "name": "Rear Delts",      "parent": "shoulders","order": 22, "heatmap_nodes": ["back.rear_delts_l", "back.rear_delts_r"] },
+
+    { "id": "biceps",          "name": "Biceps",          "parent": "arms",     "order": 30, "heatmap_nodes": ["front.biceps_l", "front.biceps_r"] },
+    { "id": "triceps",         "name": "Triceps",         "parent": "arms",     "order": 31, "heatmap_nodes": ["back.triceps_l", "back.triceps_r"] },
+    { "id": "forearms",        "name": "Forearms",        "parent": "arms",     "order": 32, "heatmap_nodes": ["front.forearms_l", "front.forearms_r"] },
+
+    { "id": "abs",             "name": "Abs",             "parent": "core",     "order": 40, "heatmap_nodes": ["front.rectus_abs"] },
+    { "id": "obliques",        "name": "Obliques",        "parent": "core",     "order": 41, "heatmap_nodes": ["front.obliques_l", "front.obliques_r"] },
+
+    { "id": "quads",           "name": "Quads",           "parent": "legs",     "order": 50, "heatmap_nodes": ["front.quads_l", "front.quads_r"] },
+    { "id": "hamstrings",      "name": "Hamstrings",      "parent": "legs",     "order": 51, "heatmap_nodes": ["back.hams_l", "back.hams_r"] },
+    { "id": "glutes",          "name": "Glutes",          "parent": "legs",     "order": 52, "heatmap_nodes": ["back.glutes"] },
+    { "id": "calves",          "name": "Calves",          "parent": "legs",     "order": 53, "heatmap_nodes": ["back.calves_l", "back.calves_r"] },
+
+    { "id": "cardio",          "name": "Cardio",          "parent": null,       "order": 99, "heatmap_nodes": [] }
+  ],
+  "groups": [
+    { "id": "chest",     "name": "Chest",     "members": ["chest", "upper_chest"] },
+    { "id": "back",      "name": "Back",      "members": ["lats", "traps", "rhomboids", "spinal_erectors"] },
+    { "id": "shoulders", "name": "Shoulders", "members": ["front_delts", "side_delts", "rear_delts"] },
+    { "id": "arms",      "name": "Arms",      "members": ["biceps", "triceps", "forearms"] },
+    { "id": "core",      "name": "Core",      "members": ["abs", "obliques"] },
+    { "id": "legs",      "name": "Legs",      "members": ["quads", "hamstrings", "glutes", "calves"] }
+  ],
+  "balance_pairs": [
+    { "name": "Chest vs Back",     "a": ["chest"],       "b": ["lats", "rhomboids", "traps"],     "target_min": 0.85, "target_max": 1.15 },
+    { "name": "Quads vs Hams",     "a": ["quads"],       "b": ["hamstrings"],                    "target_min": 1.10, "target_max": 1.40 },
+    { "name": "Front vs Rear Delts","a": ["front_delts"], "b": ["rear_delts"],                    "target_min": 0.90, "target_max": 1.30 },
+    { "name": "Biceps vs Triceps", "a": ["biceps"],      "b": ["triceps"],                       "target_min": 0.85, "target_max": 1.15 }
+  ]
+}
