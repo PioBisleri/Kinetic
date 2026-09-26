@@ -172,7 +172,7 @@ abstract final class AppTheme {
         elevation: 0,
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(6),
           side: BorderSide(
               color: isDark ? darkBorder : const Color(0xFFE7E9EE)),
         ),
@@ -189,7 +189,7 @@ abstract final class AppTheme {
         filled: true,
         fillColor: isDark ? darkElev : const Color(0xFFF0F1F4),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(4),
           borderSide: BorderSide.none,
         ),
         contentPadding:
@@ -202,7 +202,7 @@ abstract final class AppTheme {
           minimumSize: const Size.fromHeight(56),
           textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(6),
           ),
         ),
       ),
@@ -210,13 +210,53 @@ abstract final class AppTheme {
         color: isDark ? darkBorder : const Color(0xFFE7E9EE),
         thickness: 1,
       ),
+      dialogTheme: DialogThemeData(
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(6),
+          side: BorderSide(
+              color: isDark ? darkBorder : const Color(0xFFE7E9EE)),
+        ),
+      ),
+      chipTheme: ChipThemeData(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(6),
+          side: BorderSide(
+              color: isDark ? darkBorder : const Color(0xFFE7E9EE)),
+        ),
+      ),
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
         backgroundColor:
             isDark ? darkElev : const Color(0xFF1D2026),
         contentTextStyle: const TextStyle(color: AppColors.textPrimary),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+      ),
+      // Ultra-flat: route changes are instant, no slide/fade animation.
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: {
+          TargetPlatform.android: InstantPageTransitions(),
+          TargetPlatform.iOS: InstantPageTransitions(),
+          TargetPlatform.linux: InstantPageTransitions(),
+          TargetPlatform.macOS: InstantPageTransitions(),
+          TargetPlatform.windows: InstantPageTransitions(),
+        },
       ),
     );
   }
+}
+
+/// [PageTransitionsBuilder] that swaps routes with no animation at all.
+class InstantPageTransitions extends PageTransitionsBuilder {
+  const InstantPageTransitions();
+
+  @override
+  Widget buildTransitions<T>(
+    PageRoute<T> route,
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) =>
+      child;
 }

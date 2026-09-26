@@ -58,7 +58,7 @@ Future<Object?> showSetEditSheet(
     isScrollControlled: true,
     backgroundColor: context.surface,
     shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      borderRadius: BorderRadius.vertical(top: Radius.circular(6)),
     ),
     builder: (_) => Padding(
       // Keep fields above the keyboard.
@@ -440,14 +440,14 @@ class _SuggestionChip extends ConsumerWidget {
       alignment: Alignment.centerLeft,
       child: InkWell(
         key: const Key('apply-suggestion'),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(6),
         onTap: () => onApply(suggestion.weightKg),
         child: Container(
           padding:
               const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
           decoration: BoxDecoration(
             color: AppColors.accent.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(6),
             border: Border.all(
                 color: AppColors.accent.withValues(alpha: 0.4)),
           ),
@@ -563,7 +563,7 @@ class _StepperRow extends StatelessWidget {
           foregroundColor: context.textPrimary,
           minimumSize: const Size(56, 56),
           shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(6),
               side: BorderSide(color: context.border)),
         ),
         icon: Icon(icon, size: 26),

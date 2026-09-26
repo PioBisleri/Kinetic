@@ -65,7 +65,7 @@ class GradeBoardCard extends ConsumerWidget {
                   const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
                 color: context.surfaceElevated,
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(6),
                 border: Border.all(color: context.border),
               ),
               child: Row(

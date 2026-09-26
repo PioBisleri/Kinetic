@@ -33,7 +33,7 @@ class WeeklyPlanPage extends ConsumerWidget {
       context: context,
       backgroundColor: context.surface,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(6)),
       ),
       builder: (_) => Consumer(
         builder: (sheetContext, ref, _) {

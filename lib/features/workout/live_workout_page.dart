@@ -124,7 +124,7 @@ class _LiveWorkoutPageState extends ConsumerState<LiveWorkoutPage> {
       isScrollControlled: true,
       backgroundColor: context.surface,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(6)),
       ),
       builder: (context) => Padding(
         padding: EdgeInsets.only(
@@ -524,13 +524,13 @@ class _SetRow extends StatelessWidget {
 
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.circular(6),
       child: Container(
         margin: const EdgeInsets.only(top: 6),
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
         decoration: BoxDecoration(
           color: context.background.withValues(alpha: 0.55),
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(6),
         ),
         child: Row(
           children: [

@@ -12,7 +12,7 @@ Future<String?> showAddExerciseSheet(BuildContext context) {
     isScrollControlled: true,
     backgroundColor: context.surface,
     shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      borderRadius: BorderRadius.vertical(top: Radius.circular(6)),
     ),
     builder: (_) => const AddExerciseSheet(),
   );
