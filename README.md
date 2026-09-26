@@ -1,179 +1,209 @@
 # Kinetic
 
-A private, offline-first strength training tracker. No friends, no feed, no
-followers — your data, your analytics, on your device.
+Kinetic is a private, offline-first strength training tracker built with Flutter and Dart. It helps athletes plan routines, log workouts, monitor progress, and analyze training trends without depending on a constant internet connection.
 
-## Stack
+The app is designed around a simple principle: your training data belongs to you. It stores the source of truth locally, supports optional cloud sync, and keeps the experience fast, reliable, and usable even when you are offline.
 
-| Layer | Choice |
-|---|---|
-| Framework | Flutter 3.47 (Dart 3.13) |
-| State | Riverpod 3 (`Notifier` / `AsyncNotifier`) |
-| Local DB | Drift (SQLite) — source of truth, WAL mode |
-| Cloud | Supabase (Auth + Postgres + Storage), RLS-locked per user |
-| Routing | go_router (4-tab stateful shell) |
-| Charts | fl_chart (Phase 4) |
+## Why Kinetic
 
-## Architecture
+Most strength apps are optimized for social features, feeds, or subscriptions. Kinetic focuses on the essentials:
 
+- Fast workout logging
+- Offline-first operation
+- Accurate performance analytics
+- Flexible routine building
+- Privacy-conscious local storage
+- Optional cloud backup and sync
+
+## Key Features
+
+### Workout tracking
+- Log sets, reps, weight, RPE, rest time, and notes
+- Track supersets and workout flow in real time
+- Use a built-in plate calculator for efficient loading
+- Capture next-weight suggestions based on training progress
+
+### Routine management
+- Build and manage custom training routines
+- Organize exercises by target muscle groups and movement patterns
+- Create warm-ups and structured workout sessions
+- Maintain a personal exercise library tailored to your goals
+
+### Analytics and progress
+- Monitor volume, strength trends, and personal records
+- Review performance over rolling windows and custom time ranges
+- Inspect muscle-level progress with grade-based analytics
+- Visualize workout history with charts and summary data
+
+### Offline-first architecture
+- Store core workout data in a local SQLite database
+- Keep the app fully functional without network access
+- Use a sync engine to reconcile local and remote data safely
+
+### Cloud sync and export
+- Optional Supabase integration for authentication and data sync
+- Per-user row-level access controls in the remote schema
+- Export workout data as JSON and CSV for backup or reporting
+- Share data through the device share sheet
+
+## Tech Stack
+
+- Flutter + Dart
+- Riverpod for state management
+- Drift + SQLite for the local database
+- Supabase for optional cloud authentication and sync
+- go_router for navigation
+- fl_chart for analytics visualization
+- SharedPreferences for lightweight app preferences
+- Flutter local notifications for reminders
+- Lottie for animations
+
+## Architecture Overview
+
+Kinetic follows a layered architecture with local-first data ownership at its center.
+
+```text
+UI / Screens
+  ↓
+Riverpod providers and controllers
+  ↓
+Repository and service layer
+  ↓
+Local Drift database (source of truth)
+  ↓
+Optional Supabase sync layer
 ```
-UI (Riverpod consumers)
-  → Controllers / Notifiers (live session, rest timer, grade engine)
-    → Repository layer (abstract)
-      ├─ Drift/SQLite  ← LOCAL SOURCE OF TRUTH (always wins)
-      └─ Supabase sync ← pull→push cycle, per-row last-write-wins
+
+The application intentionally treats the local database as the authoritative state. Remote cloud storage is used as a synchronization mechanism, not as the primary source of truth.
+
+## Project Structure
+
+```text
+kinetic/
+├── android/                     Android app configuration
+├── ios/                         iOS app configuration
+├── assets/
+│   ├── anim/                   Lottie animation assets
+│   └── seed/                   Seed data for exercises and muscle groups
+├── lib/
+│   ├── app.dart                 App shell and app configuration
+│   ├── main.dart               App bootstrap and initialization
+│   ├── core/
+│   │   ├── database/           Drift schemas and database setup
+│   │   ├── settings/           Preferences and user settings
+│   │   ├── sync/               Sync logic and connectivity flow
+│   │   ├── theme/              App theme and design tokens
+│   │   ├── export/             Backup and export services
+│   │   └── utils/              Helper logic such as plate calculation
+│   └── features/
+│       ├── analytics/          Analytics, charts, and training insights
+│       ├── home/               Home dashboard and workout entry points
+│       ├── profile/            Settings, sync, auth, and export tools
+│       ├── routines/           Routine building and exercise planning
+│       └── workout/            Workout logging and exercise tracking
+├── supabase/
+│   └── schema.sql              Remote database schema for Supabase
+├── test/                       Automated tests
+├── analysis_options.yaml       Linting and analysis rules
+├── pubspec.yaml                Flutter package configuration
+├── .gitignore
+├── README.md
+└── flutter_launcher_icons.yaml
 ```
 
-Rules:
+## Getting Started
 
-- UUID keys generated client-side; every mutable table carries
-  `updated_at / synced_at / deleted_at` (tombstone).
-- The network is never a precondition for logging a set.
-- All weights stored in **kg** internally; lbs is display-only.
-- Exercise catalog is seeded from bundled JSON — fully usable on a plane.
+### Prerequisites
 
-## Cloud sync (Phase 7)
+Before running the app, install:
 
-Email auth + offline-first sync. The local DB stays the source of truth;
-a sync cycle is **pull → push**:
+- Flutter SDK 3.13+
+- Dart SDK 3.13+
+- Android Studio or VS Code with Flutter plugins
+- An emulator or physical device
 
-- **Dirty scan push** — rows with `synced_at IS NULL OR updated_at >
-  synced_at` upload via upsert, then mark clean with
-  `WHERE id AND updated_at` (a concurrent edit keeps the row dirty).
-- **Children ride parents** — sets, routine slots and muscle-map rows are
-  never uploaded row-by-row: pushing a parent runs `replaceChildren`
-  (remote children of those parents deleted, current local set inserted).
-  That is also how hard deletes propagate — every child mutation bumps the
-  parent's `updated_at` (`WorkoutSessionNotifier._touchWorkout`), so the
-  parent pushes and its remote children mirror the device exactly.
-- **Tombstones** — soft deletes (`deleted_at` + `updated_at` bump) are
-  ordinary dirty rows; they push as-is and are never hard-deleted remotely.
-  On pull, a remote tombstone applies locally only if the row exists here.
-- **Pull** — cursor in SharedPreferences (`sync.cursor.<uid>`, 15-min
-  overlap), per-row LWW: incoming wins only when `updated_at` is strictly
-  newer. Winners fetch their children and apply parent+children in one
-  local transaction (pre-marked `synced_at = updated_at` — no echo push).
-  In-progress (`active`) workouts are not imported until they complete.
-- **Rollups** — pull re-derives analytics days touched by changed sets
-  inside the same transaction.
-- **Triggers** — manual button (Profile → Sync), after sign-in, and on
-  app resume. Failures surface in the UI; nothing local is lost offline.
-
-Remote schema: `supabase/schema.sql` — RLS-locked per `auth.uid()`,
-composite PK `(user_id, id)`, one policy per table. Rollup tables,
-`muscle_groups` and `sync_queue` are intentionally not synced.
-
-Setup:
+### Install dependencies
 
 ```bash
-# 1. Paste supabase/schema.sql into the Supabase SQL editor and run it.
-# 2. Build with the project's URL + anon key:
+flutter pub get
+```
+
+### Run the app
+
+```bash
+flutter run
+```
+
+### Run tests
+
+```bash
+flutter test
+```
+
+### Analyze the project
+
+```bash
+flutter analyze
+```
+
+## Supabase Setup (Optional)
+
+Kinetic supports cloud sync through Supabase. To enable it:
+
+1. Create a Supabase project
+2. Apply the schema located in `supabase/schema.sql`
+3. Add your project URL and anonymous key as Dart defines
+
+```bash
 flutter build apk \
   --dart-define=SUPABASE_URL=https://<project>.supabase.co \
   --dart-define=SUPABASE_ANON_KEY=<anon key>
 ```
 
-Without the dart-defines the app runs fully local and Profile shows
-"Cloud sync not configured". Cross-device sync is tested offline against
-`FakeSyncTransport` (`test/sync_engine_test.dart`); the Supabase transport
-is a thin PostgREST wrapper over the same interface.
+Without these values, the app continues to work in a fully local mode and will display cloud sync as unavailable.
 
-**Export** — Profile → Data: full JSON backup (profile, exercises with
-muscle map, routines with slots, workouts with sets) and a CSV of every
-set, shared through the OS share sheet (`share_plus`). Weights in the CSV
-are always kg.
+## Data Model and Privacy
 
-**Light theme** — widget code reads semantic colors through
-`context.textPrimary` etc. (`AppColorsContext` in `app_theme.dart`);
-dark keeps the original constants pixel-for-pixel, light gets readable
-values.
+Kinetic is designed with a privacy-first approach:
 
-## Project layout
+- Workout data is stored locally in SQLite
+- Sync is optional and user-scoped
+- Cloud access is controlled with row-level security
+- Training information remains under the user's control
+- Data can be exported in portable formats for backup or migration
 
+## Development Notes
+
+This project uses generated code and schema-driven local persistence. If you change the database schema, regenerate the Drift code as needed:
+
+```bash
+dart run build_runner build --delete-conflicting-outputs
 ```
-lib/
-  main.dart                  boot order: DB → seed → prefs → optional Supabase
-  app.dart                   MaterialApp.router + 4-tab NavigationBar
-  core/
-    database/database.dart   12-table Drift schema + query helpers
-    database/seed_service.dart  bundled JSON → SQLite (idempotent)
-    export/export_service.dart  pure JSON/CSV builders + share-sheet writer
-    settings/settings.dart   units, theme, plate set (SharedPreferences)
-    sync/sync_engine.dart    pull → push cycle (LWW, children ride parents)
-    sync/sync_transport.dart  remote interface; supabase_transport.dart = impl
-    sync/sync_providers.dart  config flag, engine, auth, SyncController
-    theme/app_theme.dart     dark-first design tokens, grade/heat colors
-    utils/plate_calculator.dart  integer-gram DP plate optimizer
-  features/
-    home/                    start workout + stat cards
-    routines/                filterable exercise library (builder → Phase 3)
-    analytics/               analytics tab: charts + rollups
-    analytics/domain/grade_engine.dart  pure grade math (unit-tested)
-    analytics/domain/analytics_math.dart  buckets, streaks, date math
-    analytics/application/rollup_service.dart  day-recompute rollup writer
-    analytics/application/analytics_providers.dart  window/trend streams
-    analytics/widgets/charts.dart  fl_chart volume/strength + calendar
-    profile/                 settings, sync/auth, export, privacy statement
-supabase/schema.sql           remote DDL: composite PKs + RLS per auth.uid()
-assets/seed/
-  muscle_groups.json         19 muscles, heat-map nodes, balance pairs
-  exercises.json              89 exercises with weighted contributions
-```
-
-## Muscle Grade algorithm
-
-Per muscle, rolling 30-day window:
-
-```
-score = 0.40·volume + 0.40·strength + 0.20·consistency     (0–100)
-
-volume       = 100·ln(1 + V/1000) / ln(1 + target/1000)     target = 8000 kg/wk × 4.33
-strength     = 100·(e1RM / (BW × standard))^0.8             Epley: w·(1 + reps/30)
-consistency  = 100·(days/target)·(0.6 + 0.4·freshness)      freshness fades over 72 h
-
-S ≥ 90 · A ≥ 78 · B ≥ 64 · C ≥ 48 · D ≥ 30 · F < 30
-```
-
-Volume is attributed per-muscle via `exercise_muscle_map.contribution`
-(bench: chest 1.0, triceps 0.5, front delts 0.4). The same freshness term
-drives the body heat map (red → grey over 48–72 h).
 
 ## Roadmap
 
-- **Phase 1 ✅** foundation, schema, seed catalog, shell, grade/plate engines
-- **Phase 2 ✅** live workout logger (sets, RPE, rest timer, plate calculator UI,
-  supersets, notes)
-- **Phase 3 ✅** routine builder (drag-and-drop, targets, warm-ups)
-- **Phase 4 ✅** analytics & charts (weekly volume, 1RM progression,
-  consistency calendar, `ExerciseHistory`/`MuscleVolumeDaily` rollups written
-  on every set mutation + boot backfill)
-- **Phase 5 ✅** body heat map (red→grey 72h silhouette) + Muscle Grade
-  dashboard (F–S tiers, balance ratios fixed) + bodyweight input in Profile
-- **Phase 6 ✅** animations (Tier-0 Lottie bundled / Tier-1 streamed, offline
-  cache + placeholders) + custom exercises (create/edit, muscle map, tombstone
-  delete) — also fixed a seed bug where the `chest` group row clobbered the
-  chest heat-map nodes
-- **Phase 7 ✅** Supabase sync engine (email auth, pull→push LWW, children
-  ride parents, tombstones, RLS `schema.sql`, offline-tested with fake
-  transport) + export (JSON backup / CSV via share sheet) + light theme
-  polish (semantic colors bound to the theme)
-- **Phase 8 ✅** smart logging + device integration — next-weight suggestion
-  engine (double progression + auto-deload, kg-native, plate-grid snapped)
-  with a tap-to-apply chip in the set editor; exercise progress screen
-  (e1RM/volume trend chart, all-time PR tiles, last-vs-previous session
-  deltas); AMOLED true-black option; "Start Workout" home-screen shortcut;
-  weekly workout reminders (timezone-scheduled, exact when the platform
-  allows, boot re-arm via `ScheduledNotificationBootReceiver`)
-- **Phase 9** home-screen widget + volume landmarks
-- **Phase 10** end-to-end encrypted sync (before the Supabase project goes
-  live — `schema.sql` must not be run until then)
+The project already includes a wide range of strength-focused functionality, including:
 
-## Commands
+- Workout logging and exercise tracking
+- Routine management
+- Analytics and charting
+- Muscle grade modeling
+- Export and backup tools
+- Local-first sync infrastructure
+- Optional Supabase integration
 
-```bash
-flutter pub get
-dart run build_runner build --delete-conflicting-outputs   # after schema edits
-flutter analyze
-flutter test
-flutter run
-```
+Future work includes broader smart-training features, deeper device integration, and additional automation for reminders and training guidance.
+
+## Contributing
+
+Contributions are welcome. If you plan to improve the app, follow the repository workflow and keep changes focused, testable, and aligned with the app’s local-first design principles.
+
+## License
+
+This repository does not currently include a LICENSE file. Before publicly distributing or publishing the project, add an appropriate open source license.
+
+## Summary
+
+Kinetic is built for people who care about performance, consistency, and ownership of their training data. It combines the speed and flexibility of local-first mobile tooling with the power of modern analytics and optional cloud sync.
+
+Whether you are tracking a simple home workout or managing long-term training progress, Kinetic is designed to be dependable, accurate, and focused on the work that matters.
