@@ -210,6 +210,13 @@ abstract final class AppTheme {
         color: isDark ? darkBorder : const Color(0xFFE7E9EE),
         thickness: 1,
       ),
+      // Frosted-glass drawer: transparent panel (the page blurs behind it),
+      // flat edge — no Material default grays or 16px corners.
+      drawerTheme: const DrawerThemeData(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+      ),
       dialogTheme: DialogThemeData(
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(

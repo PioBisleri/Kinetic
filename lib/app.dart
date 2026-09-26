@@ -1,3 +1,5 @@
+import 'dart:ui' show ImageFilter;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -203,7 +205,16 @@ class _AppShell extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       key: ref.watch(shellScaffoldKeyProvider),
-      drawer: const KineticDrawer(),
+      // Light scrim: the drawer is frosted glass, so the page behind it
+      // should stay visible (blurred) instead of being crushed to black.
+      drawerScrimColor: Colors.black.withValues(alpha: 0.35),
+      drawer: KineticDrawer(
+        currentIndex: shell.currentIndex,
+        onBranchSelected: (index) => shell.goBranch(
+          index,
+          initialLocation: index == shell.currentIndex,
+        ),
+      ),
       body: shell,
       bottomNavigationBar: NavigationBar(
         selectedIndex: shell.currentIndex,
@@ -236,61 +247,206 @@ class _AppShell extends ConsumerWidget {
   }
 }
 
-/// Left drawer on the shell — non-tab navigation. Deliberately tiny: the
-/// bottom bar owns the four tabs, so the drawer only carries what has no
-/// tab (settings and the weekly plan).
-class KineticDrawer extends StatelessWidget {
-  const KineticDrawer({super.key});
+/// Left drawer on the shell — a frosted-glass panel: translucent tint over
+/// a blurred snapshot of the current tab, colored entirely from the app's
+/// semantic tokens (dark/light/AMOLED all follow automatically).
+///
+/// Contents: a Start Workout button, the four tabs (mirroring the bottom
+/// bar so the drawer never feels empty), and the non-tab destinations —
+/// exercise library, weekly plan, settings. Drawer content is only built
+/// while open (Scaffold latches it), so the tab labels here never collide
+/// with the bottom bar's in widget tests.
+class KineticDrawer extends ConsumerWidget {
+  const KineticDrawer({
+    super.key,
+    required this.currentIndex,
+    required this.onBranchSelected,
+  });
+
+  /// Index of the visible branch, for tinting the active tab row.
+  final int currentIndex;
+
+  /// Hands the index back to the shell's [StatefulNavigationShell].
+  final ValueChanged<int> onBranchSelected;
+
+  /// (unselected icon, selected icon, label) — mirrors the bottom bar.
+  static const _tabs = [
+    (Icons.play_circle_outline_rounded, Icons.play_circle_rounded, 'Home'),
+    (Icons.list_alt_rounded, Icons.playlist_add_check_circle_rounded,
+        'Routines'),
+    (Icons.insights_rounded, Icons.insights, 'Analytics'),
+    (Icons.person_outline_rounded, Icons.person_rounded, 'Profile'),
+  ];
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Drawer(
-      child: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Padding(
-              padding: EdgeInsets.fromLTRB(20, 24, 20, 20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+      child: ClipRect(
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+          // The tint IS a Material: ListTiles paint their background and
+          // ink splashes on the nearest Material ancestor, so a plain
+          // ColoredBox here would hide both (framework assertion).
+          child: Material(
+            color: context.surface.withValues(alpha: 0.60),
+            child: SafeArea(
+              child: ListView(
+                padding: const EdgeInsets.symmetric(vertical: 8),
                 children: [
-                  Text(
-                    'KINETIC',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 2,
-                    ),
+                  _header(context),
+                  _startWorkoutButton(context, ref),
+                  const Divider(height: 1),
+                  _sectionLabel(context, 'Navigate'),
+                  for (var i = 0; i < _tabs.length; i++)
+                    _tabTile(context, i),
+                  const Divider(height: 1),
+                  _sectionLabel(context, 'App'),
+                  _routeTile(
+                    context,
+                    icon: Icons.fitness_center_outlined,
+                    title: 'Exercise Library',
+                    path: '/library',
                   ),
-                  SizedBox(height: 4),
-                  Text(
-                    'Offline-first training log',
-                    style: TextStyle(fontSize: 13),
+                  _routeTile(
+                    context,
+                    icon: Icons.calendar_view_week_outlined,
+                    title: 'Schedule',
+                    path: '/schedule',
                   ),
+                  _routeTile(
+                    context,
+                    icon: Icons.settings_outlined,
+                    title: 'Settings',
+                    path: '/settings',
+                  ),
+                  _versionFooter(context),
                 ],
               ),
             ),
-            const Divider(height: 1),
-            ListTile(
-              leading: const Icon(Icons.settings_outlined),
-              title: const Text('Settings'),
-              onTap: () {
-                // The drawer is part of the shell scaffold, not a route.
-                Scaffold.of(context).closeDrawer();
-                context.push('/settings');
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.calendar_view_week_outlined),
-              title: const Text('Schedule'),
-              onTap: () {
-                Scaffold.of(context).closeDrawer();
-                context.push('/schedule');
-              },
-            ),
-          ],
+          ),
         ),
       ),
     );
   }
+
+  Widget _header(BuildContext context) => Padding(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'KINETIC',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 2,
+                color: context.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Offline-first training log',
+              style: TextStyle(fontSize: 13, color: context.textSecondary),
+            ),
+          ],
+        ),
+      );
+
+  Widget _startWorkoutButton(BuildContext context, WidgetRef ref) => Padding(
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+        child: FilledButton.icon(
+          key: const Key('drawer-start-workout'),
+          onPressed: () => _startWorkout(context, ref),
+          icon: const Icon(Icons.play_arrow_rounded),
+          label: const Text('Start Workout'),
+        ),
+      );
+
+  /// Same contract as the home-screen quick action: boot (or resume) a
+  /// session, then land on the logger — never stacking a second page.
+  Future<void> _startWorkout(BuildContext context, WidgetRef ref) async {
+    final router = ref.read(_routerProvider);
+    try {
+      await ref.read(workoutSessionProvider.notifier).startWorkout();
+    } catch (e) {
+      debugPrint('Start workout from drawer failed: $e');
+      return;
+    }
+    if (!context.mounted) return;
+    Scaffold.of(context).closeDrawer();
+    if (router.state.uri.path != '/workout') router.push('/workout');
+  }
+
+  Widget _sectionLabel(BuildContext context, String title) => Padding(
+        padding: const EdgeInsets.fromLTRB(20, 14, 20, 6),
+        child: Text(
+          title.toUpperCase(),
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 1.1,
+            color: context.textTertiary,
+          ),
+        ),
+      );
+
+  Widget _tabTile(BuildContext context, int index) {
+    final (icon, selectedIcon, label) = _tabs[index];
+    final active = index == currentIndex;
+    return ListTile(
+      key: Key('drawer-tab-$index'),
+      dense: true,
+      leading: Icon(
+        active ? selectedIcon : icon,
+        size: 22,
+        color: active ? AppColors.accent : context.textSecondary,
+      ),
+      title: Text(
+        label,
+        style: TextStyle(
+          color: active ? context.textPrimary : context.textSecondary,
+          fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+        ),
+      ),
+      onTap: () {
+        Scaffold.of(context).closeDrawer();
+        onBranchSelected(index);
+      },
+    );
+  }
+
+  Widget _routeTile(
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    required String path,
+  }) =>
+      ListTile(
+        key: Key('drawer-${path.replaceAll('/', '')}'),
+        dense: true,
+        leading: Icon(icon, size: 22, color: context.textSecondary),
+        title: Text(
+          title,
+          style: TextStyle(
+            color: context.textPrimary,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        onTap: () {
+          // The drawer is part of the shell scaffold, not a route.
+          Scaffold.of(context).closeDrawer();
+          context.push(path);
+        },
+      );
+
+  Widget _versionFooter(BuildContext context) => Padding(
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+        child: Text(
+          'Kinetic 0.1.1 · offline-first',
+          style: TextStyle(fontSize: 12, color: context.textTertiary),
+        ),
+      );
 }
