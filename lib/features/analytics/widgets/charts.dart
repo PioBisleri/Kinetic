@@ -450,20 +450,22 @@ class ConsistencyCalendar extends StatelessWidget {
         Row(
           children: [
             for (final l in letters)
-              Padding(
-                padding: const EdgeInsets.only(right: 4),
-                child: SizedBox(
-                  width: 14,
-                  child: Center(
-                    child: Text(
-                      l,
-                      style: TextStyle(
-                          fontSize: 9, color: context.textTertiary),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.only(right: 4),
+                  child: SizedBox(
+                    height: 14,
+                    child: Center(
+                      child: Text(
+                        l,
+                        style: TextStyle(
+                            fontSize: 9, color: context.textTertiary),
+                      ),
                     ),
                   ),
                 ),
               ),
-          ],
+        ],
         ),
         const SizedBox(height: 4),
         for (var w = 0; w < rows; w++)
@@ -512,15 +514,16 @@ class _CalendarCell extends StatelessWidget {
         : trained
             ? AppColors.accent
             : context.surfaceElevated;
-    return Padding(
-      padding: const EdgeInsets.only(right: 4),
-      child: Container(
-        key: ValueKey('cal-${day.millisecondsSinceEpoch}'),
-        width: 14,
-        height: 14,
-        decoration: BoxDecoration(
-          color: color,
-          borderRadius: BorderRadius.circular(3),
+    return Expanded(
+      child: Padding(
+        padding: const EdgeInsets.only(right: 4),
+        child: Container(
+          key: ValueKey('cal-${day.millisecondsSinceEpoch}'),
+          height: 14,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(3),
+          ),
         ),
       ),
     );

@@ -54,57 +54,66 @@ class GradeBoardCard extends ConsumerWidget {
     return ChartCard(
       title: 'Muscle Grades',
       subtitle: '30-day rolling · volume + strength + consistency',
-      child: Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        children: [
-          for (final c in cells)
-            Container(
-              key: Key('grade-${c.result.muscleId}'),
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                color: context.surfaceElevated,
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(color: context.border),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    c.result.grade,
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.gradeColor(c.result.grade),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          // Three equal columns with an 8px gutter (2 gutters across),
+          // fixed 88px rows.
+          const gutter = 8.0;
+          final cellW = (constraints.maxWidth - gutter * 2) / 3;
+          const cellH = 88.0;
+          return Wrap(
+            spacing: gutter,
+            runSpacing: gutter,
+            children: [
+              for (final c in cells)
+                SizedBox(
+                  width: cellW,
+                  height: cellH,
+                  child: Container(
+                    key: Key('grade-${c.result.muscleId}'),
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: context.surfaceElevated,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: context.border),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          c.result.grade,
+                          style: TextStyle(
+                            fontSize: 20,
+                            height: 1,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.gradeColor(c.result.grade),
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          c.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: context.textPrimary,
+                          ),
+                        ),
+                        Text(
+                          '${c.result.score.round()} pts',
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: context.textTertiary,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        c.name,
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: context.textPrimary,
-                        ),
-                      ),
-                      Text(
-                        '${c.result.score.round()} pts',
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: context.textTertiary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-        ],
+                ),
+            ],
+          );
+        },
       ),
     );
   }
