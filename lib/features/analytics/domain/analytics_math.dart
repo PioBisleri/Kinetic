@@ -38,12 +38,28 @@ int daysBetween(DateTime a, DateTime b) =>
 
 /// First day covered by a [weeks]-long window ending in the week of [now]:
 /// exactly [weeks] Monday-start slots, aligned with [bucketWeekly].
-DateTime periodStart(int weeks, DateTime now) =>
-    addDays(weekStartOf(now), -7 * (weeks - 1));
+/// [weeks] == 0 means "All" → the epoch (every real log is newer).
+DateTime periodStart(int weeks, DateTime now) => weeks <= 0
+    ? DateTime(1970)
+    : addDays(weekStartOf(now), -7 * (weeks - 1));
+
+/// Where a chart's x-axis begins: the Monday slot for bounded periods,
+/// the earliest data point for "All" (weeks == 0) — plotting from the
+/// epoch would cram every bar into the far right of the axis.
+/// Falls back to [periodStart] when [dates] is empty.
+DateTime chartStart(int weeks, DateTime now, Iterable<DateTime> dates) {
+  if (weeks > 0) return periodStart(weeks, now);
+  DateTime? earliest;
+  for (final d in dates) {
+    if (earliest == null || d.isBefore(earliest)) earliest = d;
+  }
+  return earliest ?? periodStart(weeks, now);
+}
 
 /// Buckets day-level volumes into [weeks] Monday-start weeks ending with
 /// the week containing [now]. Empty weeks are present with 0 kg; days
-/// outside the window are dropped.
+/// outside the window are dropped. [weeks] <= 0 ("All") sizes the window
+/// from the data itself — one slot when there is none.
 List<WeekPoint> bucketWeekly(
   Iterable<({DateTime date, double volumeKg})> days, {
   required DateTime now,
@@ -56,8 +72,19 @@ List<WeekPoint> bucketWeekly(
   }
 
   final thisWeek = weekStartOf(now);
+  var slots = weeks;
+  if (slots <= 0) {
+    slots = 1;
+    for (final ws in totals.keys) {
+      if (ws.isBefore(thisWeek)) {
+        final n = daysBetween(ws, thisWeek) ~/ 7 + 1;
+        if (n > slots) slots = n;
+      }
+    }
+  }
+
   final out = <WeekPoint>[];
-  for (var i = weeks - 1; i >= 0; i--) {
+  for (var i = slots - 1; i >= 0; i--) {
     final ws = addDays(thisWeek, -7 * i);
     out.add(WeekPoint(ws, totals[ws] ?? 0));
   }

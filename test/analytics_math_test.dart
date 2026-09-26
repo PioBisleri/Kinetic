@@ -32,6 +32,27 @@ void main() {
       expect(periodStart(4, DateTime(2026, 9, 24, 18)), DateTime(2026, 8, 31));
       expect(periodStart(1, DateTime(2026, 9, 24, 18)), DateTime(2026, 9, 21));
     });
+
+    test('periodStart(0) means All — the epoch', () {
+      expect(periodStart(0, DateTime(2026, 9, 24, 18)), DateTime(1970));
+    });
+
+    test('chartStart keeps window starts but anchors All at first data',
+        () {
+      final now = DateTime(2026, 9, 24, 18);
+      // Bounded periods ignore the dates entirely.
+      expect(
+        chartStart(4, now, [DateTime(2026, 9, 22)]),
+        DateTime(2026, 8, 31),
+      );
+      // All → earliest data point, so the axis isn't 56 years wide.
+      expect(
+        chartStart(0, now, [DateTime(2026, 9, 22), DateTime(2026, 6, 1)]),
+        DateTime(2026, 6, 1),
+      );
+      // All with no data falls back to the epoch.
+      expect(chartStart(0, now, const []), DateTime(1970));
+    });
   });
 
   group('bucketWeekly', () {
@@ -64,6 +85,28 @@ void main() {
       final points = bucketWeekly(const [], now: now, weeks: 12);
       expect(points, hasLength(12));
       expect(points.every((p) => p.volumeKg == 0), isTrue);
+    });
+
+    test('weeks: 0 (All) sizes the window from the data', () {
+      final points = bucketWeekly(
+        [
+          (date: DateTime(2026, 7, 6), volumeKg: 200.0), // 11 weeks back
+          (date: DateTime(2026, 9, 22), volumeKg: 100.0), // this week
+        ],
+        now: now,
+        weeks: 0,
+      );
+      // 07-06 is Monday 07-06 → 12 Monday slots through 09-21.
+      expect(points, hasLength(12));
+      expect(points.first.weekStart, DateTime(2026, 7, 6));
+      expect(points.first.volumeKg, closeTo(200, 0.001));
+      expect(points.last.volumeKg, closeTo(100, 0.001));
+    });
+
+    test('weeks: 0 with no data still yields one bucket', () {
+      final points = bucketWeekly(const [], now: now, weeks: 0);
+      expect(points, hasLength(1));
+      expect(points.single.volumeKg, 0);
     });
   });
 

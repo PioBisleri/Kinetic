@@ -87,12 +87,12 @@ final workoutStatsProvider = StreamProvider.family<WorkoutStats, int>(
   },
 );
 
-/// Trained days for the consistency calendar — fixed last 12 weeks,
-/// independent of the chart period.
+/// Trained days for the consistency calendar, scoped to the selected
+/// window (the grid sizes itself to the period; "All" scans history).
 final calendarDaysProvider = StreamProvider<Set<DateTime>>((ref) {
+  final weeks = ref.watch(analyticsPeriodProvider);
   final db = ref.watch(databaseProvider);
-  final since =
-      addDays(weekStartOf(DateTime.now()), -7 * 11); // 12 Monday slots
+  final since = periodStart(weeks, DateTime.now());
   final q = db.workouts.select()
     ..where((w) =>
         w.status.equals('completed') &

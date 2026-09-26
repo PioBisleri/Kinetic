@@ -47,6 +47,13 @@ class _LiveWorkoutPageState extends ConsumerState<LiveWorkoutPage> {
   }
 
   Future<void> _finish(WorkoutSession session) async {
+    final pending = session.sets.where((s) => !s.isCompleted).length;
+    // Only completed sets land in history — warn before the user loses a
+    // routine's unchecked planned sets.
+    final warning = pending == 0
+        ? ''
+        : '\n\n⚠️ $pending planned set${pending == 1 ? '' : 's'} not '
+            'checked — they will NOT be saved to your history.';
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -55,7 +62,8 @@ class _LiveWorkoutPageState extends ConsumerState<LiveWorkoutPage> {
           '${session.exercises.length} exercises · '
           '${session.completedSetCount} sets · '
           '${formatElapsed(session.elapsed)}\n'
-          'Volume: ${session.volumeKg.toStringAsFixed(0)} kg',
+          'Volume: ${session.volumeKg.toStringAsFixed(0)} kg'
+          '$warning',
         ),
         actions: [
           TextButton(
@@ -65,7 +73,7 @@ class _LiveWorkoutPageState extends ConsumerState<LiveWorkoutPage> {
           FilledButton(
             onPressed: () => Navigator.of(context).pop(true),
             style: FilledButton.styleFrom(minimumSize: const Size(0, 44)),
-            child: const Text('Finish'),
+            child: Text(pending > 0 ? 'Finish anyway' : 'Finish'),
           ),
         ],
       ),

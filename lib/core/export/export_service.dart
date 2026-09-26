@@ -135,14 +135,16 @@ class ExportService {
   final AppDatabase _db;
 
   Future<void> shareJsonBackup() async {
-    await _share(await _buildJson(), 'Kinetic backup (JSON)', 'json');
+    await _share(await buildJson(), 'Kinetic backup (JSON)', 'json');
   }
 
   Future<void> shareSetsCsv() async {
     await _share(await _buildCsv(), 'Kinetic sets (CSV)', 'csv');
   }
 
-  Future<String> _buildJson() async {
+  /// Builds the backup document (public so import round-trip tests can
+  /// exercise the exact bytes a user would restore).
+  Future<String> buildJson() async {
     final profile = await (_db.profiles.select()
           ..where((p) => p.id.equals('local')))
         .getSingleOrNull();

@@ -55,11 +55,12 @@ class ChartCard extends StatelessWidget {
   }
 }
 
-/// 4W / 12W / 6M window selector.
+/// 4W / 12W / 6M / All window selector.
 class PeriodChips extends ConsumerWidget {
   const PeriodChips({super.key});
 
-  static const _options = [(4, '4W'), (12, '12W'), (26, '6M')];
+  /// `0` = All history (see [periodStart]).
+  static const _options = [(4, '4W'), (12, '12W'), (26, '6M'), (0, 'All')];
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -185,6 +186,12 @@ class WeeklyVolumeChart extends StatelessWidget {
       if (v > peak) peak = v;
     }
     final maxY = peak <= 0 ? 100.0 : peak * 1.25;
+    // "All" can span 100+ weeks — slim the rods so they never overlap.
+    final rodWidth = points.length > 52
+        ? 4.0
+        : points.length > 26
+            ? 8.0
+            : 14.0;
 
     return SizedBox(
       height: 180,
@@ -196,7 +203,7 @@ class WeeklyVolumeChart extends StatelessWidget {
               BarChartGroupData(x: i, barRods: [
                 BarChartRodData(
                   toY: display[i],
-                  width: 14,
+                  width: rodWidth,
                   color: AppColors.accent,
                   borderRadius: BorderRadius.circular(3),
                 ),
@@ -249,11 +256,8 @@ class WeeklyVolumeChart extends StatelessWidget {
                   if (i < 0 || i >= points.length) {
                     return const SizedBox.shrink();
                   }
-                  final every = points.length > 16
-                      ? 4
-                      : points.length > 8
-                          ? 2
-                          : 1;
+                  // Keep ~8 labels on screen no matter the window size.
+                  final every = (points.length / 8).ceil().clamp(1, 1 << 30);
                   if (i % every != 0) return const SizedBox.shrink();
                   final d = points[i].weekStart;
                   return Padding(
@@ -418,17 +422,26 @@ class ExerciseTrendChart extends StatelessWidget {
 
 String _dateLabel(DateTime d) => '${d.day}/${d.month}';
 
-/// 12-week GitHub-style grid of trained days.
+/// GitHub-style grid of trained days: 7 columns (Mon–Sun), [rows] weeks
+/// ending with the current week.
 class ConsistencyCalendar extends StatelessWidget {
-  const ConsistencyCalendar({super.key, required this.days, required this.now});
+  const ConsistencyCalendar({
+    super.key,
+    required this.days,
+    required this.now,
+    this.rows = 12,
+  });
 
   final Set<DateTime> days;
   final DateTime now;
 
+  /// How many week rows to draw (one row per Monday-start week).
+  final int rows;
+
   @override
   Widget build(BuildContext context) {
     final today = dayOf(now);
-    final firstWeek = addDays(weekStartOf(today), -7 * 11);
+    final firstWeek = addDays(weekStartOf(today), -7 * (rows - 1));
 
     const letters = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
     return Column(
@@ -453,7 +466,7 @@ class ConsistencyCalendar extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 4),
-        for (var w = 0; w < 12; w++)
+        for (var w = 0; w < rows; w++)
           Padding(
             padding: const EdgeInsets.only(bottom: 4),
             child: Row(
@@ -675,17 +688,36 @@ class _TrendBody extends ConsumerWidget {
   }
 }
 
-/// Consistency card: fixed 12-week calendar (watches its own provider).
+/// Consistency card: trained-days grid sized to the selected window
+/// (watches its own providers).
 class ConsistencyCard extends ConsumerWidget {
   const ConsistencyCard({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final weeks = ref.watch(analyticsPeriodProvider);
     final daysAsync = ref.watch(calendarDaysProvider);
     final days = daysAsync.value ?? const <DateTime>{};
+    final now = DateTime.now();
+
+    // Grid rows = the selected period; "All" stretches back to the first
+    // trained day (never shorter than the familiar 12-week view).
+    var rows = weeks > 0 ? weeks : 12;
+    if (weeks <= 0 && days.isNotEmpty) {
+      var earliest = days.first;
+      for (final d in days) {
+        if (d.isBefore(earliest)) earliest = d;
+      }
+      final derived =
+          daysBetween(weekStartOf(earliest), weekStartOf(now)) ~/ 7 + 1;
+      if (derived > rows) rows = derived;
+    }
+
     return ChartCard(
       title: 'Consistency',
-      subtitle: 'last 12 weeks · trained days',
+      subtitle: weeks > 0
+          ? 'last $weeks weeks · trained days'
+          : 'all history · trained days',
       child: daysAsync.isLoading && days.isEmpty
           ? const Center(
               child: Padding(
@@ -696,7 +728,7 @@ class ConsistencyCard extends ConsumerWidget {
                     child: CircularProgressIndicator(strokeWidth: 2)),
               ),
             )
-          : ConsistencyCalendar(days: days, now: DateTime.now()),
+          : ConsistencyCalendar(days: days, now: now, rows: rows),
     );
   }
 }

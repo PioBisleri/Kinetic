@@ -351,6 +351,40 @@ void main() {
     await endApp(tester);
   });
 
+  testWidgets('finish warns when planned sets were never checked',
+      (tester) async {
+    final repo = RoutineRepository(db);
+    final id = await repo.saveRoutine(name: 'Push Day', entries: [
+      RoutineDraft(
+          exerciseId: 'barbell-bench-press',
+          targetSets: 2,
+          targetReps: 5,
+          targetWeight: 60),
+    ]);
+
+    await pumpApp(tester);
+    await tester.tap(find.text('Routines'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(Key('start-routine-$id')));
+    await tester.pumpAndSettle();
+
+    // Two planned sets, none checked → Finish flags them before they are
+    // silently dropped from history.
+    await tester.tap(find.text('Finish'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('2 planned sets not checked'), findsOneWidget);
+    expect(find.textContaining('NOT be saved'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'Finish anyway'), findsOneWidget);
+
+    // Back out — the guard must not force the finish.
+    await tester.tap(find.text('Keep going'));
+    await tester.pumpAndSettle();
+    expect(find.text('Finish'), findsOneWidget); // still in the logger
+    expect(find.byIcon(Icons.radio_button_unchecked), findsNWidgets(2));
+
+    await endApp(tester);
+  });
+
   testWidgets('reorder exercises in the builder persists new order',
       (tester) async {
     final repo = RoutineRepository(db);
@@ -425,6 +459,53 @@ void main() {
     await scrollProfileUntil(tester, find.text('Export JSON backup'));
     expect(find.text('Export JSON backup'), findsOneWidget);
     expect(find.text('Export CSV'), findsOneWidget);
+    await endApp(tester);
+  });
+
+  testWidgets('Profile offers import + a typed delete-all confirmation',
+      (tester) async {
+    await pumpApp(tester);
+    await tester.tap(find.text('Profile'));
+    await tester.pumpAndSettle();
+
+    // Import + Danger zone sit below the fold — scroll until built.
+    await scrollProfileUntil(tester, find.byKey(const Key('delete-all')));
+    expect(find.byKey(const Key('import-json')), findsOneWidget);
+    expect(find.byKey(const Key('delete-history')), findsOneWidget);
+    expect(find.byKey(const Key('delete-routines')), findsOneWidget);
+    expect(find.byKey(const Key('delete-custom-exercises')), findsOneWidget);
+    expect(find.text('Replaces all current data'), findsOneWidget);
+
+    // The nuclear dialog gates the button on the typed word…
+    await tester.ensureVisible(find.byKey(const Key('delete-all')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('delete-all')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('confirm-delete-all')), findsOneWidget);
+    final wipeButton = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Delete everything'),
+    );
+    expect(wipeButton.onPressed == null, isTrue); // still locked
+
+    // …case-insensitively…
+    await tester.enterText(
+      find.byKey(const Key('confirm-delete-all')),
+      'delete',
+    );
+    await tester.pumpAndSettle();
+    final unlocked = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Delete everything'),
+    );
+    expect(unlocked.onPressed != null, isTrue); // unlocked
+
+    // …and cancelling closes it without touching the data.
+    await tester.tap(find.widgetWithText(TextButton, 'Cancel'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('confirm-delete-all')), findsNothing);
+    expect(
+      await db.exerciseCountOnce(),
+      greaterThan(80),
+    );
     await endApp(tester);
   });
 }

@@ -1,10 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 
+import '../../core/database/database.dart';
+import '../../core/settings/settings.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/weight_units.dart';
+import '../analytics/application/analytics_providers.dart';
+import '../analytics/domain/analytics_math.dart';
 import '../workout/application/workout_session_notifier.dart';
+import 'application/home_providers.dart';
 
 class HomePage extends ConsumerWidget {
   const HomePage({super.key});
@@ -17,6 +23,7 @@ class HomePage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final sessionAsync = ref.watch(workoutSessionProvider);
+    final unit = ref.watch(settingsProvider).unit;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Kinetic')),
@@ -44,13 +51,7 @@ class HomePage extends ConsumerWidget {
                   ),
           ),
           const SizedBox(height: 16),
-          const _StatRow(
-            stats: [
-              ('This week', '3', 'workouts'),
-              ('Volume', '24.1k', 'kg'),
-              ('Streak', '5', 'days'),
-            ],
-          ),
+          _HomeStats(unit: unit),
           const SizedBox(height: 16),
           Text(
             'Recent workouts',
@@ -59,18 +60,7 @@ class HomePage extends ConsumerWidget {
                 ),
           ),
           const SizedBox(height: 8),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Center(
-                child: Text(
-                  'No workouts yet — your history will appear here.',
-                  style: TextStyle(color: context.textSecondary),
-                  textAlign: TextAlign.center,
-                ),
-              ),
-            ),
-          ),
+          const _RecentWorkouts(),
         ],
       ),
     );
@@ -227,6 +217,192 @@ class _StatRow extends StatelessWidget {
           if (label != stats.last.$1) const SizedBox(width: 8),
         ],
       ],
+    );
+  }
+}
+
+/// The three headline stats, computed from real history: workouts finished
+/// this week (Mon-start), total working volume this week, and the weekly
+/// streak. Mirrors Analytics' `StatsRow` numbers exactly (same providers).
+class _HomeStats extends ConsumerWidget {
+  const _HomeStats({required this.unit});
+
+  final UnitSystem unit;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final stats = ref.watch(workoutStatsProvider(1)).value;
+    final daily = ref.watch(dailyVolumeProvider(1)).value;
+
+    if (stats == null || daily == null) {
+      return const _StatRow(stats: [
+        ('This week', '–', 'workouts'),
+        ('Volume', '–', ''),
+        ('Streak', '–', 'weeks'),
+      ]);
+    }
+
+    final volumeKg = daily.fold(0.0, (a, r) => a + r.totalVolume);
+    return _StatRow(stats: [
+      (
+        'This week',
+        '${stats.count}',
+        stats.count == 1 ? 'workout' : 'workouts',
+      ),
+      (
+        'Volume',
+        compactNumber(kgToDisplay(volumeKg, unit)),
+        unitLabel(unit),
+      ),
+      (
+        'Streak',
+        '${stats.streak}',
+        stats.streak == 1 ? 'week' : 'weeks',
+      ),
+    ]);
+  }
+}
+
+/// Finished workouts, newest first. Long-press a row to delete it (with
+/// confirmation); analytics rollups recompute so every chart agrees.
+class _RecentWorkouts extends ConsumerWidget {
+  const _RecentWorkouts();
+
+  Future<void> _confirmDelete(
+      BuildContext context, WidgetRef ref, RecentWorkout row) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete workout?'),
+        content: Text(
+          '${row.title} · '
+          '${DateFormat('EEE, MMM d').format(row.workout.startedAt)}\n\n'
+          'This removes the workout and its sets from your history. '
+          'Charts and totals recompute immediately.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.heatHot,
+              minimumSize: const Size(0, 44),
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+    await deleteCompletedWorkout(ref.read(databaseProvider), row.workout.id);
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final recent = ref.watch(recentWorkoutsProvider);
+    final unit = ref.watch(settingsProvider).unit;
+
+    return recent.when(
+      loading: () => const Card(
+        child: SizedBox(
+          height: 72,
+          child: Center(
+            child: SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          ),
+        ),
+      ),
+      error: (e, _) => Card(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Text('Error: $e'),
+        ),
+      ),
+      data: (rows) {
+        if (rows.isEmpty) {
+          return Card(
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Center(
+                child: Text(
+                  'No workouts yet — your history will appear here.',
+                  style: TextStyle(color: context.textSecondary),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ),
+          );
+        }
+        return Column(
+          children: [
+            Card(
+              margin: EdgeInsets.zero,
+              child: Column(
+                children: [
+                  for (var i = 0; i < rows.length; i++) ...[
+                    if (i > 0) const Divider(height: 1),
+                    _RecentTile(
+                      row: rows[i],
+                      unit: unit,
+                      onDelete: () => _confirmDelete(context, ref, rows[i]),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Long-press a workout to delete it',
+              style: TextStyle(fontSize: 11.5, color: context.textSecondary),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _RecentTile extends StatelessWidget {
+  const _RecentTile({
+    required this.row,
+    required this.unit,
+    required this.onDelete,
+  });
+
+  final RecentWorkout row;
+  final UnitSystem unit;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final w = row.workout;
+    final minutes = (w.durationSec ?? 0) ~/ 60;
+    final duration =
+        minutes >= 60 ? '${minutes ~/ 60}h ${minutes % 60}m' : '${minutes}m';
+
+    return ListTile(
+      dense: true,
+      title: Text(
+        row.title,
+        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14.5),
+      ),
+      subtitle: Text(
+        '${DateFormat('EEE, MMM d').format(w.startedAt)} · '
+        '$duration · ${row.setCount} sets',
+        style: TextStyle(fontSize: 12.5, color: context.textSecondary),
+      ),
+      trailing: Text(
+        '${compactNumber(kgToDisplay(w.totalVolume, unit))} '
+        '${unitLabel(unit)}',
+        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+      ),
+      onLongPress: onDelete,
     );
   }
 }

@@ -60,7 +60,12 @@ class AnalyticsPage extends ConsumerWidget {
               StrengthCard(
                 weeks: weeks,
                 unit: unit,
-                windowStart: periodStart(weeks, now),
+                // "All" anchors the axis at the first logged day, not 1970.
+                windowStart: chartStart(
+                  weeks,
+                  now,
+                  [for (final r in daily) r.date],
+                ),
               ),
               const SizedBox(height: 16),
               const ConsistencyCard(),

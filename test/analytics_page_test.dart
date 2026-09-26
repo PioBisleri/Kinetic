@@ -177,6 +177,51 @@ void main() {
     await endApp(tester);
   });
 
+  testWidgets('All chip widens the window to full history', (tester) async {
+    final today = dayOf(DateTime.now());
+    // A workout 8 weeks ago: inside 12W (default), outside 4W.
+    final longAgo = addDays(today, -56);
+    await seedWorkout(longAgo, weightKg: 100, reps: 5);
+    await seedWorkout(addDays(today, -1), weightKg: 60, reps: 5);
+    await pumpApp(tester);
+
+    // Default 12W counts both…
+    expect(
+      tester.widget<Text>(find.byKey(const Key('stat-workouts'))).data,
+      '2',
+    );
+
+    // …4W drops the old one…
+    await tester.tap(find.byKey(const Key('period-4')));
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<Text>(find.byKey(const Key('stat-workouts'))).data,
+      '1',
+    );
+
+    // …and All brings it back.
+    await tester.tap(find.byKey(const Key('period-0')));
+    await tester.pumpAndSettle();
+
+    final container =
+        ProviderScope.containerOf(tester.element(find.byType(AnalyticsPage)));
+    expect(container.read(analyticsPeriodProvider), 0);
+    expect(
+      tester.widget<ChoiceChip>(find.byKey(const Key('period-0'))).selected,
+      isTrue,
+    );
+    expect(
+      tester.widget<Text>(find.byKey(const Key('stat-workouts'))).data,
+      '2',
+    );
+    // 56 days = 8 full weeks back → 9 weekly buckets (8 + this week).
+    expect(find.byType(BarChart), findsOneWidget);
+    final bars = tester.widget<BarChart>(find.byType(BarChart));
+    expect(bars.data.barGroups, hasLength(9));
+
+    await endApp(tester);
+  });
+
   testWidgets('grade board, heat map and balance render from rollups',
       (tester) async {
     final today = dayOf(DateTime.now());

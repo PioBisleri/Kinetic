@@ -257,59 +257,18 @@ class _BodyPainter extends CustomPainter {
     final w = size.width;
     final h = size.height;
 
-    final fill = Paint()..color = elevated;
-    final outline = Paint()
-      ..color = border
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.2;
+    // Minimal line-art figure: head, neck, torso, arms and legs merged
+    // into ONE outline, so the heat can be clipped to the body and the
+    // silhouette stroked without any internal seams.
+    final body = _silhouette(w, h);
 
-    // --- silhouette ---------------------------------------------------
-    canvas.drawOval(
-      Rect.fromCenter(
-        center: Offset(0.5 * w, 0.06 * h),
-        width: 0.11 * w,
-        height: 0.115 * h,
-      ),
-      fill,
-    );
+    canvas.save();
+    canvas.clipPath(body);
+    canvas.drawPath(body, Paint()..color = elevated);
 
-    final torso = Path()
-      ..moveTo(0.35 * w, 0.135 * h)
-      ..lineTo(0.65 * w, 0.135 * h)
-      ..lineTo(0.63 * w, 0.30 * h)
-      ..lineTo(0.595 * w, 0.50 * h)
-      ..lineTo(0.405 * w, 0.50 * h)
-      ..lineTo(0.37 * w, 0.30 * h)
-      ..close();
-    canvas.drawPath(torso, fill);
-    canvas.drawPath(torso, outline);
-
-    Path limb(double ax, double ay, double bx, double by, double cx,
-            double cy) =>
-        Path()
-          ..moveTo(ax * w, ay * h)
-          ..lineTo(bx * w, by * h)
-          ..lineTo(cx * w, cy * h);
-
-    final arm = Paint()
-      ..color = elevated
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 0.065 * w
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
-    canvas.drawPath(limb(0.36, 0.17, 0.27, 0.33, 0.21, 0.49), arm);
-    canvas.drawPath(limb(0.64, 0.17, 0.73, 0.33, 0.79, 0.49), arm);
-
-    final leg = Paint()
-      ..color = elevated
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 0.09 * w
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
-    canvas.drawPath(limb(0.445, 0.49, 0.43, 0.71, 0.425, 0.95), leg);
-    canvas.drawPath(limb(0.555, 0.49, 0.57, 0.71, 0.575, 0.95), leg);
-
-    // --- muscle regions ----------------------------------------------
+    // Soft heat — each node is a blurred oval (feathered halo) with a
+    // firmer core inside it. Clipping at the silhouette keeps the glow
+    // from spilling past the outline; edges cut cleanly instead.
     final regions = regionsFor(view);
     for (final e in nodes.entries) {
       final r = regions[e.key];
@@ -319,18 +278,114 @@ class _BodyPainter extends CustomPainter {
       canvas.save();
       canvas.translate(r.x * w, r.y * h);
       canvas.rotate(r.rotation);
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromCenter(center: Offset.zero, width: bw, height: bh),
-          Radius.circular(math.min(bw, bh) * 0.45),
+      final sigma = math.max(1.5, math.min(bw, bh) * 0.34);
+      canvas.drawOval(
+        Rect.fromCenter(center: Offset.zero, width: bw, height: bh),
+        Paint()
+          ..color = e.value.withValues(alpha: 0.9)
+          ..maskFilter = MaskFilter.blur(BlurStyle.normal, sigma),
+      );
+      canvas.drawOval(
+        Rect.fromCenter(
+          center: Offset.zero,
+          width: bw * 0.7,
+          height: bh * 0.7,
         ),
-        Paint()..color = e.value,
+        Paint()..color = e.value.withValues(alpha: 0.55),
       );
       canvas.restore();
     }
+    canvas.restore();
+
+    // Thin outline over everything — crisp edge, soft interior.
+    canvas.drawPath(
+      body,
+      Paint()
+        ..color = border
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.2,
+    );
   }
 
   @override
   bool shouldRepaint(_BodyPainter oldDelegate) =>
       oldDelegate.view != view || !mapEquals(oldDelegate.nodes, nodes);
+}
+
+/// The whole figure as a single merged path for a `w × h` panel.
+///
+/// Every subpath overlaps its neighbours (neck bridges head ↔ torso, limb
+/// roots tuck inside the torso), so the unions form one connected contour
+/// whose outline can be stroked seam-free.
+Path _silhouette(double w, double h) {
+  var body = Path()
+    ..addOval(Rect.fromCenter(
+      center: Offset(0.5 * w, 0.062 * h),
+      width: 0.105 * w,
+      height: 0.112 * h,
+    ));
+  body = Path.combine(PathOperation.union, body, _neck(w, h));
+  body = Path.combine(PathOperation.union, body, _torso(w, h));
+
+  // (joint chain as panel fractions, half-width as a fraction of w) —
+  // centre lines match where the heat-map nodes sit.
+  const limbs = <(List<(double, double)>, double)>[
+    ([(0.36, 0.165), (0.272, 0.33), (0.212, 0.485)], 0.033), // left arm
+    ([(0.64, 0.165), (0.728, 0.33), (0.788, 0.485)], 0.033), // right arm
+    ([(0.447, 0.49), (0.432, 0.715), (0.427, 0.945)], 0.045), // left leg
+    ([(0.553, 0.49), (0.568, 0.715), (0.573, 0.945)], 0.045), // right leg
+  ];
+  for (final (joints, radius) in limbs) {
+    for (var i = 0; i < joints.length - 1; i++) {
+      final a = Offset(joints[i].$1 * w, joints[i].$2 * h);
+      final b = Offset(joints[i + 1].$1 * w, joints[i + 1].$2 * h);
+      body = Path.combine(PathOperation.union, body, _capsule(a, b, radius * w));
+    }
+  }
+  return body;
+}
+
+Path _neck(double w, double h) => Path()
+  ..moveTo(0.468 * w, 0.098 * h)
+  ..lineTo(0.532 * w, 0.098 * h)
+  ..lineTo(0.528 * w, 0.165 * h)
+  ..lineTo(0.472 * w, 0.165 * h)
+  ..close();
+
+/// Shoulders → armpits → waist → hips, traced left-to-right across the
+/// top so the winding matches the ovals (irrelevant for `union`, but it
+/// keeps the path well-formed for stroking).
+Path _torso(double w, double h) => Path()
+  ..moveTo(0.345 * w, 0.148 * h)
+  ..quadraticBezierTo(0.5 * w, 0.126 * h, 0.655 * w, 0.148 * h)
+  ..quadraticBezierTo(0.668 * w, 0.235 * h, 0.625 * w, 0.305 * h)
+  ..quadraticBezierTo(0.602 * w, 0.40 * h, 0.588 * w, 0.50 * h)
+  ..lineTo(0.412 * w, 0.50 * h)
+  ..quadraticBezierTo(0.398 * w, 0.40 * h, 0.375 * w, 0.305 * h)
+  ..quadraticBezierTo(0.332 * w, 0.235 * h, 0.345 * w, 0.148 * h)
+  ..close();
+
+/// A rounded limb segment from [a] to [b]: a rectangle along the axis
+/// plus joint circles at both ends (they overlap the neighbours, so the
+/// union is a smooth capsule chain).
+Path _capsule(Offset a, Offset b, double r) {
+  final d = b - a;
+  final len = d.distance;
+  if (len < 0.0001) {
+    return Path()..addOval(Rect.fromCircle(center: a, radius: r));
+  }
+  final u = Offset(d.dx / len, d.dy / len);
+  final n = Offset(-u.dy, u.dx); // perpendicular, a quarter turn
+  final p1 = a + n * r;
+  final p2 = b + n * r;
+  final p3 = b - n * r;
+  final p4 = a - n * r;
+  return Path()
+    ..moveTo(p4.dx, p4.dy)
+    ..lineTo(p3.dx, p3.dy)
+    ..lineTo(p2.dx, p2.dy)
+    ..lineTo(p1.dx, p1.dy)
+    ..close()
+    ..addOval(Rect.fromCircle(center: a, radius: r))
+    ..addOval(Rect.fromCircle(center: b, radius: r));
 }

@@ -133,7 +133,12 @@ class _ExerciseProgressCardState extends ConsumerState<ExerciseProgressCard> {
             ExerciseTrendChart(
               key: const Key('progress-chart'),
               rows: trendRows,
-              since: periodStart(weeks, DateTime.now()),
+              // "All" anchors the axis at this exercise's first logged day.
+              since: chartStart(
+                weeks,
+                DateTime.now(),
+                [for (final r in trendRows) r.date],
+              ),
               unit: unit,
               series: _series,
             ),
