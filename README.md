@@ -1,6 +1,6 @@
-# Kinetic v0.1.1
+# Kinetic v0.1.2
 
-![version](https://img.shields.io/badge/version-0.1.1-22D3A5)
+![version](https://img.shields.io/badge/version-0.1.2-22D3A5)
 ![Flutter](https://img.shields.io/badge/Flutter-3.47-02569B?logo=flutter&logoColor=white)
 ![Dart](https://img.shields.io/badge/Dart-3.13-0175C2?logo=dart&logoColor=white)
 ![tests](https://img.shields.io/badge/tests-216%20passing-22D3A5)
@@ -197,7 +197,7 @@ assets/seed/                 19 muscle groups, 89 exercises
   weekly plan (schema v2), ultra-flat hairline design
 - **Round 3 ✅ (v0.1.1)** custom set types per routine entry + three-tier
   rest system (schema v3)
-- **Round 4 ✅ (v0.1.1)** frosted-glass drawer — translucent blur over
+- **Round 4 ✅ (v0.1.2)** frosted-glass drawer — translucent blur over
   the active tab, tab shortcuts, Start Workout / Exercise Library entries
 
 ## Roadmap
