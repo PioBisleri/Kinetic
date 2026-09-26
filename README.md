@@ -1,158 +1,150 @@
 # Kinetic v0.1.1
 
-Kinetic is a private, offline-first strength training tracker built with Flutter and Dart. It helps athletes plan routines, log workouts, monitor progress, and analyze training trends without depending on a constant internet connection.
+![version](https://img.shields.io/badge/version-0.1.1-22D3A5)
+![Flutter](https://img.shields.io/badge/Flutter-3.47-02569B?logo=flutter&logoColor=white)
+![Dart](https://img.shields.io/badge/Dart-3.13-0175C2?logo=dart&logoColor=white)
+![tests](https://img.shields.io/badge/tests-216%20passing-22D3A5)
+![Android](https://img.shields.io/badge/platform-Android-3DDC84?logo=android&logoColor=white)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-The app is designed around a simple principle: your training data belongs to you. It stores the source of truth locally, supports optional cloud sync, and keeps the experience fast, reliable, and usable even when you are offline.
+A private, offline-first strength training tracker for Android. Log
+workouts, build routines, and watch your progress — no feed, no
+followers, no subscriptions. Your data lives on your device; the local
+database is always the source of truth.
 
-## Why Kinetic
+## Highlights
 
-Most strength apps are optimized for social features, feeds, or subscriptions. Kinetic focuses on the essentials:
+- **Offline-first** — every feature works with no network. Sync is
+  optional and, when configured, reconciles against your own project.
+- **Fast logging** — sets, reps, weight, RPE, notes, supersets, and a
+  rest timer that starts itself; plate calculator and next-weight
+  suggestions built into the set editor.
+- **Serious routines** — drag-and-drop builder with per-entry set types
+  (warm-up / working / drop / failure) and per-exercise rest overrides.
+- **Muscle-level analytics** — volume, 1RM progression, consistency
+  calendar, a body heat map, and the F–S Muscle Grade per muscle.
+- **Private by design** — no social features exist in the codebase.
+  Export JSON/CSV backups yourself; delete anything, any time.
 
-- Fast workout logging
-- Offline-first operation
-- Accurate performance analytics
-- Flexible routine building
-- Privacy-conscious local storage
-- Optional cloud backup and sync
+## Features
 
-## Key Features
+### Workout logging
+- Live logger with set editor (weight, reps, RPE, notes), supersets,
+  cardio distance/duration steppers, and per-set rest timers
+- Rest timer auto-starts after each completed set; duration comes from
+  the routine entry → exercise → app default chain (see *Rest system*)
+- Plate calculator (kg or lb plates, optional micro-loading plates)
+- Next-weight suggestions via double progression with auto-deload
+- Finish/discard flow with confirmation; in-progress workouts resume
+  after a restart
 
-### Workout tracking
-- Log sets, reps, weight, RPE, rest time, and notes
-- Track supersets and workout flow in real time
-- Use a built-in plate calculator for efficient loading
-- Capture next-weight suggestions based on training progress
+### Routines & planning
+- Routine builder: drag-and-drop ordering, target sets × reps, notes
+- **Custom set types per entry** — warm-up / drop / failure steppers
+  with the working sets derived from the total (enter 5 sets + 1
+  warm-up + 1 failure → 3 working)
+- Per-exercise rest override ("Default" chip ⇄ seconds) and a
+  per-routine rest override on every entry
+- View-only weekly plan (`/schedule`) assigning routines to days
+- Exercise library with ranked smart search (typos, synonyms, muscle
+  names) and custom exercises (muscle map, contribution weights)
 
-### Routine management
-- Build and manage custom training routines
-- Organize exercises by target muscle groups and movement patterns
-- Create warm-ups and structured workout sessions
-- Maintain a personal exercise library tailored to your goals
+### Rest system (v0.1.1)
+Three tiers, resolved routine → exercise → app settings:
 
-### Analytics and progress
-- Monitor volume, strength trends, and personal records
-- Review performance over rolling windows and custom time ranges
-- Inspect muscle-level progress with grade-based analytics
-- Visualize workout history with charts and summary data
+| Tier | Where | Default |
+|---|---|---|
+| Per-type app defaults | Settings → Rest | warm-up 60 s · working 90 s · failure 120 s (each editable, 0 = Off) |
+| Per-exercise | Exercise editor → Rest between sets | inherits the app default |
+| Per-routine | Routine editor → rest control on an entry | overrides both |
 
-### Offline-first architecture
-- Store core workout data in a local SQLite database
-- Keep the app fully functional without network access
-- Use a sync engine to reconcile local and remote data safely
+### Analytics
+- Weekly volume and 1RM progression charts, consistency calendar
+- **Muscle Grade** (F–S) per muscle and muscle balance ratios
+- Body heat map: red → grey over 48–72 h since a muscle was trained
+- Exercise progress screen: e1RM/volume trend, all-time PRs,
+  last-vs-previous session deltas
 
-### Cloud sync and export
-- Optional Supabase integration for authentication and data sync
-- Per-user row-level access controls in the remote schema
-- Export workout data as JSON and CSV for backup or reporting
-- Share data through the device share sheet
+### Data
+- Full JSON backup (profile, exercises + muscle maps, routines,
+  workouts + sets) and CSV export of every set, via the OS share sheet
+- JSON import replaces all local data (older backups normalize
+  automatically on the way in)
+- Optional Supabase sync: pull→push with per-row last-write-wins,
+  tombstones, and children riding parents (offline-tested with a fake
+  transport; the Supabase project is not live yet — see roadmap)
+- Weekly workout reminder notification and a home-screen
+  "Start Workout" quick action
 
-## Tech Stack
+## Tech stack
 
-- Flutter + Dart
-- Riverpod for state management
-- Drift + SQLite for the local database
-- Supabase for optional cloud authentication and sync
-- go_router for navigation
-- fl_chart for analytics visualization
-- SharedPreferences for lightweight app preferences
-- Flutter local notifications for reminders
-- Lottie for animations
+| Layer | Choice |
+|---|---|
+| Framework | Flutter (Dart ^3.13) |
+| State | Riverpod 3 (`Notifier` / `AsyncNotifier`) |
+| Local DB | Drift (SQLite, WAL) — source of truth, schema v3 |
+| Cloud | Supabase (optional; RLS-locked per user) |
+| Routing | go_router — 4-tab stateful shell + pushed routes |
+| Charts | fl_chart |
+| Prefs | SharedPreferences |
 
-## Architecture Overview
-
-Kinetic follows a layered architecture with local-first data ownership at its center.
+## Architecture
 
 ```text
-UI / Screens
-  ↓
-Riverpod providers and controllers
-  ↓
-Repository and service layer
-  ↓
-Local Drift database (source of truth)
-  ↓
-Optional Supabase sync layer
+UI (Riverpod consumers)
+  → Controllers / Notifiers (live session, rest timer, grade engine)
+    → Repository / service layer
+      ├─ Drift/SQLite   ← LOCAL SOURCE OF TRUTH (always wins)
+      └─ Supabase sync  ← pull→push, per-row last-write-wins (optional)
 ```
 
-The application intentionally treats the local database as the authoritative state. Remote cloud storage is used as a synchronization mechanism, not as the primary source of truth.
+Rules:
 
-## Project Structure
+- UUIDs are generated client-side; mutable tables carry
+  `updated_at / synced_at / deleted_at` (tombstone).
+- The network is never a precondition for logging a set.
+- All weights are stored in **kg**; lbs is display-only.
+- The exercise catalog is seeded from bundled JSON — usable on a plane.
+- Schema changes migrate in code via Drift's gated `onUpgrade`
+  (`schemaVersion` 3 → warm-up/drop/failure counts + rest columns back
+  filled); `supabase/schema.sql` is **not** run until Phase 10.
+
+## Muscle Grade
+
+Per muscle, rolling 30-day window:
 
 ```text
-kinetic/
-├── android/                     Android app configuration
-├── ios/                         iOS app configuration
-├── assets/
-│   ├── anim/                   Lottie animation assets
-│   └── seed/                   Seed data for exercises and muscle groups
-├── lib/
-│   ├── app.dart                 App shell and app configuration
-│   ├── main.dart               App bootstrap and initialization
-│   ├── core/
-│   │   ├── database/           Drift schemas and database setup
-│   │   ├── settings/           Preferences and user settings
-│   │   ├── sync/               Sync logic and connectivity flow
-│   │   ├── theme/              App theme and design tokens
-│   │   ├── export/             Backup and export services
-│   │   └── utils/              Helper logic such as plate calculation
-│   └── features/
-│       ├── analytics/          Analytics, charts, and training insights
-│       ├── home/               Home dashboard and workout entry points
-│       ├── profile/            Settings, sync, auth, and export tools
-│       ├── routines/           Routine building and exercise planning
-│       └── workout/            Workout logging and exercise tracking
-├── supabase/
-│   └── schema.sql              Remote database schema for Supabase
-├── test/                       Automated tests
-├── analysis_options.yaml       Linting and analysis rules
-├── pubspec.yaml                Flutter package configuration
-├── .gitignore
-├── README.md
-└── flutter_launcher_icons.yaml
+score = 0.40·volume + 0.40·strength + 0.20·consistency     (0–100)
+
+volume       = 100·ln(1 + V/1000) / ln(1 + target/1000)   target = 8000 kg/wk × 4.33
+strength     = 100·(e1RM / (BW × standard))^0.8            Epley: w·(1 + reps/30)
+consistency  = 100·(days/target)·(0.6 + 0.4·freshness)    freshness fades over 72 h
+
+S ≥ 90 · A ≥ 78 · B ≥ 64 · C ≥ 48 · D ≥ 30 · F < 30
 ```
 
-## Getting Started
+Volume is attributed per muscle via `exercise_muscle_map.contribution`
+(bench: chest 1.0, triceps 0.5, front delts 0.4). The same freshness
+term drives the body heat map.
 
-### Prerequisites
-
-Before running the app, install:
-
-- Flutter SDK 3.13+
-- Dart SDK 3.13+
-- Android Studio or VS Code with Flutter plugins
-- An emulator or physical device
-
-### Install dependencies
+## Getting started
 
 ```bash
 flutter pub get
-```
-
-### Run the app
-
-```bash
+dart run build_runner build --delete-conflicting-outputs   # after schema edits
+flutter analyze
+flutter test          # 216 tests
 flutter run
 ```
 
-### Run tests
+Release APK (fully local; cloud sync stays "not configured" without
+dart-defines):
 
 ```bash
-flutter test
+flutter build apk --release
 ```
 
-### Analyze the project
-
-```bash
-flutter analyze
-```
-
-## Supabase Setup (Optional)
-
-Kinetic supports cloud sync through Supabase. To enable it:
-
-1. Create a Supabase project
-2. Apply the schema located in `supabase/schema.sql`
-3. Add your project URL and anonymous key as Dart defines
+Optional sync build:
 
 ```bash
 flutter build apk \
@@ -160,109 +152,63 @@ flutter build apk \
   --dart-define=SUPABASE_ANON_KEY=<anon key>
 ```
 
-Without these values, the app continues to work in a fully local mode and will display cloud sync as unavailable.
+## Project structure
 
-## Data Model and Privacy
-
-Kinetic is designed with a privacy-first approach:
-
-- Workout data is stored locally in SQLite
-- Sync is optional and user-scoped
-- Cloud access is controlled with row-level security
-- Training information remains under the user's control
-- Data can be exported in portable formats for backup or migration
-
-## Development Notes
-
-This project uses generated code and schema-driven local persistence. If you change the database schema, regenerate the Drift code as needed:
-
-```bash
-dart run build_runner build --delete-conflicting-outputs
+```text
+lib/
+  main.dart                  boot order: DB → seed → prefs → optional Supabase
+  app.dart                   router, 4-tab shell, frosted-glass drawer
+  core/
+    database/                Drift schema (v3, 13 tables) + seed service
+    settings/                units, theme, plates, rest tiers (SharedPreferences)
+    sync/                    pull→push engine (LWW, tombstones, fake transport)
+    theme/                   dark-first design tokens, grade/heat colors
+    export/                  JSON/CSV backup builders + share sheet
+    utils/                   plate calculator, rest formatting
+  features/
+    home/                    start workout + stat cards
+    routines/                library, builder, weekly plan, progress
+    workout/                 live logger, session notifier, rest resolver
+    analytics/               charts, rollups, grade engine, heat map
+    profile/                 profile, data management, privacy
+    settings/                settings page + sync section
+supabase/schema.sql          remote DDL (not applied until Phase 10)
+assets/seed/                 19 muscle groups, 89 exercises
 ```
 <<<<<<< HEAD
 =======
 
-## Muscle Grade algorithm
+## Delivery history
 
-Per muscle, rolling 30-day window:
-
-```
-score = 0.40·volume + 0.40·strength + 0.20·consistency     (0–100)
-
-volume       = 100·ln(1 + V/1000) / ln(1 + target/1000)     target = 8000 kg/wk × 4.33
-strength     = 100·(e1RM / (BW × standard))^0.8             Epley: w·(1 + reps/30)
-consistency  = 100·(days/target)·(0.6 + 0.4·freshness)      freshness fades over 72 h
-
-S ≥ 90 · A ≥ 78 · B ≥ 64 · C ≥ 48 · D ≥ 30 · F < 30
-```
-
-Volume is attributed per-muscle via `exercise_muscle_map.contribution`
-(bench: chest 1.0, triceps 0.5, front delts 0.4). The same freshness term
-drives the body heat map (red → grey over 48–72 h).
+- **Phase 1 ✅** foundation, schema, seed catalog, shell, grade/plate engines
+- **Phase 2 ✅** live workout logger (sets, RPE, rest timer, plate UI,
+  supersets, notes)
+- **Phase 3 ✅** routine builder (drag-and-drop, targets, per-type set
+  counts — warm-up/working/drop/failure)
+- **Phase 4 ✅** analytics & charts (volume, 1RM, calendar, rollups)
+- **Phase 5 ✅** body heat map + Muscle Grade dashboard + bodyweight input
+- **Phase 6 ✅** exercise animations + custom exercises (create/edit,
+  muscle map, tombstone delete)
+- **Phase 7 ✅** Supabase sync engine (auth, pull→push LWW, tombstones,
+  offline-tested) + export + light theme
+- **Phase 8 ✅** smart logging (next-weight suggestions, exercise
+  progress), AMOLED mode, quick action, weekly reminders
+- **Round 2 ✅** UX pass — left drawer + Settings page, smart search,
+  weekly plan (schema v2), ultra-flat hairline design
+- **Round 3 ✅ (v0.1.1)** custom set types per routine entry + three-tier
+  rest system (schema v3)
+- **Round 4 ✅ (v0.1.1)** frosted-glass drawer — translucent blur over
+  the active tab, tab shortcuts, Start Workout / Exercise Library entries
 
 ## Roadmap
 
-The project already includes a wide range of strength-focused functionality, including:
-
-- Workout logging and exercise tracking
-- Routine management
-- Analytics and charting
-- Muscle grade modeling
-- Export and backup tools
-- Local-first sync infrastructure
-- Optional Supabase integration
-
-### Delivery history
-
-- **Phase 1 ✅** foundation, schema, seed catalog, shell, grade/plate engines
-- **Phase 2 ✅** live workout logger (sets, RPE, rest timer, plate calculator UI,
-  supersets, notes)
-- **Phase 3 ✅** routine builder (drag-and-drop, targets, per-type set counts —
-  warm-up/working/drop/failure)
-- **Phase 4 ✅** analytics & charts (weekly volume, 1RM progression,
-  consistency calendar, `ExerciseHistory`/`MuscleVolumeDaily` rollups written
-  on every set mutation + boot backfill)
-- **Phase 5 ✅** body heat map (red→grey 72h silhouette) + Muscle Grade
-  dashboard (F–S tiers, balance ratios fixed) + bodyweight input in Profile
-- **Phase 6 ✅** animations (Tier-0 Lottie bundled / Tier-1 streamed, offline
-  cache + placeholders) + custom exercises (create/edit, muscle map, tombstone
-  delete) — also fixed a seed bug where the `chest` group row clobbered the
-  chest heat-map nodes
-- **Phase 7 ✅** Supabase sync engine (email auth, pull→push LWW, children
-  ride parents, tombstones, RLS `schema.sql`, offline-tested with fake
-  transport) + export (JSON backup / CSV via share sheet) + light theme
-  polish (semantic colors bound to the theme)
-- **Phase 8 ✅** smart logging + device integration — next-weight suggestion
-  engine (double progression + auto-deload, kg-native, plate-grid snapped)
-  with a tap-to-apply chip in the set editor; exercise progress screen
-  (e1RM/volume trend chart, all-time PR tiles, last-vs-previous session
-  deltas); AMOLED true-black option; "Start Workout" home-screen shortcut;
-  weekly workout reminders (timezone-scheduled, exact when the platform
-  allows, boot re-arm via `ScheduledNotificationBootReceiver`)
-- **Round 2 ✅** UX pass — left drawer + dedicated Settings page, ranked smart
-  search in the Exercise Library, view-only weekly plan (`/schedule`, schema
-  v2), reactive providers/steppers, ultra-flat hairline design (animations
-  removed, instant page transitions)
-- **Round 3 ✅ (v0.1.1)** custom set types per routine entry — Warm-up / Drop /
-  Failure steppers with derived working sets — plus the three-tier rest system:
-  per-type Settings defaults → per-exercise override → per-routine override
-  (schema v3: `exercises.restSeconds`, `routine_exercises.warmup/drop/failure_sets`)
-- **Round 4 ✅** frosted-glass drawer — translucent tint (60% of the theme
-  surface) over an 18px blur of the active tab, palette bound to the app's
-  semantic tokens (dark/light/AMOLED), tab shortcuts with an accent-tinted
-  active row, plus Start Workout and Exercise Library entries
 - **Phase 9** home-screen widget + volume landmarks
-- **Phase 10** end-to-end encrypted sync (before the Supabase project goes
-  live — `schema.sql` must not be run until then)
-
-Future work includes broader smart-training features, deeper device integration, and additional automation for reminders and training guidance.
-
-## Contributing
-
-Contributions are welcome. If you plan to improve the app, follow the repository workflow and keep changes focused, testable, and aligned with the app’s local-first design principles.
+- **Phase 10** end-to-end encrypted sync — `schema.sql` must not be
+  applied to the Supabase project before this lands
 
 ## License
 
+<<<<<<< HEAD
 This repository does not currently include a LICENSE file. Before publicly distributing or publishing the project, add an appropriate open source license.
 
 ## Summary
@@ -271,3 +217,6 @@ Kinetic is built for people who care about performance, consistency, and ownersh
 
 Whether you are tracking a simple home workout or managing long-term training progress, Kinetic is designed to be dependable, accurate, and focused on the work that matters.
 >>>>>>> 76f4f9d (README: resolve committed merge-conflict markers; document Round 4)
+=======
+MIT — see [LICENSE](LICENSE).
+>>>>>>> 6bfc444 (frosted-glass drawer — blur + token tint, tab shortcuts, Start Workout / Exercise Library)
