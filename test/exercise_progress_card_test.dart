@@ -56,18 +56,15 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  /// The detail player starts an infinite Lottie ticker — pumpAndSettle
-  /// would never settle, so advance fixed steps instead.
+  /// Route transitions settle normally now that Lottie is gone.
   Future<void> pumpRouteTransition(WidgetTester tester) async {
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 400));
-    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pumpAndSettle();
   }
 
-  /// Fixed-step detail-page scroll (Lottie rules out pumpAndSettle).
+  /// Detail-page scroll with a settle.
   Future<void> scrollDetailBy(WidgetTester tester, double dy) async {
     await tester.drag(find.byType(Scrollable).last, Offset(0, -dy));
-    await tester.pump();
+    await tester.pumpAndSettle();
     await tester.pump(const Duration(milliseconds: 400));
   }
 
@@ -112,8 +109,8 @@ void main() {
     await pumpRouteTransition(tester);
 
     // Bring the progress card's top half into the tree/viewport.
-    await scrollDetailBy(tester, 250);
-    await scrollDetailBy(tester, 250);
+    await scrollDetailBy(tester, 150);
+    await scrollDetailBy(tester, 150);
 
     // Header + shared window chips.
     expect(find.text('Progress'), findsOneWidget);

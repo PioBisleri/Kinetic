@@ -46,7 +46,6 @@ dependencies:
   uuid: ^4.6.0
   flutter_local_notifications: ^22.3.1
   fl_chart: ^1.2.0
-  lottie: ^3.6.1
   share_plus: ^13.3.0
   quick_actions: ^1.1.1
   timezone: ^0.11.1
@@ -75,7 +74,6 @@ dev_dependencies:
 flutter:
   assets:
     - assets/seed/
-    - assets/anim/
 
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in

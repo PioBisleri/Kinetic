@@ -48,7 +48,6 @@ class _ExerciseEditPageState extends ConsumerState<ExerciseEditPage> {
   final _formKey = GlobalKey<FormState>();
   final _nameCtrl = TextEditingController();
   final _equipmentCtrl = TextEditingController();
-  final _animUrlCtrl = TextEditingController();
 
   String _category = 'custom';
   String _mechanics = 'compound';
@@ -74,7 +73,6 @@ class _ExerciseEditPageState extends ConsumerState<ExerciseEditPage> {
   void dispose() {
     _nameCtrl.dispose();
     _equipmentCtrl.dispose();
-    _animUrlCtrl.dispose();
     super.dispose();
   }
 
@@ -97,9 +95,6 @@ class _ExerciseEditPageState extends ConsumerState<ExerciseEditPage> {
       _metric = exercise.defaultMetric;
       _equipmentCtrl.text =
           (jsonDecode(exercise.equipment) as List).cast<String>().join(', ');
-      if (exercise.animationKind == 'lottie_url') {
-        _animUrlCtrl.text = exercise.animationRef ?? '';
-      }
       _secondary = {
         for (final row in mapRows)
           if (row.muscleId != exercise.primaryMuscleId) row.muscleId,
@@ -123,8 +118,6 @@ class _ExerciseEditPageState extends ConsumerState<ExerciseEditPage> {
 
     final db = ref.read(databaseProvider);
     final now = DateTime.now().toUtc();
-    final url = _animUrlCtrl.text.trim();
-    final kind = url.isEmpty ? 'none' : 'lottie_url';
     final equipment = jsonEncode([
       for (final part in _equipmentCtrl.text.split(','))
         if (part.trim().isNotEmpty) part.trim(),
@@ -147,8 +140,6 @@ class _ExerciseEditPageState extends ConsumerState<ExerciseEditPage> {
                 primaryMuscleId: primary,
                 equipment: Value(equipment),
                 defaultMetric: Value(_metric),
-                animationKind: Value(kind),
-                animationRef: Value(url.isEmpty ? null : url),
                 isCustom: const Value(true),
                 ownerId: const Value('local'),
                 updatedAt: now,
@@ -168,8 +159,6 @@ class _ExerciseEditPageState extends ConsumerState<ExerciseEditPage> {
           primaryMuscleId: Value(primary),
           equipment: Value(equipment),
           defaultMetric: Value(_metric),
-          animationKind: Value(kind),
-          animationRef: Value(url.isEmpty ? null : url),
           updatedAt: Value(now),
         ));
         await (db.delete(db.exerciseMuscleMap)
@@ -406,21 +395,6 @@ class _ExerciseEditPageState extends ConsumerState<ExerciseEditPage> {
                       setState(() => _metric = s.first),
                 ),
                 const SizedBox(height: 24),
-                TextFormField(
-                  key: const Key('exercise-anim-url'),
-                  controller: _animUrlCtrl,
-                  keyboardType: TextInputType.url,
-                  decoration: const InputDecoration(
-                    labelText: 'Animation URL',
-                    hintText: 'https://… optional Lottie file',
-                    helperText: 'Streamed once, then cached for offline use.',
-                  ),
-                  validator: (v) {
-                    final t = v?.trim() ?? '';
-                    if (t.isEmpty || t.startsWith('https://')) return null;
-                    return 'Must start with https://';
-                  },
-                ),
               ],
             ),
           );

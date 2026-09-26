@@ -11,7 +11,6 @@ import 'package:kinetic/core/database/seed_service.dart';
 import 'package:kinetic/core/settings/settings.dart';
 import 'package:kinetic/features/routines/exercise_detail_page.dart';
 import 'package:kinetic/features/routines/exercise_edit_page.dart';
-import 'package:lottie/lottie.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -62,12 +61,9 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  /// Opening a detail route mounts Lottie, whose repeat() ticker never
-  /// settles — advance a fixed amount instead of pumpAndSettle.
+  /// Route transitions settle normally now that Lottie is gone.
   Future<void> pumpRouteTransition(WidgetTester tester) async {
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 400));
-    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pumpAndSettle();
   }
 
   /// The page's own primary scrollable. Scope to the page *and* take
@@ -80,13 +76,13 @@ void main() {
 
   // ------------------------------- seeds ----------------------------------
 
-  test('seed wires Tier-0 animation refs and preserves chest heat nodes',
+  test('seed leaves exercises animation-free and preserves chest heat nodes',
       () async {
     final bench = await (db.select(db.exercises)
           ..where((e) => e.id.equals('barbell-bench-press')))
         .getSingle();
-    expect(bench.animationKind, 'lottie');
-    expect(bench.animationRef, 'assets/anim/press.json');
+    expect(bench.animationKind, 'none');
+    expect(bench.animationRef, isNull);
 
     final plank = await (db.select(db.exercises)
           ..where((e) => e.id.equals('plank')))
@@ -155,22 +151,7 @@ void main() {
     await tester.tap(find.byKey(const Key('muscle-glutes')));
     await tester.pumpAndSettle();
 
-    // Animation URL must be https (or empty).
-    await tester.scrollUntilVisible(
-      find.byKey(const Key('exercise-anim-url')),
-      200,
-      scrollable: find.byType(Scrollable).last,
-    );
-    await tester.pumpAndSettle();
-    await tester.enterText(
-      find.byKey(const Key('exercise-anim-url')),
-      'http://insecure.example.com/anim.json',
-    );
-    await tester.tap(find.byKey(const Key('exercise-save')));
-    await tester.pumpAndSettle();
-    expect(find.text('Must start with https://'), findsOneWidget);
-
-    await tester.enterText(find.byKey(const Key('exercise-anim-url')), '');
+    // Save the finished form.
     await tester.tap(find.byKey(const Key('exercise-save')));
     await tester.pumpAndSettle();
 
@@ -203,17 +184,14 @@ void main() {
     expect(secondary.contribution, 0.4);
     expect(secondary.role, 'secondary');
 
-    // --- detail (no animation → static placeholder, settle-safe) ---
+    // --- detail (settle-safe) ---
     await tester.tap(find.text('Custom Hack Squat'));
     await tester.pumpAndSettle();
     expect(find.text('Custom exercise'), findsOneWidget);
-    expect(find.byKey(const Key('anim-placeholder')), findsOneWidget);
-    expect(find.text('No animation'), findsOneWidget);
 
     // The progress card joins this screen above the muscle rows, which can
     // push the contributions past the ListView's build window — scroll them
-    // into the tree before asserting. (No Lottie on a custom exercise, so
-    // settling is safe here.)
+    // into the tree before asserting.
     await tester.scrollUntilVisible(
       find.text('40%'),
       200,
@@ -265,20 +243,19 @@ void main() {
     await endApp(tester);
   });
 
-  testWidgets('detail shows Tier-0 Lottie for seeded exercise and a '
-      'placeholder when no animation exists', (tester) async {
+  testWidgets('detail shows edit rules and muscle contributions for a '
+      'seeded exercise', (tester) async {
     await pumpApp(tester);
     await tester.tap(find.text('Routines'));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('open-library')));
     await tester.pumpAndSettle();
 
-    // Bench press → Tier-0 Lottie player.
+    // Bench press → seeded-exercise detail.
     await scrollLibraryTo(tester, find.text('Barbell Bench Press'));
     await tester.tap(find.text('Barbell Bench Press'));
     await pumpRouteTransition(tester);
 
-    expect(find.byType(Lottie), findsOneWidget); // animation wired up
     // Seeded exercises: editable, never deletable.
     expect(find.byKey(const Key('edit-exercise')), findsOneWidget);
     expect(find.byKey(const Key('delete-exercise')), findsNothing);
@@ -289,18 +266,16 @@ void main() {
     expect(find.text('barbell'), findsOneWidget); // equipment chip
     expect(find.text('Weight × reps'), findsOneWidget);
 
-    // Pop back to the library (Lottie disposes as the route leaves).
+    // Pop back to the library.
     tester.state<NavigatorState>(find.byType(Navigator)).pop();
     await tester.pumpAndSettle();
     expect(find.text('Exercise Library'), findsOneWidget);
 
-    // Plank has no animation → placeholder instead of a player.
+    // Plank opens with the same seeded-exercise edit rules.
     await scrollLibraryTo(tester, find.text('Plank'));
     await tester.tap(find.text('Plank'));
     await tester.pumpAndSettle();
-    expect(find.byType(Lottie), findsNothing);
-    expect(find.byKey(const Key('anim-placeholder')), findsOneWidget);
-    expect(find.text('No animation'), findsOneWidget);
+    expect(find.byKey(const Key('edit-exercise')), findsOneWidget);
 
     // Seeded round-trip: the editor opens prefilled, and saving unchanged
     // keeps the row seeded with its exact contribution weights.
@@ -320,7 +295,7 @@ void main() {
     );
     await tester.tap(find.byKey(const Key('exercise-save')));
     await tester.pumpAndSettle();
-    expect(find.text('No animation'), findsOneWidget); // back on detail
+    expect(find.byKey(const Key('edit-exercise')), findsOneWidget); // detail
 
     final plankAfter = await (db.select(db.exercises)
           ..where((e) => e.id.equals('plank')))

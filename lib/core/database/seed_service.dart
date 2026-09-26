@@ -80,7 +80,6 @@ class SeedService {
         final muscles = (map['muscles'] as Map<String, dynamic>).cast<String, num>();
         final metric =
             (map['metric'] as String?) ?? 'weight_reps';
-        final anim = map['anim'] as String?;
 
         await _db.into(_db.exercises).insertOnConflictUpdate(
               ExercisesCompanion.insert(
@@ -92,9 +91,6 @@ class SeedService {
                 primaryMuscleId: primary,
                 equipment: Value(jsonEncode(map['equipment'] ?? const [])),
                 defaultMetric: Value(metric),
-                animationKind: Value(anim == null ? 'none' : 'lottie'),
-                animationRef:
-                    Value(anim == null ? null : 'assets/anim/$anim.json'),
                 isCustom: const Value(false),
                 updatedAt: now,
                 syncedAt: Value(now),

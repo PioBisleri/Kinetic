@@ -7,7 +7,6 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/database/database.dart';
 import '../../core/theme/app_theme.dart';
-import 'widgets/exercise_animation.dart';
 import 'widgets/exercise_progress_card.dart';
 
 /// One exercise row, watched live.
@@ -132,14 +131,7 @@ class ExerciseDetailPage extends ConsumerWidget {
                     child: _CustomBadge(),
                   ),
                 ),
-              Card(
-                clipBehavior: Clip.antiAlias,
-                child: ExerciseAnimation(
-                  animationKind: e.animationKind,
-                  animationRef: e.animationRef,
-                ),
-              ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 4),
               _DetailsCard(exercise: e, equipment: equipment),
               if (e.defaultMetric == 'weight_reps') ...[
                 const SizedBox(height: 16),
