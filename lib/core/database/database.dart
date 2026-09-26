@@ -272,8 +272,13 @@ class AppDatabase extends _$AppDatabase {
   }
 
   /// Cheap COUNT(*) over the exercise catalog (avoids loading all rows).
+  ///
+  /// `readsFrom` is essential: drift can't parse the SQL, so without it
+  /// the stream never re-emits when an exercise is inserted (the header
+  /// counter stayed stale until something else poked the query).
   Stream<int> exerciseCount() => customSelect(
         'SELECT COUNT(*) AS c FROM exercises WHERE deleted_at IS NULL',
+        readsFrom: {exercises},
       ).map((row) => row.read<int>('c')).watchSingle();
 
   /// One-shot count for tests/one-off reads — a stream subscription that

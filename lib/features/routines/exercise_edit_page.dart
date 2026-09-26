@@ -56,6 +56,10 @@ class _ExerciseEditPageState extends ConsumerState<ExerciseEditPage> {
   String? _primaryId;
   String _metric = 'weight_reps';
   Set<String> _secondary = <String>{};
+
+  /// Per-muscle share of set volume for each secondary muscle (0–1,
+  /// default 0.4). The primary muscle is always 1.0.
+  final Map<String, double> _contributions = {};
   bool _showPrimaryError = false;
 
   bool get _isEdit => widget.exerciseId != null;
@@ -100,6 +104,11 @@ class _ExerciseEditPageState extends ConsumerState<ExerciseEditPage> {
         for (final row in mapRows)
           if (row.muscleId != exercise.primaryMuscleId) row.muscleId,
       };
+      _contributions
+        ..clear()
+        ..addAll({
+          for (final row in mapRows) row.muscleId: row.contribution,
+        });
     });
   }
 
@@ -120,7 +129,10 @@ class _ExerciseEditPageState extends ConsumerState<ExerciseEditPage> {
       for (final part in _equipmentCtrl.text.split(','))
         if (part.trim().isNotEmpty) part.trim(),
     ]);
-    final secondary = _secondary.where((id) => id != primary).toList();
+    final secondary = {
+      for (final id in _secondary)
+        if (id != primary) id: (_contributions[id] ?? 0.4).clamp(0.0, 1.0).toDouble(),
+    };
 
     if (!_isEdit) {
       final id = 'cus_${_uuid.v4()}';
@@ -173,7 +185,7 @@ class _ExerciseEditPageState extends ConsumerState<ExerciseEditPage> {
     AppDatabase db,
     String exerciseId,
     String primary,
-    List<String> secondary,
+    Map<String, double> secondaryContributions,
   ) async {
     await db.into(db.exerciseMuscleMap).insert(
           ExerciseMuscleMapCompanion.insert(
@@ -183,12 +195,12 @@ class _ExerciseEditPageState extends ConsumerState<ExerciseEditPage> {
             role: const Value('primary'),
           ),
         );
-    for (final muscleId in secondary) {
+    for (final entry in secondaryContributions.entries) {
       await db.into(db.exerciseMuscleMap).insert(
             ExerciseMuscleMapCompanion.insert(
               exerciseId: exerciseId,
-              muscleId: muscleId,
-              contribution: const Value(0.4),
+              muscleId: entry.key,
+              contribution: Value(entry.value),
               role: const Value('secondary'),
             ),
           );
@@ -296,7 +308,7 @@ class _ExerciseEditPageState extends ConsumerState<ExerciseEditPage> {
                 Padding(
                   padding: EdgeInsets.only(bottom: 8),
                   child: Text(
-                    'Count 0.4× toward muscle analytics.',
+                    'Each secondary’s share of set volume (default 40%).',
                     style: TextStyle(fontSize: 12, color: context.textTertiary),
                   ),
                 ),
@@ -313,6 +325,7 @@ class _ExerciseEditPageState extends ConsumerState<ExerciseEditPage> {
                           onSelected: (selected) => setState(() {
                             if (selected) {
                               _secondary.add(m.id);
+                              _contributions.putIfAbsent(m.id, () => 0.4);
                             } else {
                               _secondary.remove(m.id);
                             }
@@ -323,6 +336,52 @@ class _ExerciseEditPageState extends ConsumerState<ExerciseEditPage> {
                         ),
                   ],
                 ),
+                if (_secondary.isNotEmpty)
+                  for (final m in leaves)
+                    if (m.id != _primaryId && _secondary.contains(m.id))
+                      Padding(
+                        padding: const EdgeInsets.only(top: 10),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                m.name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                    fontSize: 13,
+                                    color: context.textSecondary),
+                              ),
+                            ),
+                            SizedBox(
+                              width: 150,
+                              child: Slider(
+                                key: Key('contribution-slider-${m.id}'),
+                                value: (_contributions[m.id] ?? 0.4)
+                                    .clamp(0.0, 1.0)
+                                    .toDouble(),
+                                divisions: 100,
+                                onChanged: (v) => setState(
+                                  () => _contributions[m.id] =
+                                      (v * 100).roundToDouble() / 100,
+                                ),
+                              ),
+                            ),
+                            SizedBox(
+                              width: 44,
+                              child: Text(
+                                '${((_contributions[m.id] ?? 0.4) * 100).round()}%',
+                                textAlign: TextAlign.right,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.accent,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                 const SizedBox(height: 20),
                 TextFormField(
                   key: const Key('exercise-equipment'),

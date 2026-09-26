@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kinetic/core/database/database.dart';
 import 'package:kinetic/core/database/seed_service.dart';
+import 'package:kinetic/features/analytics/domain/analytics_math.dart'
+    show dayOf;
 import 'package:kinetic/features/workout/application/workout_session_notifier.dart';
 
 void main() {
@@ -155,5 +157,49 @@ void main() {
     await notifier().deleteSet(set.id);
     final session = await read();
     expect(session!.sets, isEmpty);
+  });
+
+  test('discardWorkout hard-deletes the session and rebuilds rollups',
+      () async {
+    await notifier().startWorkout();
+    await notifier().addExercise('barbell-bench-press');
+    await notifier().logSet(
+        exerciseId: 'barbell-bench-press', weightKg: 60, reps: 5);
+
+    // The set rolled up into today's analytics before the discard.
+    final day = dayOf(DateTime.now());
+    final historyBefore =
+        await (db.exerciseHistory.select()..where((h) => h.date.equals(day)))
+            .get();
+    expect(historyBefore, hasLength(1));
+    expect(historyBefore.single.totalVolume, closeTo(300, 0.001));
+    expect(
+      await (db.muscleVolumeDaily.select()..where((m) => m.date.equals(day)))
+          .get(),
+      isNotEmpty,
+    );
+
+    await notifier().discardWorkout();
+
+    expect(await read(), isNull);
+    expect(await db.select(db.workouts).get(), isEmpty);
+    expect(await db.select(db.workoutSets).get(), isEmpty);
+    // Rollups rebuilt — the discarded day contributes nothing.
+    expect(
+      await (db.exerciseHistory.select()..where((h) => h.date.equals(day)))
+          .get(),
+      isEmpty,
+    );
+    expect(
+      await (db.muscleVolumeDaily.select()..where((m) => m.date.equals(day)))
+          .get(),
+      isEmpty,
+    );
+  });
+
+  test('discardWorkout without a session is a no-op', () async {
+    await notifier().discardWorkout();
+    expect(await read(), isNull);
+    expect(await db.select(db.workouts).get(), isEmpty);
   });
 }

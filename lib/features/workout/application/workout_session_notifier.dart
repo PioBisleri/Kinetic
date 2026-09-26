@@ -205,6 +205,44 @@ class WorkoutSessionNotifier extends AsyncNotifier<WorkoutSession?> {
     await future;
   }
 
+  /// Throw the whole session away without saving it to history: hard-delete
+  /// the workout and every set logged in it, then rebuild the rollups for
+  /// any day an already-completed set had touched (they no longer count).
+  /// No-op when there is no active workout.
+  ///
+  /// Reads the workout and its sets fresh from SQLite rather than trusting
+  /// `state` — `logSet` invalidates lazily, so the cached session can still
+  /// be missing the sets we need to unwind.
+  Future<void> discardWorkout() async {
+    final workout = await (_db.workouts.select()
+          ..where((w) => w.status.equals('active'))
+          ..orderBy([(w) => OrderingTerm.desc(w.startedAt)])
+          ..limit(1))
+        .getSingleOrNull();
+    if (workout == null) return;
+
+    final sets = await (_db.workoutSets.select()
+          ..where((s) => s.workoutId.equals(workout.id)))
+        .get();
+    final days = <DateTime>{
+      for (final s in sets)
+        if (s.isCompleted && s.loggedAt != null) dayOf(s.loggedAt!),
+    };
+    await (_db.workoutSets.delete()
+          ..where((s) => s.workoutId.equals(workout.id)))
+        .go();
+    await (_db.workouts.delete()..where((w) => w.id.equals(workout.id)))
+        .go();
+    for (final d in days) {
+      await _rollups.recomputeDay(d);
+    }
+    _addedExerciseOrder.clear();
+    _pendingSupersetGroups.clear();
+    ref.read(restTimerProvider.notifier).reset();
+    ref.invalidateSelf();
+    await future;
+  }
+
   Future<void> refresh() async {
     ref.invalidateSelf();
     await future;

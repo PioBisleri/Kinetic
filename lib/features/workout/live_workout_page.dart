@@ -83,6 +83,39 @@ class _LiveWorkoutPageState extends ConsumerState<LiveWorkoutPage> {
     if (mounted) context.pop();
   }
 
+  Future<void> _discard(WorkoutSession? session) async {
+    if (session == null) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Discard workout?'),
+        content: Text(
+          '${session.exercises.length} exercises · '
+          '${session.completedSetCount} sets · '
+          'Volume: ${session.volumeKg.toStringAsFixed(0)} kg\n\n'
+          'Nothing will be saved to your history. This cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Keep workout'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.redAccent,
+              minimumSize: const Size(0, 44),
+            ),
+            child: const Text('Discard'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    await ref.read(workoutSessionProvider.notifier).discardWorkout();
+    if (mounted) context.pop();
+  }
+
   Future<void> _editNotes(WorkoutSession session) async {
     final controller = TextEditingController(
         text: session.workout.notes ?? '');
@@ -229,6 +262,20 @@ class _LiveWorkoutPageState extends ConsumerState<LiveWorkoutPage> {
           error: (_, _) => const Text('Workout'),
         ),
         actions: [
+          PopupMenuButton<String>(
+            tooltip: 'More',
+            icon: const Icon(Icons.more_vert),
+            enabled: sessionAsync.value != null,
+            onSelected: (value) {
+              if (value == 'discard') _discard(sessionAsync.value);
+            },
+            itemBuilder: (context) => const [
+              PopupMenuItem(
+                value: 'discard',
+                child: Text('Discard workout'),
+              ),
+            ],
+          ),
           IconButton(
             tooltip: 'Notes',
             icon: const Icon(Icons.notes_rounded),

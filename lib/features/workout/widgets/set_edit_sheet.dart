@@ -170,6 +170,38 @@ class _SetEditSheetState extends ConsumerState<SetEditSheet> {
     });
   }
 
+  /// RPE steps 0.5 on the 1–10 scale (empty field floors at 1).
+  void _bumpRpe(double direction) {
+    final current =
+        double.tryParse(_rpe.text.trim().replaceAll(',', '.')) ?? 0;
+    final next = (current + direction * 0.5).clamp(1.0, 10.0).toDouble();
+    setState(() {
+      _draft.rpe = next;
+      _rpe.text = _fmtRpe(next);
+    });
+  }
+
+  void _bumpDistance(int direction) {
+    final current = int.tryParse(_distance.text.trim()) ?? 0;
+    final next = current + direction * 10; // metres
+    final clamped = next < 0 ? 0 : next;
+    setState(() {
+      _draft.distanceM = clamped.toDouble();
+      _distance.text = clamped.toString();
+    });
+  }
+
+  void _bumpDuration(double direction) {
+    final current =
+        double.tryParse(_durationMin.text.trim().replaceAll(',', '.')) ?? 0;
+    final next = current + direction; // minutes
+    final clamped = next < 0 ? 0.0 : next;
+    setState(() {
+      _draft.durationSec = (clamped * 60).round();
+      _durationMin.text = clamped.toStringAsFixed(1);
+    });
+  }
+
   double? _parseWeight() {
     final unit = ref.read(settingsProvider).unit;
     final raw = _weight.text.trim().replaceAll(',', '.');
@@ -308,9 +340,12 @@ class _SetEditSheetState extends ConsumerState<SetEditSheet> {
               fieldKey: const Key('set-rpe-input'),
               keyboardType:
                   const TextInputType.numberWithOptions(decimal: true),
-              onMinus: () {},
-              onPlus: () {},
-              onChanged: () {},
+              onMinus: () => _bumpRpe(-1),
+              onPlus: () => _bumpRpe(1),
+              onChanged: () => setState(
+                () => _draft.rpe =
+                    double.tryParse(_rpe.text.trim().replaceAll(',', '.')),
+              ),
             ),
             const SizedBox(height: 12),
             PlateBar(
@@ -324,9 +359,12 @@ class _SetEditSheetState extends ConsumerState<SetEditSheet> {
               controller: _distance,
               fieldKey: const Key('set-distance-input'),
               keyboardType: TextInputType.number,
-              onMinus: () {},
-              onPlus: () {},
-              onChanged: () {},
+              onMinus: () => _bumpDistance(-1),
+              onPlus: () => _bumpDistance(1),
+              onChanged: () => setState(
+                () => _draft.distanceM =
+                    double.tryParse(_distance.text.trim()),
+              ),
             ),
             const SizedBox(height: 12),
             _StepperRow(
@@ -336,9 +374,16 @@ class _SetEditSheetState extends ConsumerState<SetEditSheet> {
               fieldKey: const Key('set-duration-input'),
               keyboardType:
                   const TextInputType.numberWithOptions(decimal: true),
-              onMinus: () {},
-              onPlus: () {},
-              onChanged: () {},
+              onMinus: () => _bumpDuration(-1),
+              onPlus: () => _bumpDuration(1),
+              onChanged: () {
+                final v = double.tryParse(
+                    _durationMin.text.trim().replaceAll(',', '.'));
+                setState(
+                  () => _draft.durationSec =
+                      v == null ? null : (v * 60).round(),
+                );
+              },
             ),
           ],
 
@@ -457,6 +502,10 @@ class _StepperRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Per-field button keys so tests can target one stepper precisely.
+    final id = fieldKey is ValueKey<String>
+        ? (fieldKey as ValueKey<String>).value
+        : fieldKey.toString();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -470,7 +519,8 @@ class _StepperRow extends StatelessWidget {
         const SizedBox(height: 6),
         Row(
           children: [
-            _roundButton(context, Icons.remove, onMinus),
+            _roundButton(
+                context, Icons.remove, onMinus, ValueKey('stepper-minus-$id')),
             const SizedBox(width: 10),
             Expanded(
               child: TextField(
@@ -496,15 +546,17 @@ class _StepperRow extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 10),
-            _roundButton(context, Icons.add, onPlus),
+            _roundButton(context, Icons.add, onPlus, ValueKey('stepper-plus-$id')),
           ],
         ),
       ],
     );
   }
 
-  Widget _roundButton(BuildContext context, IconData icon, VoidCallback onTap) =>
+  Widget _roundButton(BuildContext context, IconData icon, VoidCallback onTap,
+          [Key? key]) =>
       IconButton(
+        key: key,
         onPressed: onTap,
         style: IconButton.styleFrom(
           backgroundColor: context.surfaceElevated,

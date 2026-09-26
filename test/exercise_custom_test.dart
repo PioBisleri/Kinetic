@@ -9,6 +9,8 @@ import 'package:kinetic/app.dart';
 import 'package:kinetic/core/database/database.dart';
 import 'package:kinetic/core/database/seed_service.dart';
 import 'package:kinetic/core/settings/settings.dart';
+import 'package:kinetic/features/routines/exercise_detail_page.dart';
+import 'package:kinetic/features/routines/exercise_edit_page.dart';
 import 'package:lottie/lottie.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -67,6 +69,14 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
     await tester.pump(const Duration(milliseconds: 400));
   }
+
+  /// The page's own primary scrollable. Scope to the page *and* take
+  /// `.first`: a descendant match also hits a TextField's internal
+  /// Scrollable, which sits deeper in the same subtree — dragging that one
+  /// only scrolls the text field (horizontally), never the page.
+  Finder pageScrollable(Type page) => find
+      .descendant(of: find.byType(page), matching: find.byType(Scrollable))
+      .first;
 
   // ------------------------------- seeds ----------------------------------
 
@@ -269,7 +279,8 @@ void main() {
     await pumpRouteTransition(tester);
 
     expect(find.byType(Lottie), findsOneWidget); // animation wired up
-    expect(find.byKey(const Key('edit-exercise')), findsNothing);
+    // Seeded exercises: editable, never deletable.
+    expect(find.byKey(const Key('edit-exercise')), findsOneWidget);
     expect(find.byKey(const Key('delete-exercise')), findsNothing);
     expect(find.byKey(const Key('contribution-chest')), findsOneWidget);
     expect(find.text('100%'), findsOneWidget); // chest
@@ -290,6 +301,143 @@ void main() {
     expect(find.byType(Lottie), findsNothing);
     expect(find.byKey(const Key('anim-placeholder')), findsOneWidget);
     expect(find.text('No animation'), findsOneWidget);
+
+    // Seeded round-trip: the editor opens prefilled, and saving unchanged
+    // keeps the row seeded with its exact contribution weights.
+    final mapBefore = await (db.select(db.exerciseMuscleMap)
+          ..where((m) => m.exerciseId.equals('plank')))
+        .get();
+    expect(mapBefore, isNotEmpty);
+    await tester.tap(find.byKey(const Key('edit-exercise')));
+    await tester.pumpAndSettle();
+    expect(find.text('Edit Exercise'), findsOneWidget);
+    expect(
+      tester
+          .widget<TextFormField>(find.byKey(const Key('exercise-name')))
+          .controller!
+          .text,
+      'Plank',
+    );
+    await tester.tap(find.byKey(const Key('exercise-save')));
+    await tester.pumpAndSettle();
+    expect(find.text('No animation'), findsOneWidget); // back on detail
+
+    final plankAfter = await (db.select(db.exercises)
+          ..where((e) => e.id.equals('plank')))
+        .getSingle();
+    expect(plankAfter.isCustom, isFalse);
+    final mapAfter = await (db.select(db.exerciseMuscleMap)
+          ..where((m) => m.exerciseId.equals('plank')))
+        .get();
+    expect(
+      mapAfter.map((m) => '${m.muscleId}:${m.contribution}').toSet(),
+      mapBefore.map((m) => '${m.muscleId}:${m.contribution}').toSet(),
+    );
+    await endApp(tester);
+  });
+
+  testWidgets('secondary contribution slider round-trips a free % value',
+      (tester) async {
+    await pumpApp(tester);
+    await tester.tap(find.text('Routines'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('open-library')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('create-exercise')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('exercise-name')),
+      'Cable Fly Variant',
+    );
+
+    // Primary muscle: Chest.
+    await tester.tap(find.descendant(
+      of: find.byKey(const Key('exercise-primary')),
+      matching: find.byType(DropdownButton<String>),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Chest').last); // menu entry, above the list
+    await tester.pumpAndSettle();
+
+    // Selecting a secondary reveals its contribution row at 40% default.
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('muscle-glutes')),
+      200,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('muscle-glutes')));
+    await tester.pumpAndSettle();
+    final slider = find.byKey(const Key('contribution-slider-glutes'));
+    await tester.scrollUntilVisible(
+      slider,
+      200,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.pumpAndSettle();
+    expect(slider, findsOneWidget);
+    expect(find.text('40%'), findsOneWidget);
+
+    // Free value — 73%, not a fixed preset.
+    tester.widget<Slider>(slider).onChanged!(0.73);
+    await tester.pumpAndSettle();
+    expect(find.text('73%'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('exercise-save')));
+    await tester.pumpAndSettle();
+
+    // Wired through to the weighted muscle map …
+    final created = await (db.select(db.exercises)
+          ..where((e) => e.name.equals('Cable Fly Variant')))
+        .getSingle();
+    final mapRows = await (db.select(db.exerciseMuscleMap)
+          ..where((m) => m.exerciseId.equals(created.id)))
+        .get();
+    expect(
+      mapRows.firstWhere((m) => m.muscleId == 'glutes').contribution,
+      closeTo(0.73, 0.0001),
+    );
+    expect(mapRows.firstWhere((m) => m.muscleId == 'chest').contribution, 1.0);
+
+    // … shown on the detail page …
+    await scrollLibraryTo(tester, find.text('Cable Fly Variant'));
+    await tester.tap(find.text('Cable Fly Variant'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('73%'),
+      200,
+      scrollable: pageScrollable(ExerciseDetailPage),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('contribution-glutes')), findsOneWidget);
+    expect(find.text('73%'), findsOneWidget);
+
+    // … and it survives an open → save round trip through the editor.
+    await tester.tap(find.byKey(const Key('edit-exercise')));
+    await tester.pumpAndSettle();
+    expect(find.text('Edit Exercise'), findsOneWidget); // editor opened
+    final roundTrip = find.byKey(const Key('contribution-slider-glutes'));
+    await tester.scrollUntilVisible(
+      roundTrip,
+      200,
+      scrollable: pageScrollable(ExerciseEditPage),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<Slider>(roundTrip).value,
+      closeTo(0.73, 0.0001),
+    );
+    expect(find.text('73%'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('exercise-save')));
+    await tester.pumpAndSettle();
+    final again = await (db.select(db.exerciseMuscleMap)
+          ..where((m) => m.exerciseId.equals(created.id)))
+        .get();
+    expect(
+      again.firstWhere((m) => m.muscleId == 'glutes').contribution,
+      closeTo(0.73, 0.0001),
+    );
     await endApp(tester);
   });
 }

@@ -52,12 +52,17 @@ final exerciseMusclesProvider = StreamProvider.autoDispose
 );
 
 /// How many logged sets reference this exercise (delete-dialog warning).
+/// `readsFrom` keeps the stream live when sets are logged or deleted.
 final exerciseUsageProvider = StreamProvider.autoDispose.family<int, String>(
-  (ref, id) => ref.watch(databaseProvider).customSelect(
-        'SELECT COUNT(*) AS c FROM workout_sets '
-        'WHERE exercise_id = ? AND deleted_at IS NULL',
-        variables: [Variable.withString(id)],
-      ).map((row) => row.read<int>('c')).watchSingle(),
+  (ref, id) {
+    final db = ref.watch(databaseProvider);
+    return db.customSelect(
+      'SELECT COUNT(*) AS c FROM workout_sets '
+      'WHERE exercise_id = ? AND deleted_at IS NULL',
+      variables: [Variable.withString(id)],
+      readsFrom: {db.workoutSets},
+    ).map((row) => row.read<int>('c')).watchSingle();
+  },
 );
 
 const _metricLabels = {
@@ -67,7 +72,7 @@ const _metricLabels = {
 };
 
 /// Full-screen detail: animation hero, metadata, weighted muscle
-/// contributors — plus edit/delete for custom exercises.
+/// contributors — edit for any exercise, delete for custom only.
 class ExerciseDetailPage extends ConsumerWidget {
   const ExerciseDetailPage({super.key, required this.exerciseId});
 
@@ -86,19 +91,21 @@ class ExerciseDetailPage extends ConsumerWidget {
           overflow: TextOverflow.ellipsis,
         ),
         actions: [
-          if (exercise != null && exercise.isCustom) ...[
+          if (exercise != null) ...[
             IconButton(
               key: const Key('edit-exercise'),
               icon: const Icon(Icons.edit_outlined),
               tooltip: 'Edit exercise',
               onPressed: () => context.push('/library/$exerciseId/edit'),
             ),
-            IconButton(
-              key: const Key('delete-exercise'),
-              icon: const Icon(Icons.delete_outline),
-              tooltip: 'Delete exercise',
-              onPressed: () => _confirmDelete(context, ref, exercise),
-            ),
+            // Seeded exercises stay in the catalog — editable, not deletable.
+            if (exercise.isCustom)
+              IconButton(
+                key: const Key('delete-exercise'),
+                icon: const Icon(Icons.delete_outline),
+                tooltip: 'Delete exercise',
+                onPressed: () => _confirmDelete(context, ref, exercise),
+              ),
           ],
         ],
       ),
