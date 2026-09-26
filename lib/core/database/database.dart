@@ -111,6 +111,19 @@ class RoutineExercises extends Table with SyncColumns {
   Set<Column> get primaryKey => {id};
 }
 
+// ----------------------------- weekly plan --------------------------------
+
+/// The view-only weekly plan: at most one routine per weekday (1 = Mon …
+/// 7 = Sun); a null/absent row means rest day. Purely a planning surface —
+/// it never schedules notifications.
+class WeeklyPlans extends Table with SyncColumns {
+  IntColumn get weekday => integer()();
+  TextColumn get routineId => text().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {weekday};
+}
+
 // ---------------------------- live workout --------------------------------
 
 class Workouts extends Table with SyncColumns {
@@ -219,6 +232,7 @@ class SyncQueue extends Table {
   ExerciseMuscleMap,
   Routines,
   RoutineExercises,
+  WeeklyPlans,
   Workouts,
   WorkoutSets,
   MuscleVolumeDaily,
@@ -232,14 +246,15 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
         onCreate: (m) async => m.createAll(),
         onUpgrade: (m, from, to) async {
-          // Future migrations go here; never edit schemaVersion in place
-          // without adding a branch.
+          // v2: the view-only weekly plan (Round 2). Never edit
+          // schemaVersion in place without adding a branch.
+          if (from < 2) await m.createTable(weeklyPlans);
         },
         beforeOpen: (details) async {
           await customStatement('PRAGMA foreign_keys = ON');

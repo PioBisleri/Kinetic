@@ -3666,6 +3666,363 @@ class RoutineExercisesCompanion extends UpdateCompanion<RoutineExercise> {
   }
 }
 
+class $WeeklyPlansTable extends WeeklyPlans
+    with TableInfo<$WeeklyPlansTable, WeeklyPlan> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $WeeklyPlansTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _syncedAtMeta = const VerificationMeta(
+    'syncedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> syncedAt = GeneratedColumn<DateTime>(
+    'synced_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> deletedAt = GeneratedColumn<DateTime>(
+    'deleted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _weekdayMeta = const VerificationMeta(
+    'weekday',
+  );
+  @override
+  late final GeneratedColumn<int> weekday = GeneratedColumn<int>(
+    'weekday',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _routineIdMeta = const VerificationMeta(
+    'routineId',
+  );
+  @override
+  late final GeneratedColumn<String> routineId = GeneratedColumn<String>(
+    'routine_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    updatedAt,
+    syncedAt,
+    deletedAt,
+    weekday,
+    routineId,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'weekly_plans';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<WeeklyPlan> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
+    if (data.containsKey('synced_at')) {
+      context.handle(
+        _syncedAtMeta,
+        syncedAt.isAcceptableOrUnknown(data['synced_at']!, _syncedAtMeta),
+      );
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
+    }
+    if (data.containsKey('weekday')) {
+      context.handle(
+        _weekdayMeta,
+        weekday.isAcceptableOrUnknown(data['weekday']!, _weekdayMeta),
+      );
+    }
+    if (data.containsKey('routine_id')) {
+      context.handle(
+        _routineIdMeta,
+        routineId.isAcceptableOrUnknown(data['routine_id']!, _routineIdMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {weekday};
+  @override
+  WeeklyPlan map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return WeeklyPlan(
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+      syncedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}synced_at'],
+      ),
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}deleted_at'],
+      ),
+      weekday: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}weekday'],
+      )!,
+      routineId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}routine_id'],
+      ),
+    );
+  }
+
+  @override
+  $WeeklyPlansTable createAlias(String alias) {
+    return $WeeklyPlansTable(attachedDatabase, alias);
+  }
+}
+
+class WeeklyPlan extends DataClass implements Insertable<WeeklyPlan> {
+  final DateTime updatedAt;
+  final DateTime? syncedAt;
+  final DateTime? deletedAt;
+  final int weekday;
+  final String? routineId;
+  const WeeklyPlan({
+    required this.updatedAt,
+    this.syncedAt,
+    this.deletedAt,
+    required this.weekday,
+    this.routineId,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    if (!nullToAbsent || syncedAt != null) {
+      map['synced_at'] = Variable<DateTime>(syncedAt);
+    }
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt);
+    }
+    map['weekday'] = Variable<int>(weekday);
+    if (!nullToAbsent || routineId != null) {
+      map['routine_id'] = Variable<String>(routineId);
+    }
+    return map;
+  }
+
+  WeeklyPlansCompanion toCompanion(bool nullToAbsent) {
+    return WeeklyPlansCompanion(
+      updatedAt: Value(updatedAt),
+      syncedAt: syncedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(syncedAt),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
+      weekday: Value(weekday),
+      routineId: routineId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(routineId),
+    );
+  }
+
+  factory WeeklyPlan.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return WeeklyPlan(
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+      syncedAt: serializer.fromJson<DateTime?>(json['syncedAt']),
+      deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
+      weekday: serializer.fromJson<int>(json['weekday']),
+      routineId: serializer.fromJson<String?>(json['routineId']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+      'syncedAt': serializer.toJson<DateTime?>(syncedAt),
+      'deletedAt': serializer.toJson<DateTime?>(deletedAt),
+      'weekday': serializer.toJson<int>(weekday),
+      'routineId': serializer.toJson<String?>(routineId),
+    };
+  }
+
+  WeeklyPlan copyWith({
+    DateTime? updatedAt,
+    Value<DateTime?> syncedAt = const Value.absent(),
+    Value<DateTime?> deletedAt = const Value.absent(),
+    int? weekday,
+    Value<String?> routineId = const Value.absent(),
+  }) => WeeklyPlan(
+    updatedAt: updatedAt ?? this.updatedAt,
+    syncedAt: syncedAt.present ? syncedAt.value : this.syncedAt,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+    weekday: weekday ?? this.weekday,
+    routineId: routineId.present ? routineId.value : this.routineId,
+  );
+  WeeklyPlan copyWithCompanion(WeeklyPlansCompanion data) {
+    return WeeklyPlan(
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      syncedAt: data.syncedAt.present ? data.syncedAt.value : this.syncedAt,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+      weekday: data.weekday.present ? data.weekday.value : this.weekday,
+      routineId: data.routineId.present ? data.routineId.value : this.routineId,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('WeeklyPlan(')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('syncedAt: $syncedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('weekday: $weekday, ')
+          ..write('routineId: $routineId')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(updatedAt, syncedAt, deletedAt, weekday, routineId);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is WeeklyPlan &&
+          other.updatedAt == this.updatedAt &&
+          other.syncedAt == this.syncedAt &&
+          other.deletedAt == this.deletedAt &&
+          other.weekday == this.weekday &&
+          other.routineId == this.routineId);
+}
+
+class WeeklyPlansCompanion extends UpdateCompanion<WeeklyPlan> {
+  final Value<DateTime> updatedAt;
+  final Value<DateTime?> syncedAt;
+  final Value<DateTime?> deletedAt;
+  final Value<int> weekday;
+  final Value<String?> routineId;
+  const WeeklyPlansCompanion({
+    this.updatedAt = const Value.absent(),
+    this.syncedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.weekday = const Value.absent(),
+    this.routineId = const Value.absent(),
+  });
+  WeeklyPlansCompanion.insert({
+    required DateTime updatedAt,
+    this.syncedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.weekday = const Value.absent(),
+    this.routineId = const Value.absent(),
+  }) : updatedAt = Value(updatedAt);
+  static Insertable<WeeklyPlan> custom({
+    Expression<DateTime>? updatedAt,
+    Expression<DateTime>? syncedAt,
+    Expression<DateTime>? deletedAt,
+    Expression<int>? weekday,
+    Expression<String>? routineId,
+  }) {
+    return RawValuesInsertable({
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (syncedAt != null) 'synced_at': syncedAt,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+      if (weekday != null) 'weekday': weekday,
+      if (routineId != null) 'routine_id': routineId,
+    });
+  }
+
+  WeeklyPlansCompanion copyWith({
+    Value<DateTime>? updatedAt,
+    Value<DateTime?>? syncedAt,
+    Value<DateTime?>? deletedAt,
+    Value<int>? weekday,
+    Value<String?>? routineId,
+  }) {
+    return WeeklyPlansCompanion(
+      updatedAt: updatedAt ?? this.updatedAt,
+      syncedAt: syncedAt ?? this.syncedAt,
+      deletedAt: deletedAt ?? this.deletedAt,
+      weekday: weekday ?? this.weekday,
+      routineId: routineId ?? this.routineId,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (syncedAt.present) {
+      map['synced_at'] = Variable<DateTime>(syncedAt.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt.value);
+    }
+    if (weekday.present) {
+      map['weekday'] = Variable<int>(weekday.value);
+    }
+    if (routineId.present) {
+      map['routine_id'] = Variable<String>(routineId.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('WeeklyPlansCompanion(')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('syncedAt: $syncedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('weekday: $weekday, ')
+          ..write('routineId: $routineId')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $WorkoutsTable extends Workouts with TableInfo<$WorkoutsTable, Workout> {
   @override
   final GeneratedDatabase attachedDatabase;
@@ -7252,6 +7609,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $RoutineExercisesTable routineExercises = $RoutineExercisesTable(
     this,
   );
+  late final $WeeklyPlansTable weeklyPlans = $WeeklyPlansTable(this);
   late final $WorkoutsTable workouts = $WorkoutsTable(this);
   late final $WorkoutSetsTable workoutSets = $WorkoutSetsTable(this);
   late final $MuscleVolumeDailyTable muscleVolumeDaily =
@@ -7273,6 +7631,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     exerciseMuscleMap,
     routines,
     routineExercises,
+    weeklyPlans,
     workouts,
     workoutSets,
     muscleVolumeDaily,
@@ -9122,6 +9481,209 @@ typedef $$RoutineExercisesTableProcessedTableManager =
         BaseReferences<_$AppDatabase, $RoutineExercisesTable, RoutineExercise>,
       ),
       RoutineExercise,
+      PrefetchHooks Function()
+    >;
+typedef $$WeeklyPlansTableCreateCompanionBuilder =
+    WeeklyPlansCompanion Function({
+      required DateTime updatedAt,
+      Value<DateTime?> syncedAt,
+      Value<DateTime?> deletedAt,
+      Value<int> weekday,
+      Value<String?> routineId,
+    });
+typedef $$WeeklyPlansTableUpdateCompanionBuilder =
+    WeeklyPlansCompanion Function({
+      Value<DateTime> updatedAt,
+      Value<DateTime?> syncedAt,
+      Value<DateTime?> deletedAt,
+      Value<int> weekday,
+      Value<String?> routineId,
+    });
+
+class $$WeeklyPlansTableFilterComposer
+    extends Composer<_$AppDatabase, $WeeklyPlansTable> {
+  $$WeeklyPlansTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get syncedAt => $composableBuilder(
+    column: $table.syncedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get weekday => $composableBuilder(
+    column: $table.weekday,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get routineId => $composableBuilder(
+    column: $table.routineId,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$WeeklyPlansTableOrderingComposer
+    extends Composer<_$AppDatabase, $WeeklyPlansTable> {
+  $$WeeklyPlansTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get syncedAt => $composableBuilder(
+    column: $table.syncedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get weekday => $composableBuilder(
+    column: $table.weekday,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get routineId => $composableBuilder(
+    column: $table.routineId,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$WeeklyPlansTableAnnotationComposer
+    extends Composer<_$AppDatabase, $WeeklyPlansTable> {
+  $$WeeklyPlansTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get syncedAt =>
+      $composableBuilder(column: $table.syncedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+
+  GeneratedColumn<int> get weekday =>
+      $composableBuilder(column: $table.weekday, builder: (column) => column);
+
+  GeneratedColumn<String> get routineId =>
+      $composableBuilder(column: $table.routineId, builder: (column) => column);
+}
+
+class $$WeeklyPlansTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $WeeklyPlansTable,
+          WeeklyPlan,
+          $$WeeklyPlansTableFilterComposer,
+          $$WeeklyPlansTableOrderingComposer,
+          $$WeeklyPlansTableAnnotationComposer,
+          $$WeeklyPlansTableCreateCompanionBuilder,
+          $$WeeklyPlansTableUpdateCompanionBuilder,
+          (
+            WeeklyPlan,
+            BaseReferences<_$AppDatabase, $WeeklyPlansTable, WeeklyPlan>,
+          ),
+          WeeklyPlan,
+          PrefetchHooks Function()
+        > {
+  $$WeeklyPlansTableTableManager(_$AppDatabase db, $WeeklyPlansTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$WeeklyPlansTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$WeeklyPlansTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$WeeklyPlansTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<DateTime?> syncedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<int> weekday = const Value.absent(),
+                Value<String?> routineId = const Value.absent(),
+              }) => WeeklyPlansCompanion(
+                updatedAt: updatedAt,
+                syncedAt: syncedAt,
+                deletedAt: deletedAt,
+                weekday: weekday,
+                routineId: routineId,
+              ),
+          createCompanionCallback:
+              ({
+                required DateTime updatedAt,
+                Value<DateTime?> syncedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<int> weekday = const Value.absent(),
+                Value<String?> routineId = const Value.absent(),
+              }) => WeeklyPlansCompanion.insert(
+                updatedAt: updatedAt,
+                syncedAt: syncedAt,
+                deletedAt: deletedAt,
+                weekday: weekday,
+                routineId: routineId,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$WeeklyPlansTable, WeeklyPlan>(table),
+                  BaseReferences<_$AppDatabase, $WeeklyPlansTable, WeeklyPlan>(
+                    db,
+                    table,
+                    e,
+                  ),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$WeeklyPlansTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $WeeklyPlansTable,
+      WeeklyPlan,
+      $$WeeklyPlansTableFilterComposer,
+      $$WeeklyPlansTableOrderingComposer,
+      $$WeeklyPlansTableAnnotationComposer,
+      $$WeeklyPlansTableCreateCompanionBuilder,
+      $$WeeklyPlansTableUpdateCompanionBuilder,
+      (
+        WeeklyPlan,
+        BaseReferences<_$AppDatabase, $WeeklyPlansTable, WeeklyPlan>,
+      ),
+      WeeklyPlan,
       PrefetchHooks Function()
     >;
 typedef $$WorkoutsTableCreateCompanionBuilder = WorkoutsCompanion Function({
@@ -10980,6 +11542,8 @@ class $AppDatabaseManager {
       $$RoutinesTableTableManager(_db, _db.routines);
   $$RoutineExercisesTableTableManager get routineExercises =>
       $$RoutineExercisesTableTableManager(_db, _db.routineExercises);
+  $$WeeklyPlansTableTableManager get weeklyPlans =>
+      $$WeeklyPlansTableTableManager(_db, _db.weeklyPlans);
   $$WorkoutsTableTableManager get workouts =>
       $$WorkoutsTableTableManager(_db, _db.workouts);
   $$WorkoutSetsTableTableManager get workoutSets =>

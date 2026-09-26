@@ -47,3 +47,13 @@ final muscleNamesProvider = Provider<Map<String, String>>((ref) {
     _ => const <String, String>{},
   };
 });
+
+/// The view-only weekly plan rows (weekday 1..7). Tombstones excluded;
+/// a row with a null routineId simply renders as a rest day.
+final weeklyPlanProvider = StreamProvider<List<WeeklyPlan>>((ref) {
+  final db = ref.watch(databaseProvider);
+  final q = db.weeklyPlans.select()
+    ..where((w) => w.deletedAt.isNull())
+    ..orderBy([(w) => OrderingTerm.asc(w.weekday)]);
+  return q.watch();
+});

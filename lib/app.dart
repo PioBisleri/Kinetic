@@ -16,6 +16,7 @@ import 'features/routines/exercise_edit_page.dart';
 import 'features/routines/exercise_library_page.dart';
 import 'features/routines/routine_editor_page.dart';
 import 'features/routines/routines_page.dart';
+import 'features/routines/weekly_plan_page.dart';
 import 'features/settings/settings_page.dart';
 import 'features/workout/application/workout_session_notifier.dart';
 import 'features/workout/live_workout_page.dart';
@@ -55,6 +56,11 @@ final _routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/settings',
         builder: (context, state) => const SettingsPage(),
+      ),
+      // View-only weekly plan — also pushed over the shell.
+      GoRoute(
+        path: '/schedule',
+        builder: (context, state) => const WeeklyPlanPage(),
       ),
       // Routine builder routes ('new' must precede ':id' to match first).
       GoRoute(
@@ -232,7 +238,7 @@ class _AppShell extends ConsumerWidget {
 
 /// Left drawer on the shell — non-tab navigation. Deliberately tiny: the
 /// bottom bar owns the four tabs, so the drawer only carries what has no
-/// tab (settings for now, the weekly plan next).
+/// tab (settings and the weekly plan).
 class KineticDrawer extends StatelessWidget {
   const KineticDrawer({super.key});
 
@@ -272,6 +278,14 @@ class KineticDrawer extends StatelessWidget {
                 // The drawer is part of the shell scaffold, not a route.
                 Scaffold.of(context).closeDrawer();
                 context.push('/settings');
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.calendar_view_week_outlined),
+              title: const Text('Schedule'),
+              onTap: () {
+                Scaffold.of(context).closeDrawer();
+                context.push('/schedule');
               },
             ),
           ],
