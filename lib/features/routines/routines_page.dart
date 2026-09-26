@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/navigation/shell_navigation.dart';
 import '../../core/theme/app_theme.dart';
 import '../workout/application/workout_session_notifier.dart';
 import 'application/routine_providers.dart';
@@ -17,6 +18,7 @@ class RoutinesPage extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
+        leading: const DrawerMenuButton(),
         title: const Text('Routines'),
         actions: [
           IconButton(

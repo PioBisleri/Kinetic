@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/navigation/shell_navigation.dart';
 import '../../core/settings/settings.dart';
 import '../../core/theme/app_theme.dart';
 import 'application/analytics_providers.dart';
@@ -22,7 +23,10 @@ class AnalyticsPage extends ConsumerWidget {
     final now = DateTime.now();
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Analytics')),
+      appBar: AppBar(
+        leading: const DrawerMenuButton(),
+        title: const Text('Analytics'),
+      ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [

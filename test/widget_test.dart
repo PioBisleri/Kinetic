@@ -420,9 +420,14 @@ void main() {
     await endApp(tester);
   });
 
-  testWidgets('Profile toggles persist units and theme', (tester) async {
+  testWidgets('Settings toggles persist units; privacy stays in Profile',
+      (tester) async {
     await pumpApp(tester);
-    await tester.tap(find.text('Profile'));
+
+    // Units moved to Settings (Round 2) — reach it through the drawer.
+    await tester.tap(find.byTooltip('Menu'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Settings'));
     await tester.pumpAndSettle();
 
     // Units sit at the top of the page — assert them before scrolling.
@@ -432,28 +437,41 @@ void main() {
     expect(prefs.getString('unit'), 'lbs');
     expect(
       ProviderScope.containerOf(
-              tester.element(find.widgetWithText(AppBar, 'Profile')))
+              tester.element(find.widgetWithText(AppBar, 'Settings')))
           .read(settingsProvider)
           .unit,
       UnitSystem.lbs,
     );
 
-    // The privacy statement sits below the Sync section, so it may be
-    // outside the initial viewport — bring it into view first.
+    // Back out of Settings; the privacy statement still lives in Profile.
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Profile'));
+    await tester.pumpAndSettle();
+
     await scrollProfileUntil(tester, find.text('Fully private'));
     expect(find.text('Fully private'), findsOneWidget);
     await endApp(tester);
   });
 
-  testWidgets('Profile shows sync + export sections when not configured',
+  testWidgets('Sync lives in Settings; export stays in Profile',
       (tester) async {
     await pumpApp(tester);
-    await tester.tap(find.text('Profile'));
+
+    // Sync moved to Settings (Round 2).
+    await tester.tap(find.byTooltip('Menu'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Settings'));
     await tester.pumpAndSettle();
 
     // No dart-defines in tests → the sync section degrades to a status tile
     // and must never touch `Supabase.instance` (it asserts uninitialized).
     expect(find.text('Cloud sync not configured'), findsOneWidget);
+
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Profile'));
+    await tester.pumpAndSettle();
 
     // The Data section sits at the bottom of the page — bring it into view.
     await scrollProfileUntil(tester, find.text('Export JSON backup'));

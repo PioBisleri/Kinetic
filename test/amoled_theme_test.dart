@@ -8,7 +8,7 @@ import 'package:kinetic/core/database/database.dart';
 import 'package:kinetic/core/database/seed_service.dart';
 import 'package:kinetic/core/settings/settings.dart';
 import 'package:kinetic/core/theme/app_theme.dart';
-import 'package:kinetic/features/profile/profile_page.dart';
+import 'package:kinetic/features/settings/settings_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -45,13 +45,20 @@ void main() {
     await tester.pump(const Duration(milliseconds: 1));
   }
 
-  /// Drag the Profile page's own ListView (the shell keeps all tabs alive
-  /// and the bodyweight field has an internal Scrollable, so a bare
-  /// [Scrollable] finder is ambiguous) until [target] is both built and
+  /// Round 2 moved units/appearance/reminders into Settings, reached
+  /// through the shell drawer.
+  Future<void> openSettings(WidgetTester tester) async {
+    await tester.tap(find.byTooltip('Menu'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Settings'));
+    await tester.pumpAndSettle();
+  }
+
+  /// Drag Settings' own ListView until [target] is both built and
   /// hit-testable, i.e. tappable.
-  Future<void> scrollProfileTo(WidgetTester tester, Finder target) async {
+  Future<void> scrollSettingsTo(WidgetTester tester, Finder target) async {
     final list = find.descendant(
-      of: find.byType(ProfilePage),
+      of: find.byType(SettingsPage),
       matching: find.byType(ListView),
     );
     for (var i = 0;
@@ -71,10 +78,9 @@ void main() {
     expect(app.darkTheme!.scaffoldBackgroundColor, AppColors.background);
     expect(app.darkTheme!.extension<AmoledTokens>()!.enabled, isFalse);
 
-    await tester.tap(find.text('Profile'));
-    await tester.pumpAndSettle();
+    await openSettings(tester);
 
-    await scrollProfileTo(
+    await scrollSettingsTo(
         tester, find.byKey(const Key('amoled-black-toggle')));
     await tester.tap(find.byKey(const Key('amoled-black-toggle')));
     await tester.pumpAndSettle();
@@ -86,17 +92,19 @@ void main() {
     expect(app.darkTheme!.extension<AmoledTokens>()!.enabled, isTrue);
     expect(app.darkTheme!.cardTheme.color, AppColors.amoledSurface);
 
-    // …and widget-facing accessors see the flag through the theme.
+    // …and widget-facing accessors see the flag through the theme. The
+    // shell lives under the pushed Settings route (not in the tree), so
+    // back out first, then read everything through its NavigationBar.
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+
     final navContext = tester.element(find.byType(NavigationBar));
     expect(navContext.background, AppColors.amoledBackground);
     expect(navContext.surface, AppColors.amoledSurface);
 
     // State + preference persisted.
     expect(
-      ProviderScope.containerOf(
-              tester.element(find.widgetWithText(AppBar, 'Profile')))
-          .read(settingsProvider)
-          .amoledBlack,
+      ProviderScope.containerOf(navContext).read(settingsProvider).amoledBlack,
       isTrue,
     );
     expect(prefs.getBool('amoled_black'), isTrue);
@@ -114,10 +122,9 @@ void main() {
 
   testWidgets('AMOLED switch only shows in dark mode', (tester) async {
     await pumpApp(tester);
-    await tester.tap(find.text('Profile'));
-    await tester.pumpAndSettle();
+    await openSettings(tester);
 
-    await scrollProfileTo(tester, find.byKey(const Key('dark-mode-toggle')));
+    await scrollSettingsTo(tester, find.byKey(const Key('dark-mode-toggle')));
     expect(find.byKey(const Key('amoled-black-toggle')), findsOneWidget);
 
     // Flip to light — the AMOLED option (a dark-only concept) disappears.

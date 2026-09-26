@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:quick_actions/quick_actions.dart';
 
 import 'core/notifications/weekly_reminder_service.dart';
+import 'core/navigation/shell_navigation.dart';
 import 'core/settings/settings.dart';
 import 'core/sync/sync_providers.dart';
 import 'core/theme/app_theme.dart';
@@ -15,6 +16,7 @@ import 'features/routines/exercise_edit_page.dart';
 import 'features/routines/exercise_library_page.dart';
 import 'features/routines/routine_editor_page.dart';
 import 'features/routines/routines_page.dart';
+import 'features/settings/settings_page.dart';
 import 'features/workout/application/workout_session_notifier.dart';
 import 'features/workout/live_workout_page.dart';
 
@@ -48,6 +50,11 @@ final _routerProvider = Provider<GoRouter>((ref) {
         path: '/library/:id',
         builder: (context, state) =>
             ExerciseDetailPage(exerciseId: state.pathParameters['id']!),
+      ),
+      // App settings — pushed over the shell (back arrow returns).
+      GoRoute(
+        path: '/settings',
+        builder: (context, state) => const SettingsPage(),
       ),
       // Routine builder routes ('new' must precede ':id' to match first).
       GoRoute(
@@ -181,14 +188,16 @@ class _KineticAppState extends ConsumerState<KineticApp>
   }
 }
 
-class _AppShell extends StatelessWidget {
+class _AppShell extends ConsumerWidget {
   const _AppShell({required this.shell});
 
   final StatefulNavigationShell shell;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
+      key: ref.watch(shellScaffoldKeyProvider),
+      drawer: const KineticDrawer(),
       body: shell,
       bottomNavigationBar: NavigationBar(
         selectedIndex: shell.currentIndex,
@@ -216,6 +225,57 @@ class _AppShell extends StatelessWidget {
             label: 'Profile',
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Left drawer on the shell — non-tab navigation. Deliberately tiny: the
+/// bottom bar owns the four tabs, so the drawer only carries what has no
+/// tab (settings for now, the weekly plan next).
+class KineticDrawer extends StatelessWidget {
+  const KineticDrawer({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Drawer(
+      child: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Padding(
+              padding: EdgeInsets.fromLTRB(20, 24, 20, 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'KINETIC',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 2,
+                    ),
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    'Offline-first training log',
+                    style: TextStyle(fontSize: 13),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            ListTile(
+              leading: const Icon(Icons.settings_outlined),
+              title: const Text('Settings'),
+              onTap: () {
+                // The drawer is part of the shell scaffold, not a route.
+                Scaffold.of(context).closeDrawer();
+                context.push('/settings');
+              },
+            ),
+          ],
+        ),
       ),
     );
   }

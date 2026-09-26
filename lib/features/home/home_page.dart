@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/database/database.dart';
+import '../../core/navigation/shell_navigation.dart';
 import '../../core/settings/settings.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/weight_units.dart';
@@ -26,7 +27,10 @@ class HomePage extends ConsumerWidget {
     final unit = ref.watch(settingsProvider).unit;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Kinetic')),
+      appBar: AppBar(
+        leading: const DrawerMenuButton(),
+        title: const Text('Kinetic'),
+      ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
