@@ -1221,6 +1221,17 @@ class $ExercisesTable extends Exercises
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _restSecondsMeta = const VerificationMeta(
+    'restSeconds',
+  );
+  @override
+  late final GeneratedColumn<int> restSeconds = GeneratedColumn<int>(
+    'rest_seconds',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     updatedAt,
@@ -1239,6 +1250,7 @@ class $ExercisesTable extends Exercises
     thumbnailRef,
     isCustom,
     ownerId,
+    restSeconds,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -1370,6 +1382,15 @@ class $ExercisesTable extends Exercises
         ownerId.isAcceptableOrUnknown(data['owner_id']!, _ownerIdMeta),
       );
     }
+    if (data.containsKey('rest_seconds')) {
+      context.handle(
+        _restSecondsMeta,
+        restSeconds.isAcceptableOrUnknown(
+          data['rest_seconds']!,
+          _restSecondsMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -1443,6 +1464,10 @@ class $ExercisesTable extends Exercises
         DriftSqlType.string,
         data['${effectivePrefix}owner_id'],
       ),
+      restSeconds: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}rest_seconds'],
+      ),
     );
   }
 
@@ -1469,6 +1494,10 @@ class Exercise extends DataClass implements Insertable<Exercise> {
   final String? thumbnailRef;
   final bool isCustom;
   final String? ownerId;
+
+  /// Rest between sets of this exercise in seconds; null = inherit the
+  /// Settings default for the set type.
+  final int? restSeconds;
   const Exercise({
     required this.updatedAt,
     this.syncedAt,
@@ -1486,6 +1515,7 @@ class Exercise extends DataClass implements Insertable<Exercise> {
     this.thumbnailRef,
     required this.isCustom,
     this.ownerId,
+    this.restSeconds,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1517,6 +1547,9 @@ class Exercise extends DataClass implements Insertable<Exercise> {
     map['is_custom'] = Variable<bool>(isCustom);
     if (!nullToAbsent || ownerId != null) {
       map['owner_id'] = Variable<String>(ownerId);
+    }
+    if (!nullToAbsent || restSeconds != null) {
+      map['rest_seconds'] = Variable<int>(restSeconds);
     }
     return map;
   }
@@ -1551,6 +1584,9 @@ class Exercise extends DataClass implements Insertable<Exercise> {
       ownerId: ownerId == null && nullToAbsent
           ? const Value.absent()
           : Value(ownerId),
+      restSeconds: restSeconds == null && nullToAbsent
+          ? const Value.absent()
+          : Value(restSeconds),
     );
   }
 
@@ -1576,6 +1612,7 @@ class Exercise extends DataClass implements Insertable<Exercise> {
       thumbnailRef: serializer.fromJson<String?>(json['thumbnailRef']),
       isCustom: serializer.fromJson<bool>(json['isCustom']),
       ownerId: serializer.fromJson<String?>(json['ownerId']),
+      restSeconds: serializer.fromJson<int?>(json['restSeconds']),
     );
   }
   @override
@@ -1598,6 +1635,7 @@ class Exercise extends DataClass implements Insertable<Exercise> {
       'thumbnailRef': serializer.toJson<String?>(thumbnailRef),
       'isCustom': serializer.toJson<bool>(isCustom),
       'ownerId': serializer.toJson<String?>(ownerId),
+      'restSeconds': serializer.toJson<int?>(restSeconds),
     };
   }
 
@@ -1618,6 +1656,7 @@ class Exercise extends DataClass implements Insertable<Exercise> {
     Value<String?> thumbnailRef = const Value.absent(),
     bool? isCustom,
     Value<String?> ownerId = const Value.absent(),
+    Value<int?> restSeconds = const Value.absent(),
   }) => Exercise(
     updatedAt: updatedAt ?? this.updatedAt,
     syncedAt: syncedAt.present ? syncedAt.value : this.syncedAt,
@@ -1635,6 +1674,7 @@ class Exercise extends DataClass implements Insertable<Exercise> {
     thumbnailRef: thumbnailRef.present ? thumbnailRef.value : this.thumbnailRef,
     isCustom: isCustom ?? this.isCustom,
     ownerId: ownerId.present ? ownerId.value : this.ownerId,
+    restSeconds: restSeconds.present ? restSeconds.value : this.restSeconds,
   );
   Exercise copyWithCompanion(ExercisesCompanion data) {
     return Exercise(
@@ -1664,6 +1704,9 @@ class Exercise extends DataClass implements Insertable<Exercise> {
           : this.thumbnailRef,
       isCustom: data.isCustom.present ? data.isCustom.value : this.isCustom,
       ownerId: data.ownerId.present ? data.ownerId.value : this.ownerId,
+      restSeconds: data.restSeconds.present
+          ? data.restSeconds.value
+          : this.restSeconds,
     );
   }
 
@@ -1685,7 +1728,8 @@ class Exercise extends DataClass implements Insertable<Exercise> {
           ..write('animationRef: $animationRef, ')
           ..write('thumbnailRef: $thumbnailRef, ')
           ..write('isCustom: $isCustom, ')
-          ..write('ownerId: $ownerId')
+          ..write('ownerId: $ownerId, ')
+          ..write('restSeconds: $restSeconds')
           ..write(')'))
         .toString();
   }
@@ -1708,6 +1752,7 @@ class Exercise extends DataClass implements Insertable<Exercise> {
     thumbnailRef,
     isCustom,
     ownerId,
+    restSeconds,
   );
   @override
   bool operator ==(Object other) =>
@@ -1728,7 +1773,8 @@ class Exercise extends DataClass implements Insertable<Exercise> {
           other.animationRef == this.animationRef &&
           other.thumbnailRef == this.thumbnailRef &&
           other.isCustom == this.isCustom &&
-          other.ownerId == this.ownerId);
+          other.ownerId == this.ownerId &&
+          other.restSeconds == this.restSeconds);
 }
 
 class ExercisesCompanion extends UpdateCompanion<Exercise> {
@@ -1748,6 +1794,7 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
   final Value<String?> thumbnailRef;
   final Value<bool> isCustom;
   final Value<String?> ownerId;
+  final Value<int?> restSeconds;
   final Value<int> rowid;
   const ExercisesCompanion({
     this.updatedAt = const Value.absent(),
@@ -1766,6 +1813,7 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
     this.thumbnailRef = const Value.absent(),
     this.isCustom = const Value.absent(),
     this.ownerId = const Value.absent(),
+    this.restSeconds = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   ExercisesCompanion.insert({
@@ -1785,6 +1833,7 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
     this.thumbnailRef = const Value.absent(),
     this.isCustom = const Value.absent(),
     this.ownerId = const Value.absent(),
+    this.restSeconds = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : updatedAt = Value(updatedAt),
        id = Value(id),
@@ -1808,6 +1857,7 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
     Expression<String>? thumbnailRef,
     Expression<bool>? isCustom,
     Expression<String>? ownerId,
+    Expression<int>? restSeconds,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -1827,6 +1877,7 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
       if (thumbnailRef != null) 'thumbnail_ref': thumbnailRef,
       if (isCustom != null) 'is_custom': isCustom,
       if (ownerId != null) 'owner_id': ownerId,
+      if (restSeconds != null) 'rest_seconds': restSeconds,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -1848,6 +1899,7 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
     Value<String?>? thumbnailRef,
     Value<bool>? isCustom,
     Value<String?>? ownerId,
+    Value<int?>? restSeconds,
     Value<int>? rowid,
   }) {
     return ExercisesCompanion(
@@ -1867,6 +1919,7 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
       thumbnailRef: thumbnailRef ?? this.thumbnailRef,
       isCustom: isCustom ?? this.isCustom,
       ownerId: ownerId ?? this.ownerId,
+      restSeconds: restSeconds ?? this.restSeconds,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -1922,6 +1975,9 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
     if (ownerId.present) {
       map['owner_id'] = Variable<String>(ownerId.value);
     }
+    if (restSeconds.present) {
+      map['rest_seconds'] = Variable<int>(restSeconds.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -1947,6 +2003,7 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
           ..write('thumbnailRef: $thumbnailRef, ')
           ..write('isCustom: $isCustom, ')
           ..write('ownerId: $ownerId, ')
+          ..write('restSeconds: $restSeconds, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -2944,6 +3001,42 @@ class $RoutineExercisesTable extends RoutineExercises
     requiredDuringInsert: false,
     defaultValue: const Constant(90),
   );
+  static const VerificationMeta _warmupSetsMeta = const VerificationMeta(
+    'warmupSets',
+  );
+  @override
+  late final GeneratedColumn<int> warmupSets = GeneratedColumn<int>(
+    'warmup_sets',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _dropSetsMeta = const VerificationMeta(
+    'dropSets',
+  );
+  @override
+  late final GeneratedColumn<int> dropSets = GeneratedColumn<int>(
+    'drop_sets',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _failureSetsMeta = const VerificationMeta(
+    'failureSets',
+  );
+  @override
+  late final GeneratedColumn<int> failureSets = GeneratedColumn<int>(
+    'failure_sets',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
   static const VerificationMeta _isWarmupMeta = const VerificationMeta(
     'isWarmup',
   );
@@ -2983,6 +3076,9 @@ class $RoutineExercisesTable extends RoutineExercises
     targetRpe,
     targetWeight,
     restSeconds,
+    warmupSets,
+    dropSets,
+    failureSets,
     isWarmup,
     notes,
   ];
@@ -3092,6 +3188,27 @@ class $RoutineExercisesTable extends RoutineExercises
         ),
       );
     }
+    if (data.containsKey('warmup_sets')) {
+      context.handle(
+        _warmupSetsMeta,
+        warmupSets.isAcceptableOrUnknown(data['warmup_sets']!, _warmupSetsMeta),
+      );
+    }
+    if (data.containsKey('drop_sets')) {
+      context.handle(
+        _dropSetsMeta,
+        dropSets.isAcceptableOrUnknown(data['drop_sets']!, _dropSetsMeta),
+      );
+    }
+    if (data.containsKey('failure_sets')) {
+      context.handle(
+        _failureSetsMeta,
+        failureSets.isAcceptableOrUnknown(
+          data['failure_sets']!,
+          _failureSetsMeta,
+        ),
+      );
+    }
     if (data.containsKey('is_warmup')) {
       context.handle(
         _isWarmupMeta,
@@ -3165,6 +3282,18 @@ class $RoutineExercisesTable extends RoutineExercises
         DriftSqlType.int,
         data['${effectivePrefix}rest_seconds'],
       )!,
+      warmupSets: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}warmup_sets'],
+      )!,
+      dropSets: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}drop_sets'],
+      )!,
+      failureSets: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}failure_sets'],
+      )!,
       isWarmup: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}is_warmup'],
@@ -3195,7 +3324,21 @@ class RoutineExercise extends DataClass implements Insertable<RoutineExercise> {
   final int targetReps;
   final double? targetRpe;
   final double? targetWeight;
+
+  /// Rest after each set of this entry in seconds.
+  /// [inheritRestSeconds] = -1 → fall through to the exercise override,
+  /// then to the per-type Settings default. (Kept NOT NULL so the column
+  /// can be added by `ALTER TABLE` without a table rebuild.)
   final int restSeconds;
+
+  /// Per-type planned set counts (Hevy-style). `targetSets` stays the
+  /// TOTAL planned sets; working = targetSets − warmup − drop − failure.
+  final int warmupSets;
+  final int dropSets;
+  final int failureSets;
+
+  /// Legacy v1/v2 flag: the whole entry was warm-up. Kept for wire
+  /// compatibility; derived from [warmupSets] on write since v3.
   final bool isWarmup;
   final String? notes;
   const RoutineExercise({
@@ -3212,6 +3355,9 @@ class RoutineExercise extends DataClass implements Insertable<RoutineExercise> {
     this.targetRpe,
     this.targetWeight,
     required this.restSeconds,
+    required this.warmupSets,
+    required this.dropSets,
+    required this.failureSets,
     required this.isWarmup,
     this.notes,
   });
@@ -3241,6 +3387,9 @@ class RoutineExercise extends DataClass implements Insertable<RoutineExercise> {
       map['target_weight'] = Variable<double>(targetWeight);
     }
     map['rest_seconds'] = Variable<int>(restSeconds);
+    map['warmup_sets'] = Variable<int>(warmupSets);
+    map['drop_sets'] = Variable<int>(dropSets);
+    map['failure_sets'] = Variable<int>(failureSets);
     map['is_warmup'] = Variable<bool>(isWarmup);
     if (!nullToAbsent || notes != null) {
       map['notes'] = Variable<String>(notes);
@@ -3273,6 +3422,9 @@ class RoutineExercise extends DataClass implements Insertable<RoutineExercise> {
           ? const Value.absent()
           : Value(targetWeight),
       restSeconds: Value(restSeconds),
+      warmupSets: Value(warmupSets),
+      dropSets: Value(dropSets),
+      failureSets: Value(failureSets),
       isWarmup: Value(isWarmup),
       notes: notes == null && nullToAbsent
           ? const Value.absent()
@@ -3299,6 +3451,9 @@ class RoutineExercise extends DataClass implements Insertable<RoutineExercise> {
       targetRpe: serializer.fromJson<double?>(json['targetRpe']),
       targetWeight: serializer.fromJson<double?>(json['targetWeight']),
       restSeconds: serializer.fromJson<int>(json['restSeconds']),
+      warmupSets: serializer.fromJson<int>(json['warmupSets']),
+      dropSets: serializer.fromJson<int>(json['dropSets']),
+      failureSets: serializer.fromJson<int>(json['failureSets']),
       isWarmup: serializer.fromJson<bool>(json['isWarmup']),
       notes: serializer.fromJson<String?>(json['notes']),
     );
@@ -3320,6 +3475,9 @@ class RoutineExercise extends DataClass implements Insertable<RoutineExercise> {
       'targetRpe': serializer.toJson<double?>(targetRpe),
       'targetWeight': serializer.toJson<double?>(targetWeight),
       'restSeconds': serializer.toJson<int>(restSeconds),
+      'warmupSets': serializer.toJson<int>(warmupSets),
+      'dropSets': serializer.toJson<int>(dropSets),
+      'failureSets': serializer.toJson<int>(failureSets),
       'isWarmup': serializer.toJson<bool>(isWarmup),
       'notes': serializer.toJson<String?>(notes),
     };
@@ -3339,6 +3497,9 @@ class RoutineExercise extends DataClass implements Insertable<RoutineExercise> {
     Value<double?> targetRpe = const Value.absent(),
     Value<double?> targetWeight = const Value.absent(),
     int? restSeconds,
+    int? warmupSets,
+    int? dropSets,
+    int? failureSets,
     bool? isWarmup,
     Value<String?> notes = const Value.absent(),
   }) => RoutineExercise(
@@ -3357,6 +3518,9 @@ class RoutineExercise extends DataClass implements Insertable<RoutineExercise> {
     targetRpe: targetRpe.present ? targetRpe.value : this.targetRpe,
     targetWeight: targetWeight.present ? targetWeight.value : this.targetWeight,
     restSeconds: restSeconds ?? this.restSeconds,
+    warmupSets: warmupSets ?? this.warmupSets,
+    dropSets: dropSets ?? this.dropSets,
+    failureSets: failureSets ?? this.failureSets,
     isWarmup: isWarmup ?? this.isWarmup,
     notes: notes.present ? notes.value : this.notes,
   );
@@ -3389,6 +3553,13 @@ class RoutineExercise extends DataClass implements Insertable<RoutineExercise> {
       restSeconds: data.restSeconds.present
           ? data.restSeconds.value
           : this.restSeconds,
+      warmupSets: data.warmupSets.present
+          ? data.warmupSets.value
+          : this.warmupSets,
+      dropSets: data.dropSets.present ? data.dropSets.value : this.dropSets,
+      failureSets: data.failureSets.present
+          ? data.failureSets.value
+          : this.failureSets,
       isWarmup: data.isWarmup.present ? data.isWarmup.value : this.isWarmup,
       notes: data.notes.present ? data.notes.value : this.notes,
     );
@@ -3410,6 +3581,9 @@ class RoutineExercise extends DataClass implements Insertable<RoutineExercise> {
           ..write('targetRpe: $targetRpe, ')
           ..write('targetWeight: $targetWeight, ')
           ..write('restSeconds: $restSeconds, ')
+          ..write('warmupSets: $warmupSets, ')
+          ..write('dropSets: $dropSets, ')
+          ..write('failureSets: $failureSets, ')
           ..write('isWarmup: $isWarmup, ')
           ..write('notes: $notes')
           ..write(')'))
@@ -3431,6 +3605,9 @@ class RoutineExercise extends DataClass implements Insertable<RoutineExercise> {
     targetRpe,
     targetWeight,
     restSeconds,
+    warmupSets,
+    dropSets,
+    failureSets,
     isWarmup,
     notes,
   );
@@ -3451,6 +3628,9 @@ class RoutineExercise extends DataClass implements Insertable<RoutineExercise> {
           other.targetRpe == this.targetRpe &&
           other.targetWeight == this.targetWeight &&
           other.restSeconds == this.restSeconds &&
+          other.warmupSets == this.warmupSets &&
+          other.dropSets == this.dropSets &&
+          other.failureSets == this.failureSets &&
           other.isWarmup == this.isWarmup &&
           other.notes == this.notes);
 }
@@ -3469,6 +3649,9 @@ class RoutineExercisesCompanion extends UpdateCompanion<RoutineExercise> {
   final Value<double?> targetRpe;
   final Value<double?> targetWeight;
   final Value<int> restSeconds;
+  final Value<int> warmupSets;
+  final Value<int> dropSets;
+  final Value<int> failureSets;
   final Value<bool> isWarmup;
   final Value<String?> notes;
   final Value<int> rowid;
@@ -3486,6 +3669,9 @@ class RoutineExercisesCompanion extends UpdateCompanion<RoutineExercise> {
     this.targetRpe = const Value.absent(),
     this.targetWeight = const Value.absent(),
     this.restSeconds = const Value.absent(),
+    this.warmupSets = const Value.absent(),
+    this.dropSets = const Value.absent(),
+    this.failureSets = const Value.absent(),
     this.isWarmup = const Value.absent(),
     this.notes = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -3504,6 +3690,9 @@ class RoutineExercisesCompanion extends UpdateCompanion<RoutineExercise> {
     this.targetRpe = const Value.absent(),
     this.targetWeight = const Value.absent(),
     this.restSeconds = const Value.absent(),
+    this.warmupSets = const Value.absent(),
+    this.dropSets = const Value.absent(),
+    this.failureSets = const Value.absent(),
     this.isWarmup = const Value.absent(),
     this.notes = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -3526,6 +3715,9 @@ class RoutineExercisesCompanion extends UpdateCompanion<RoutineExercise> {
     Expression<double>? targetRpe,
     Expression<double>? targetWeight,
     Expression<int>? restSeconds,
+    Expression<int>? warmupSets,
+    Expression<int>? dropSets,
+    Expression<int>? failureSets,
     Expression<bool>? isWarmup,
     Expression<String>? notes,
     Expression<int>? rowid,
@@ -3544,6 +3736,9 @@ class RoutineExercisesCompanion extends UpdateCompanion<RoutineExercise> {
       if (targetRpe != null) 'target_rpe': targetRpe,
       if (targetWeight != null) 'target_weight': targetWeight,
       if (restSeconds != null) 'rest_seconds': restSeconds,
+      if (warmupSets != null) 'warmup_sets': warmupSets,
+      if (dropSets != null) 'drop_sets': dropSets,
+      if (failureSets != null) 'failure_sets': failureSets,
       if (isWarmup != null) 'is_warmup': isWarmup,
       if (notes != null) 'notes': notes,
       if (rowid != null) 'rowid': rowid,
@@ -3564,6 +3759,9 @@ class RoutineExercisesCompanion extends UpdateCompanion<RoutineExercise> {
     Value<double?>? targetRpe,
     Value<double?>? targetWeight,
     Value<int>? restSeconds,
+    Value<int>? warmupSets,
+    Value<int>? dropSets,
+    Value<int>? failureSets,
     Value<bool>? isWarmup,
     Value<String?>? notes,
     Value<int>? rowid,
@@ -3582,6 +3780,9 @@ class RoutineExercisesCompanion extends UpdateCompanion<RoutineExercise> {
       targetRpe: targetRpe ?? this.targetRpe,
       targetWeight: targetWeight ?? this.targetWeight,
       restSeconds: restSeconds ?? this.restSeconds,
+      warmupSets: warmupSets ?? this.warmupSets,
+      dropSets: dropSets ?? this.dropSets,
+      failureSets: failureSets ?? this.failureSets,
       isWarmup: isWarmup ?? this.isWarmup,
       notes: notes ?? this.notes,
       rowid: rowid ?? this.rowid,
@@ -3630,6 +3831,15 @@ class RoutineExercisesCompanion extends UpdateCompanion<RoutineExercise> {
     if (restSeconds.present) {
       map['rest_seconds'] = Variable<int>(restSeconds.value);
     }
+    if (warmupSets.present) {
+      map['warmup_sets'] = Variable<int>(warmupSets.value);
+    }
+    if (dropSets.present) {
+      map['drop_sets'] = Variable<int>(dropSets.value);
+    }
+    if (failureSets.present) {
+      map['failure_sets'] = Variable<int>(failureSets.value);
+    }
     if (isWarmup.present) {
       map['is_warmup'] = Variable<bool>(isWarmup.value);
     }
@@ -3658,6 +3868,9 @@ class RoutineExercisesCompanion extends UpdateCompanion<RoutineExercise> {
           ..write('targetRpe: $targetRpe, ')
           ..write('targetWeight: $targetWeight, ')
           ..write('restSeconds: $restSeconds, ')
+          ..write('warmupSets: $warmupSets, ')
+          ..write('dropSets: $dropSets, ')
+          ..write('failureSets: $failureSets, ')
           ..write('isWarmup: $isWarmup, ')
           ..write('notes: $notes, ')
           ..write('rowid: $rowid')
@@ -8190,6 +8403,7 @@ typedef $$ExercisesTableCreateCompanionBuilder = ExercisesCompanion Function({
   Value<String?> thumbnailRef,
   Value<bool> isCustom,
   Value<String?> ownerId,
+  Value<int?> restSeconds,
   Value<int> rowid,
 });
 typedef $$ExercisesTableUpdateCompanionBuilder = ExercisesCompanion Function({
@@ -8209,6 +8423,7 @@ typedef $$ExercisesTableUpdateCompanionBuilder = ExercisesCompanion Function({
   Value<String?> thumbnailRef,
   Value<bool> isCustom,
   Value<String?> ownerId,
+  Value<int?> restSeconds,
   Value<int> rowid,
 });
 
@@ -8298,6 +8513,11 @@ class $$ExercisesTableFilterComposer
 
   ColumnFilters<String> get ownerId => $composableBuilder(
     column: $table.ownerId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get restSeconds => $composableBuilder(
+    column: $table.restSeconds,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -8390,6 +8610,11 @@ class $$ExercisesTableOrderingComposer
     column: $table.ownerId,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<int> get restSeconds => $composableBuilder(
+    column: $table.restSeconds,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$ExercisesTableAnnotationComposer
@@ -8458,6 +8683,11 @@ class $$ExercisesTableAnnotationComposer
 
   GeneratedColumn<String> get ownerId =>
       $composableBuilder(column: $table.ownerId, builder: (column) => column);
+
+  GeneratedColumn<int> get restSeconds => $composableBuilder(
+    column: $table.restSeconds,
+    builder: (column) => column,
+  );
 }
 
 class $$ExercisesTableTableManager
@@ -8504,6 +8734,7 @@ class $$ExercisesTableTableManager
                 Value<String?> thumbnailRef = const Value.absent(),
                 Value<bool> isCustom = const Value.absent(),
                 Value<String?> ownerId = const Value.absent(),
+                Value<int?> restSeconds = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ExercisesCompanion(
                 updatedAt: updatedAt,
@@ -8522,6 +8753,7 @@ class $$ExercisesTableTableManager
                 thumbnailRef: thumbnailRef,
                 isCustom: isCustom,
                 ownerId: ownerId,
+                restSeconds: restSeconds,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -8542,6 +8774,7 @@ class $$ExercisesTableTableManager
                 Value<String?> thumbnailRef = const Value.absent(),
                 Value<bool> isCustom = const Value.absent(),
                 Value<String?> ownerId = const Value.absent(),
+                Value<int?> restSeconds = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ExercisesCompanion.insert(
                 updatedAt: updatedAt,
@@ -8560,6 +8793,7 @@ class $$ExercisesTableTableManager
                 thumbnailRef: thumbnailRef,
                 isCustom: isCustom,
                 ownerId: ownerId,
+                restSeconds: restSeconds,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -9079,6 +9313,9 @@ typedef $$RoutineExercisesTableCreateCompanionBuilder =
       Value<double?> targetRpe,
       Value<double?> targetWeight,
       Value<int> restSeconds,
+      Value<int> warmupSets,
+      Value<int> dropSets,
+      Value<int> failureSets,
       Value<bool> isWarmup,
       Value<String?> notes,
       Value<int> rowid,
@@ -9098,6 +9335,9 @@ typedef $$RoutineExercisesTableUpdateCompanionBuilder =
       Value<double?> targetRpe,
       Value<double?> targetWeight,
       Value<int> restSeconds,
+      Value<int> warmupSets,
+      Value<int> dropSets,
+      Value<int> failureSets,
       Value<bool> isWarmup,
       Value<String?> notes,
       Value<int> rowid,
@@ -9174,6 +9414,21 @@ class $$RoutineExercisesTableFilterComposer
 
   ColumnFilters<int> get restSeconds => $composableBuilder(
     column: $table.restSeconds,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get warmupSets => $composableBuilder(
+    column: $table.warmupSets,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get dropSets => $composableBuilder(
+    column: $table.dropSets,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get failureSets => $composableBuilder(
+    column: $table.failureSets,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -9262,6 +9517,21 @@ class $$RoutineExercisesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get warmupSets => $composableBuilder(
+    column: $table.warmupSets,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get dropSets => $composableBuilder(
+    column: $table.dropSets,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get failureSets => $composableBuilder(
+    column: $table.failureSets,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<bool> get isWarmup => $composableBuilder(
     column: $table.isWarmup,
     builder: (column) => ColumnOrderings(column),
@@ -9335,6 +9605,19 @@ class $$RoutineExercisesTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<int> get warmupSets => $composableBuilder(
+    column: $table.warmupSets,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get dropSets =>
+      $composableBuilder(column: $table.dropSets, builder: (column) => column);
+
+  GeneratedColumn<int> get failureSets => $composableBuilder(
+    column: $table.failureSets,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<bool> get isWarmup =>
       $composableBuilder(column: $table.isWarmup, builder: (column) => column);
 
@@ -9392,6 +9675,9 @@ class $$RoutineExercisesTableTableManager
                 Value<double?> targetRpe = const Value.absent(),
                 Value<double?> targetWeight = const Value.absent(),
                 Value<int> restSeconds = const Value.absent(),
+                Value<int> warmupSets = const Value.absent(),
+                Value<int> dropSets = const Value.absent(),
+                Value<int> failureSets = const Value.absent(),
                 Value<bool> isWarmup = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -9409,6 +9695,9 @@ class $$RoutineExercisesTableTableManager
                 targetRpe: targetRpe,
                 targetWeight: targetWeight,
                 restSeconds: restSeconds,
+                warmupSets: warmupSets,
+                dropSets: dropSets,
+                failureSets: failureSets,
                 isWarmup: isWarmup,
                 notes: notes,
                 rowid: rowid,
@@ -9428,6 +9717,9 @@ class $$RoutineExercisesTableTableManager
                 Value<double?> targetRpe = const Value.absent(),
                 Value<double?> targetWeight = const Value.absent(),
                 Value<int> restSeconds = const Value.absent(),
+                Value<int> warmupSets = const Value.absent(),
+                Value<int> dropSets = const Value.absent(),
+                Value<int> failureSets = const Value.absent(),
                 Value<bool> isWarmup = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -9445,6 +9737,9 @@ class $$RoutineExercisesTableTableManager
                 targetRpe: targetRpe,
                 targetWeight: targetWeight,
                 restSeconds: restSeconds,
+                warmupSets: warmupSets,
+                dropSets: dropSets,
+                failureSets: failureSets,
                 isWarmup: isWarmup,
                 notes: notes,
                 rowid: rowid,

@@ -44,6 +44,10 @@ void main() {
     double? weight,
     bool linkNext = false,
     bool warmup = false,
+    int warmupSets = 0,
+    int dropSets = 0,
+    int failureSets = 0,
+    int restSeconds = inheritRestSeconds,
   }) =>
       RoutineDraft(
         exerciseId: id,
@@ -51,7 +55,12 @@ void main() {
         targetReps: reps,
         targetWeight: weight,
         linkNext: linkNext,
-        isWarmup: warmup,
+        // `warmup: true` = the v1/v2 "whole entry is warm-up" flag, now
+        // expressed as a count of `sets`.
+        warmupSets: warmup ? sets : warmupSets,
+        dropSets: dropSets,
+        failureSets: failureSets,
+        restSeconds: restSeconds,
       );
 
   group('saveRoutine', () {
@@ -94,7 +103,7 @@ void main() {
       expect(rows[1].targetWeight, 60);
       expect(rows[1].targetSets, 3);
       expect(rows[1].targetReps, 8);
-      expect(rows[1].restSeconds, 90);
+      expect(rows[1].restSeconds, inheritRestSeconds); // no override yet
     });
 
     test('re-save replaces children without duplicates', () async {
@@ -240,6 +249,50 @@ void main() {
       // Warm-up sets don't count toward working volume even when done.
       await session().updateSet(s.sets.first.id, complete: true);
       expect((await readSession())!.volumeKg, 0);
+    });
+
+    test('per-type counts seed warmup → working → drop → failure in order',
+        () async {
+      final id = await repo.saveRoutine(name: 'Types', entries: [
+        draft('barbell-bench-press',
+            sets: 7, reps: 8, warmupSets: 2, dropSets: 1, failureSets: 1),
+      ]);
+      await session().startWorkout(routineId: id);
+      final s = await readSession();
+
+      // 2 + 3 working + 1 + 1 = 7 total, in that order.
+      expect(s!.sets.map((x) => x.setType).toList(), [
+        'warmup',
+        'warmup',
+        'working',
+        'working',
+        'working',
+        'drop',
+        'failure',
+      ]);
+
+      // Warm-up excluded, drop/failure included in volume when completed.
+      for (final x in s.sets) {
+        await session().updateSet(x.id, complete: true, weightKg: 60);
+      }
+      final done = (await readSession())!;
+      expect(done.volumeKg, closeTo(60 * 8 * 5, 0.001)); // working+drop+fail
+    });
+
+    test('an explicit rest override is persisted; default stays inherit',
+        () async {
+      final id = await repo.saveRoutine(name: 'Rest', entries: [
+        draft('barbell-bench-press', restSeconds: 150),
+        draft('barbell-row'),
+      ]);
+      final rows = await (db.routineExercises.select()
+            ..where((e) => e.routineId.equals(id))
+            ..orderBy([(e) => OrderingTerm.asc(e.orderIndex)]))
+          .get();
+      expect(rows[0].restSeconds, 150);
+      expect(rows[1].restSeconds, inheritRestSeconds);
+      // Legacy flag mirrors "plans at least one warm-up set".
+      expect(rows[0].isWarmup, isFalse);
     });
 
     test('guard: a second startWorkout while active is a no-op', () async {

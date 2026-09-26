@@ -20,6 +20,9 @@ class SettingsState {
     this.reminderWeekday = DateTime.monday,
     this.reminderHour = 18,
     this.reminderMinute = 0,
+    this.restWarmupSec = 60,
+    this.restWorkingSec = 90,
+    this.restFailureSec = 120,
   });
 
   final UnitSystem unit;
@@ -38,6 +41,13 @@ class SettingsState {
   final int reminderHour;
   final int reminderMinute;
 
+  /// Global rest periods by set type, in seconds. Drop sets share
+  /// [restWorkingSec]. These are the fallback under the per-exercise and
+  /// per-routine overrides.
+  final int restWarmupSec;
+  final int restWorkingSec;
+  final int restFailureSec;
+
   SettingsState copyWith({
     UnitSystem? unit,
     ThemeMode? themeMode,
@@ -48,6 +58,9 @@ class SettingsState {
     int? reminderWeekday,
     int? reminderHour,
     int? reminderMinute,
+    int? restWarmupSec,
+    int? restWorkingSec,
+    int? restFailureSec,
   }) =>
       SettingsState(
         unit: unit ?? this.unit,
@@ -59,6 +72,9 @@ class SettingsState {
         reminderWeekday: reminderWeekday ?? this.reminderWeekday,
         reminderHour: reminderHour ?? this.reminderHour,
         reminderMinute: reminderMinute ?? this.reminderMinute,
+        restWarmupSec: restWarmupSec ?? this.restWarmupSec,
+        restWorkingSec: restWorkingSec ?? this.restWorkingSec,
+        restFailureSec: restFailureSec ?? this.restFailureSec,
       );
 }
 
@@ -81,6 +97,9 @@ class SettingsNotifier extends Notifier<SettingsState> {
       reminderWeekday: _prefs.getInt('reminder_weekday') ?? DateTime.monday,
       reminderHour: _prefs.getInt('reminder_hour') ?? 18,
       reminderMinute: _prefs.getInt('reminder_minute') ?? 0,
+      restWarmupSec: _prefs.getInt('rest_warmup_sec') ?? 60,
+      restWorkingSec: _prefs.getInt('rest_working_sec') ?? 90,
+      restFailureSec: _prefs.getInt('rest_failure_sec') ?? 120,
     );
   }
 
@@ -123,6 +142,22 @@ class SettingsNotifier extends Notifier<SettingsState> {
     state = state.copyWith(reminderHour: hour, reminderMinute: minute);
     await _prefs.setInt('reminder_hour', hour);
     await _prefs.setInt('reminder_minute', minute);
+  }
+
+  /// Rest periods are clamped to 0 (timer off) … 600 s (10 min).
+  Future<void> setRestWarmup(int seconds) async {
+    state = state.copyWith(restWarmupSec: seconds.clamp(0, 600));
+    await _prefs.setInt('rest_warmup_sec', state.restWarmupSec);
+  }
+
+  Future<void> setRestWorking(int seconds) async {
+    state = state.copyWith(restWorkingSec: seconds.clamp(0, 600));
+    await _prefs.setInt('rest_working_sec', state.restWorkingSec);
+  }
+
+  Future<void> setRestFailure(int seconds) async {
+    state = state.copyWith(restFailureSec: seconds.clamp(0, 600));
+    await _prefs.setInt('rest_failure_sec', state.restFailureSec);
   }
 }
 

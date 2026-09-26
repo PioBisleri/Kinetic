@@ -162,6 +162,95 @@ void main() {
       expect(stats.count, 1);
     });
 
+    test('a pre-v3 backup (no count/rest keys) still imports', () async {
+      // Exactly what Round 2's exporter wrote: entries carry the v1/v2
+      // isWarmup flag and the un-editable 90 s placeholder, exercises have
+      // no rest column at all.
+      const legacy = '''
+      {
+        "app": "kinetic",
+        "format": 1,
+        "exportedAt": "2026-09-01T10:00:00.000",
+        "exercises": [
+          {
+            "id": "cus_legacy",
+            "name": "Old Lift",
+            "mechanics": "compound",
+            "category": "custom",
+            "primaryMuscleId": "chest",
+            "equipment": "[]",
+            "defaultMetric": "weight_reps",
+            "animationKind": "none",
+            "isCustom": true,
+            "ownerId": "local",
+            "updatedAt": "2026-09-01T10:00:00.000"
+          }
+        ],
+        "routines": [
+          {
+            "id": "r1",
+            "userId": "local",
+            "name": "Legacy Day",
+            "orderIndex": 0,
+            "updatedAt": "2026-09-01T10:00:00.000",
+            "entries": [
+              {
+                "id": "e1",
+                "routineId": "r1",
+                "exerciseId": "cus_legacy",
+                "orderIndex": 0,
+                "targetSets": 2,
+                "targetReps": 10,
+                "restSeconds": 90,
+                "isWarmup": true,
+                "updatedAt": "2026-09-01T10:00:00.000"
+              },
+              {
+                "id": "e2",
+                "routineId": "r1",
+                "exerciseId": "barbell-row",
+                "orderIndex": 1,
+                "targetSets": 3,
+                "targetReps": 8,
+                "restSeconds": 90,
+                "isWarmup": false,
+                "updatedAt": "2026-09-01T10:00:00.000"
+              }
+            ]
+          }
+        ],
+        "workouts": []
+      }
+      ''';
+
+      final summary = await ImportService(db).importJson(legacy);
+      expect(summary.exercises, 1);
+      expect(summary.routines, 1);
+
+      final slots = await (db.routineExercises.select()
+            ..orderBy([(e) => OrderingTerm.asc(e.orderIndex)]))
+          .get();
+      expect(slots, hasLength(2));
+
+      // The whole-entry warm-up flag becomes a warm-up count…
+      expect(slots[0].targetSets, 2);
+      expect(slots[0].warmupSets, 2);
+      expect(slots[0].dropSets, 0);
+      expect(slots[0].failureSets, 0);
+      expect(slots[0].isWarmup, isTrue);
+      // …and the placeholder 90 becomes "inherit".
+      expect(slots[0].restSeconds, inheritRestSeconds);
+
+      expect(slots[1].warmupSets, 0);
+      expect(slots[1].restSeconds, inheritRestSeconds);
+
+      // Exercises import with no rest override.
+      final ex = await (db.exercises.select()
+            ..where((e) => e.id.equals('cus_legacy')))
+          .getSingle();
+      expect(ex.restSeconds, isNull);
+    });
+
     test('invalid backups are rejected before anything is written',
         () async {
       await seedWorkout(DateTime(2026, 9, 20, 10));

@@ -351,6 +351,35 @@ void main() {
     await endApp(tester);
   });
 
+  testWidgets('a routine rest override drives the auto-started timer',
+      (tester) async {
+    final repo = RoutineRepository(db);
+    final id = await repo.saveRoutine(name: 'Leg Day', entries: [
+      const RoutineDraft(
+          exerciseId: 'barbell-back-squat',
+          targetSets: 2,
+          targetReps: 5,
+          targetWeight: 100,
+          restSeconds: 150), // override: 2m 30s instead of the 90s default
+    ]);
+
+    await pumpApp(tester);
+    await tester.tap(find.text('Routines'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(Key('start-routine-$id')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('100 kg × 5').first);
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const Key('set-save')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('set-save')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('2:30'), findsOneWidget); // the routine's own rest
+    await endApp(tester);
+  });
+
   testWidgets('finish warns when planned sets were never checked',
       (tester) async {
     final repo = RoutineRepository(db);
@@ -401,9 +430,11 @@ void main() {
     expect(find.text('Edit Routine'), findsOneWidget);
     expect(find.text('Barbell Bent-Over Row'), findsOneWidget);
 
-    // Drag the first card's handle down past the second card.
+    // Drag the first card's handle down past the second card. Cards are
+    // four rows tall now (targets + set types + rest/superset), so clear
+    // more than two card heights.
     await tester.drag(
-        find.byIcon(Icons.drag_handle).first, const Offset(0, 400));
+        find.byIcon(Icons.drag_handle).first, const Offset(0, 600));
     await tester.pumpAndSettle();
 
     await tester.ensureVisible(find.byKey(const Key('routine-save')));

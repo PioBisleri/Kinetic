@@ -8,6 +8,7 @@ import '../../core/database/database.dart';
 import '../../core/settings/settings.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/weight_units.dart';
+import 'application/rest_resolver.dart';
 import 'application/workout_session_notifier.dart';
 import 'widgets/add_exercise_sheet.dart';
 import 'widgets/rest_timer_bar.dart';
@@ -24,14 +25,6 @@ class LiveWorkoutPage extends ConsumerStatefulWidget {
 
 class _LiveWorkoutPageState extends ConsumerState<LiveWorkoutPage> {
   Timer? _ticker;
-
-  /// Rest periods by set type (seconds).
-  static const _restByType = {
-    'working': 90,
-    'drop': 90,
-    'failure': 120,
-    'warmup': 60,
-  };
 
   @override
   void initState() {
@@ -203,14 +196,20 @@ class _LiveWorkoutPageState extends ConsumerState<LiveWorkoutPage> {
       heartRate: result.heartRate,
     );
 
-    final rest = _restByType[result.setType];
-    if (rest != null && mounted) {
+    final rest = await resolveRestSeconds(
+      db: ref.read(databaseProvider),
+      settings: ref.read(settingsProvider),
+      session: session,
+      exerciseId: exercise.id,
+      setType: result.setType,
+    );
+    if (rest > 0 && mounted) {
       ref.read(restTimerProvider.notifier).start(rest);
     }
   }
 
-  Future<void> _editSet(
-      Exercise exercise, WorkoutSet set, int number) async {
+  Future<void> _editSet(WorkoutSession session, Exercise exercise,
+      WorkoutSet set, int number) async {
     final result = await showSetEditSheet(
       context,
       exercise: exercise,
@@ -242,8 +241,14 @@ class _LiveWorkoutPageState extends ConsumerState<LiveWorkoutPage> {
       );
       // Completing a routine's planned set starts the rest period.
       if (wasPlanned && mounted) {
-        final rest = _restByType[result.setType];
-        if (rest != null) ref.read(restTimerProvider.notifier).start(rest);
+        final rest = await resolveRestSeconds(
+          db: ref.read(databaseProvider),
+          settings: ref.read(settingsProvider),
+          session: session,
+          exerciseId: exercise.id,
+          setType: result.setType,
+        );
+        if (rest > 0) ref.read(restTimerProvider.notifier).start(rest);
       }
     }
   }
@@ -350,7 +355,7 @@ class _LiveWorkoutPageState extends ConsumerState<LiveWorkoutPage> {
                   unit: unit,
                   onAddSet: () => _logSet(session.exercises[i], session),
                   onEditSet: (set, number) =>
-                      _editSet(session.exercises[i], set, number),
+                      _editSet(session, session.exercises[i], set, number),
                   onSupersetNext: () => ref
                       .read(workoutSessionProvider.notifier)
                       .supersetWithNext(session.exercises[i].id),

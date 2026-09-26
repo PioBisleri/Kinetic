@@ -415,4 +415,70 @@ void main() {
     );
     await endApp(tester);
   });
+
+  testWidgets('exercise rest override: default → custom → back to default',
+      (tester) async {
+    await pumpApp(tester);
+    await tester.tap(find.text('Routines'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('open-library')));
+    await tester.pumpAndSettle();
+    await scrollLibraryTo(tester, find.text('Barbell Bench Press'));
+    await tester.tap(find.text('Barbell Bench Press'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('edit-exercise')));
+    await tester.pumpAndSettle();
+
+    // The rest row lives below "How it's logged".
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('exercise-rest-default')),
+      200,
+      scrollable: pageScrollable(ExerciseEditPage),
+    );
+    await tester.pumpAndSettle();
+
+    // Seeded exercises have no override → chip ON, Settings default shown.
+    final chip = tester.widget<FilterChip>(
+      find.byKey(const Key('exercise-rest-default')),
+    );
+    expect(chip.selected, isTrue);
+    expect(find.text('Uses Settings default'), findsOneWidget);
+
+    // Leave Default → seeds from the working default (90 s).
+    await tester.tap(find.byKey(const Key('exercise-rest-default')));
+    await tester.pumpAndSettle();
+    expect(find.text('1m 30s'), findsOneWidget);
+
+    // −15 → 1m 15s, saved to the row.
+    await tester.tap(find.byKey(const Key('exercise-rest-minus')));
+    await tester.pumpAndSettle();
+    expect(find.text('1m 15s'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('exercise-save')));
+    await tester.pumpAndSettle();
+    final saved = await (db.select(db.exercises)
+          ..where((e) => e.id.equals('barbell-bench-press')))
+        .getSingle();
+    expect(saved.restSeconds, 75);
+
+    // Re-open → round trip → then hand it back to the defaults.
+    await tester.tap(find.byKey(const Key('edit-exercise')));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('exercise-rest-default')),
+      200,
+      scrollable: pageScrollable(ExerciseEditPage),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('1m 15s'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('exercise-rest-default')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('exercise-save')));
+    await tester.pumpAndSettle();
+    final reset = await (db.select(db.exercises)
+          ..where((e) => e.id.equals('barbell-bench-press')))
+        .getSingle();
+    expect(reset.restSeconds, isNull); // inherit again
+    await endApp(tester);
+  });
 }

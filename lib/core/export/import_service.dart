@@ -97,12 +97,41 @@ class ImportService {
     );
   }
 
+  /// Fills in fields added after a backup was written.
+  ///
+  /// Backups all share `format: 1` (the shape is additive), so a pre-v3
+  /// file simply lacks the v3 keys — and drift's generated `fromJson`
+  /// throws on a missing non-nullable int. Two cases:
+  ///
+  /// * routine entries: no `warmupSets` yet → derive the counts from the
+  ///   v1/v2 `isWarmup` flag, and rewrite `restSeconds` (a placeholder no
+  ///   UI could ever edit before Round 3) to [inheritRestSeconds];
+  /// * exercises: `restSeconds` is nullable, so an absent key already
+  ///   decodes to null = "inherit" and needs no patch.
+  static Map<String, dynamic> _normalize(Map<String, dynamic> doc) {
+    for (final routine in doc['routines'] as List) {
+      final entries =
+          (routine as Map<String, dynamic>)['entries'] as List? ?? const [];
+      for (final entry in entries) {
+        final e = entry as Map<String, dynamic>;
+        if (e.containsKey('warmupSets')) continue; // already v3
+        final total = (e['targetSets'] as num?)?.toInt() ?? 3;
+        final wasWarmup = e['isWarmup'] == true;
+        e['warmupSets'] = wasWarmup ? total : 0;
+        e['dropSets'] = 0;
+        e['failureSets'] = 0;
+        e['restSeconds'] = inheritRestSeconds;
+      }
+    }
+    return doc;
+  }
+
   /// Replaces all local data with the backup's contents, then rebuilds
   /// the analytics rollups. Throws [FormatException] before touching the
   /// database if the document is invalid.
   Future<ImportSummary> importJson(String content) async {
     final preview = parse(content);
-    final doc = preview.doc;
+    final doc = _normalize(preview.doc);
 
     // ---- decode first: any problem throws before a single row is written
     final profile = _decode(() => doc['profile'] is Map<String, dynamic>

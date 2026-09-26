@@ -146,7 +146,7 @@ class ProfilePage extends ConsumerWidget {
               leading: Icon(Icons.info_outline,
                   color: context.textSecondary),
               title: const Text('Kinetic'),
-              subtitle: const Text('Version 0.1.0 · offline-first'),
+              subtitle: const Text('Version 0.1.1 · offline-first'),
             ),
           ]),
         ],

@@ -160,20 +160,34 @@ class WorkoutSessionNotifier extends AsyncNotifier<WorkoutSession?> {
         var order = 0;
         await _db.batch((b) {
           for (final e in planned) {
-            for (var i = 0; i < e.targetSets; i++) {
-              b.insert(_db.workoutSets, WorkoutSetsCompanion.insert(
-                id: _uuid.v4(),
-                workoutId: workoutId,
-                exerciseId: e.exerciseId,
-                orderIndex: order++,
-                setType: Value(e.isWarmup ? 'warmup' : 'working'),
-                supersetGroup: Value(e.supersetGroup),
-                weightKg: Value(e.targetWeight),
-                reps: Value(e.targetReps),
-                rpe: Value(e.targetRpe),
-                isCompleted: const Value(false),
-                updatedAt: now,
-              ));
+            // Hevy-style: warm-up first, then working, drop, failure.
+            final working = (e.targetSets -
+                    e.warmupSets -
+                    e.dropSets -
+                    e.failureSets)
+                .clamp(0, e.targetSets);
+            final typed = <(String, int)>[
+              ('warmup', e.warmupSets),
+              ('working', working),
+              ('drop', e.dropSets),
+              ('failure', e.failureSets),
+            ];
+            for (final (type, count) in typed) {
+              for (var i = 0; i < count; i++) {
+                b.insert(_db.workoutSets, WorkoutSetsCompanion.insert(
+                  id: _uuid.v4(),
+                  workoutId: workoutId,
+                  exerciseId: e.exerciseId,
+                  orderIndex: order++,
+                  setType: Value(type),
+                  supersetGroup: Value(e.supersetGroup),
+                  weightKg: Value(e.targetWeight),
+                  reps: Value(e.targetReps),
+                  rpe: Value(e.targetRpe),
+                  isCompleted: const Value(false),
+                  updatedAt: now,
+                ));
+              }
             }
           }
         });

@@ -8,7 +8,9 @@ import 'package:uuid/uuid.dart';
 
 import '../../core/database/database.dart';
 import '../../core/database/database_providers.dart';
+import '../../core/settings/settings.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/rest_format.dart';
 
 /// Display parents (see seed `groups`) — every other muscle row is a
 /// loggable leaf. `chest` is a leaf despite also being a group id, so it
@@ -56,6 +58,9 @@ class _ExerciseEditPageState extends ConsumerState<ExerciseEditPage> {
   String _metric = 'weight_reps';
   Set<String> _secondary = <String>{};
 
+  /// Rest override for this exercise; null = use the Settings default.
+  int? _restSec;
+
   /// Per-muscle share of set volume for each secondary muscle (0–1,
   /// default 0.4). The primary muscle is always 1.0.
   final Map<String, double> _contributions = {};
@@ -93,6 +98,7 @@ class _ExerciseEditPageState extends ConsumerState<ExerciseEditPage> {
       _force = exercise.forceType;
       _primaryId = exercise.primaryMuscleId;
       _metric = exercise.defaultMetric;
+      _restSec = exercise.restSeconds;
       _equipmentCtrl.text =
           (jsonDecode(exercise.equipment) as List).cast<String>().join(', ');
       _secondary = {
@@ -142,6 +148,7 @@ class _ExerciseEditPageState extends ConsumerState<ExerciseEditPage> {
                 defaultMetric: Value(_metric),
                 isCustom: const Value(true),
                 ownerId: const Value('local'),
+                restSeconds: Value(_restSec),
                 updatedAt: now,
               ),
             );
@@ -159,6 +166,7 @@ class _ExerciseEditPageState extends ConsumerState<ExerciseEditPage> {
           primaryMuscleId: Value(primary),
           equipment: Value(equipment),
           defaultMetric: Value(_metric),
+          restSeconds: Value(_restSec),
           updatedAt: Value(now),
         ));
         await (db.delete(db.exerciseMuscleMap)
@@ -393,6 +401,58 @@ class _ExerciseEditPageState extends ConsumerState<ExerciseEditPage> {
                   showSelectedIcon: false,
                   onSelectionChanged: (s) =>
                       setState(() => _metric = s.first),
+                ),
+                const SizedBox(height: 20),
+                const _SectionLabel('Rest between sets'),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    children: [
+                      FilterChip(
+                        key: const Key('exercise-rest-default'),
+                        label: const Text('Default'),
+                        selected: _restSec == null,
+                        onSelected: (useDefault) {
+                          final seed = _restSec ??
+                              ref.read(settingsProvider).restWorkingSec;
+                          setState(() =>
+                              _restSec = useDefault ? null : seed);
+                        },
+                        selectedColor:
+                            AppColors.accent.withValues(alpha: 0.18),
+                        checkmarkColor: AppColors.accent,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          _restSec == null
+                              ? 'Uses Settings default'
+                              : formatRest(_restSec!),
+                          key: const Key('exercise-rest-value'),
+                          style: TextStyle(
+                              fontSize: 13, color: context.textTertiary),
+                        ),
+                      ),
+                      IconButton(
+                        key: const Key('exercise-rest-minus'),
+                        icon: const Icon(Icons.remove, size: 18),
+                        onPressed: () {
+                          final base = _restSec ??
+                              ref.read(settingsProvider).restWorkingSec;
+                          setState(() => _restSec = (base - 15).clamp(0, 600));
+                        },
+                      ),
+                      IconButton(
+                        key: const Key('exercise-rest-plus'),
+                        icon: const Icon(Icons.add, size: 18),
+                        onPressed: () {
+                          final base = _restSec ??
+                              ref.read(settingsProvider).restWorkingSec;
+                          setState(() => _restSec = (base + 15).clamp(0, 600));
+                        },
+                      ),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 24),
               ],

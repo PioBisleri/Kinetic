@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/notifications/weekly_reminder_service.dart';
 import '../../core/settings/settings.dart';
+import '../../core/utils/rest_format.dart';
 import '../../core/widgets/section_card.dart';
 import 'sync_section.dart';
 
@@ -139,6 +140,82 @@ class SettingsPage extends ConsumerWidget {
             ],
           ]),
           const SizedBox(height: 16),
+          SectionCard(title: 'Rest', children: [
+            _RestRow(
+              id: 'rest-warmup',
+              title: 'Warm-up sets',
+              value: settings.restWarmupSec,
+              onChanged: notifier.setRestWarmup,
+            ),
+            _RestRow(
+              id: 'rest-working',
+              title: 'Working & drop sets',
+              value: settings.restWorkingSec,
+              onChanged: notifier.setRestWorking,
+            ),
+            _RestRow(
+              id: 'rest-failure',
+              title: 'Failure sets',
+              value: settings.restFailureSec,
+              onChanged: notifier.setRestFailure,
+            ),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: Text(
+                'Routine and exercise overrides win over these defaults.',
+                style: TextStyle(fontSize: 12),
+              ),
+            ),
+          ]),
+          const SizedBox(height: 16),
+        ],
+      ),
+    );
+  }
+}
+
+String _fmtRest(int seconds) => formatRest(seconds);
+
+/// One rest duration row: label, formatted value, −/+ steppers (15 s steps,
+/// 0 = timer off … 600 s).
+class _RestRow extends StatelessWidget {
+  const _RestRow({
+    required this.id,
+    required this.title,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final String id;
+  final String title;
+  final int value;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      title: Text(title),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            key: Key('$id-minus'),
+            icon: const Icon(Icons.remove, size: 18),
+            onPressed: value <= 0 ? null : () => onChanged(value - 15),
+          ),
+          SizedBox(
+            width: 56,
+            child: Text(
+              _fmtRest(value),
+              key: Key('$id-value'),
+              textAlign: TextAlign.center,
+            ),
+          ),
+          IconButton(
+            key: Key('$id-plus'),
+            icon: const Icon(Icons.add, size: 18),
+            onPressed: value >= 600 ? null : () => onChanged(value + 15),
+          ),
         ],
       ),
     );

@@ -6,6 +6,7 @@ import 'package:uuid/uuid.dart';
 import '../../core/database/database.dart';
 import '../../core/settings/settings.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/rest_format.dart';
 import '../../core/utils/weight_units.dart';
 import '../workout/widgets/add_exercise_sheet.dart';
 import 'application/routine_providers.dart';
@@ -31,20 +32,43 @@ class _EntryDraft {
     required this.sets,
     required this.reps,
     required this.restSeconds,
-    required this.warmup,
     required this.linkNext,
+    this.warmupSets = 0,
+    this.dropSets = 0,
+    this.failureSets = 0,
     this.weightKg,
   });
 
   final String uid; // stable key across reorders
   final String exerciseId;
   final String exerciseName;
-  int sets;
+  int sets; // TOTAL planned sets
   int reps;
   double? weightKg; // kg, null = "bring your usual"
+
+  /// Rest override, or [inheritRestSeconds] = "use Settings".
   int restSeconds;
-  bool warmup;
+
+  int warmupSets;
+  int dropSets;
+  int failureSets;
   bool linkNext; // superset with the entry below
+
+  /// Working sets = total − the other three types (never below 0).
+  int get workingSets =>
+      (sets - warmupSets - dropSets - failureSets).clamp(0, sets);
+
+  /// Lowering the total takes the set out of a typed slot first
+  /// (failure → drop → warm-up), so working sets survive longest.
+  void removeOneTypedSet() {
+    if (failureSets > 0) {
+      failureSets--;
+    } else if (dropSets > 0) {
+      dropSets--;
+    } else if (warmupSets > 0) {
+      warmupSets--;
+    }
+  }
 }
 
 class _RoutineEditorPageState extends ConsumerState<RoutineEditorPage> {
@@ -82,7 +106,9 @@ class _RoutineEditorPageState extends ConsumerState<RoutineEditorPage> {
             reps: e.row.targetReps,
             weightKg: e.row.targetWeight,
             restSeconds: e.row.restSeconds,
-            warmup: e.row.isWarmup,
+            warmupSets: e.row.warmupSets,
+            dropSets: e.row.dropSets,
+            failureSets: e.row.failureSets,
             linkNext: false,
           ),
       ]);
@@ -126,8 +152,7 @@ class _RoutineEditorPageState extends ConsumerState<RoutineEditorPage> {
         exerciseName: exercise.name,
         sets: 3,
         reps: 8,
-        restSeconds: 90,
-        warmup: false,
+        restSeconds: inheritRestSeconds,
         linkNext: false,
       ));
     });
@@ -153,7 +178,9 @@ class _RoutineEditorPageState extends ConsumerState<RoutineEditorPage> {
                 targetReps: e.reps,
                 targetWeight: e.weightKg,
                 restSeconds: e.restSeconds,
-                isWarmup: e.warmup,
+                warmupSets: e.warmupSets,
+                dropSets: e.dropSets,
+                failureSets: e.failureSets,
                 linkNext: e.linkNext,
               ),
           ],
@@ -342,10 +369,13 @@ class _RoutineEditorPageState extends ConsumerState<RoutineEditorPage> {
                     value: e.sets,
                     minusKey: Key('sets-minus-${e.exerciseId}'),
                     plusKey: Key('sets-plus-${e.exerciseId}'),
-                    onMinus: () => setState(
-                        () => e.sets = (e.sets - 1).clamp(1, 20)),
-                    onPlus: () =>
-                        setState(() => e.sets = (e.sets + 1).clamp(1, 20)),
+                    onMinus: () => setState(() {
+                      e.sets = (e.sets - 1).clamp(1, 20);
+                      e.removeOneTypedSet();
+                    }),
+                    onPlus: () => setState(() {
+                      e.sets = (e.sets + 1).clamp(1, 20);
+                    }),
                   ),
                   _MiniStepper(
                     label: 'Reps',
@@ -386,6 +416,50 @@ class _RoutineEditorPageState extends ConsumerState<RoutineEditorPage> {
               ),
               const SizedBox(height: 8),
               Wrap(
+                spacing: 14,
+                runSpacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  _MiniStepper(
+                    label: 'Warm-up',
+                    labelWidth: 58,
+                    value: e.warmupSets,
+                    minusKey: Key('warmup-minus-${e.exerciseId}'),
+                    plusKey: Key('warmup-plus-${e.exerciseId}'),
+                    onMinus: () => setState(() => e.warmupSets =
+                        (e.warmupSets - 1).clamp(0, e.workingSets + e.warmupSets)),
+                    onPlus: () => setState(() => e.warmupSets = (e.warmupSets + 1)
+                        .clamp(0, e.sets - e.dropSets - e.failureSets)),
+                  ),
+                  _MiniStepper(
+                    label: 'Drop',
+                    value: e.dropSets,
+                    minusKey: Key('drop-minus-${e.exerciseId}'),
+                    plusKey: Key('drop-plus-${e.exerciseId}'),
+                    onMinus: () => setState(() => e.dropSets =
+                        (e.dropSets - 1).clamp(0, e.workingSets + e.dropSets)),
+                    onPlus: () => setState(() => e.dropSets = (e.dropSets + 1)
+                        .clamp(0, e.sets - e.warmupSets - e.failureSets)),
+                  ),
+                  _MiniStepper(
+                    label: 'Fail',
+                    value: e.failureSets,
+                    minusKey: Key('failure-minus-${e.exerciseId}'),
+                    plusKey: Key('failure-plus-${e.exerciseId}'),
+                    onMinus: () => setState(() => e.failureSets = (e.failureSets - 1)
+                        .clamp(0, e.workingSets + e.failureSets)),
+                    onPlus: () => setState(() => e.failureSets =
+                        (e.failureSets + 1)
+                            .clamp(0, e.sets - e.warmupSets - e.dropSets)),
+                  ),
+                  Text(
+                    '${e.workingSets} working',
+                    style: TextStyle(fontSize: 12, color: context.textTertiary),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Wrap(
                 spacing: 8,
                 children: [
                   if (!isLast)
@@ -410,26 +484,12 @@ class _RoutineEditorPageState extends ConsumerState<RoutineEditorPage> {
                             : context.border,
                       ),
                     ),
-                  FilterChip(
-                    key: Key('warmup-${e.exerciseId}'),
-                    label: const Text('Warm-up'),
-                    selected: e.warmup,
-                    showCheckmark: false,
-                    onSelected: (v) => setState(() => e.warmup = v),
-                    selectedColor:
-                        AppColors.heatWarm.withValues(alpha: 0.15),
-                    labelStyle: TextStyle(
-                      color: e.warmup
-                          ? AppColors.heatWarm
-                          : context.textSecondary,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 12,
-                    ),
-                    side: BorderSide(
-                      color: e.warmup
-                          ? AppColors.heatWarm
-                          : context.border,
-                    ),
+                  _RestControl(
+                    id: 'rest-${e.exerciseId}',
+                    restSeconds: e.restSeconds,
+                    defaultSeconds:
+                        ref.read(settingsProvider).restWorkingSec,
+                    onChanged: (v) => setState(() => e.restSeconds = v),
                   ),
                 ],
               ),
@@ -449,6 +509,7 @@ class _MiniStepper extends StatelessWidget {
     required this.plusKey,
     required this.onMinus,
     required this.onPlus,
+    this.labelWidth = 42,
   });
 
   final String label;
@@ -457,6 +518,7 @@ class _MiniStepper extends StatelessWidget {
   final Key plusKey;
   final VoidCallback onMinus;
   final VoidCallback onPlus;
+  final double labelWidth;
 
   @override
   Widget build(BuildContext context) {
@@ -464,7 +526,7 @@ class _MiniStepper extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         SizedBox(
-          width: 42,
+          width: labelWidth,
           child: Text(label,
               style:
                   TextStyle(fontSize: 12, color: context.textSecondary)),
@@ -496,4 +558,85 @@ class _MiniStepper extends StatelessWidget {
           icon: Icon(icon),
         ),
       );
+}
+
+/// Rest override for one routine entry: a "Default" chip plus −/+ steppers
+/// (15 s steps). Chip ON = [inheritRestSeconds] → exercise → Settings.
+class _RestControl extends StatelessWidget {
+  const _RestControl({
+    required this.id,
+    required this.restSeconds,
+    required this.defaultSeconds,
+    required this.onChanged,
+  });
+
+  final String id;
+  final int restSeconds;
+  final int defaultSeconds;
+  final ValueChanged<int> onChanged;
+
+  bool get _isDefault => restSeconds == inheritRestSeconds;
+
+  @override
+  Widget build(BuildContext context) {
+    final value = _isDefault ? defaultSeconds : restSeconds;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        FilterChip(
+          key: Key('$id-default'),
+          label: const Text('Default rest'),
+          selected: _isDefault,
+          showCheckmark: false,
+          onSelected: (v) {
+            if (v) {
+              onChanged(inheritRestSeconds);
+            } else {
+              onChanged(defaultSeconds.clamp(0, 600));
+            }
+          },
+          selectedColor: AppColors.accent.withValues(alpha: 0.18),
+          labelStyle: TextStyle(
+            color:
+                _isDefault ? AppColors.accent : context.textSecondary,
+            fontWeight: FontWeight.w600,
+            fontSize: 12,
+          ),
+          side: BorderSide(
+            color: _isDefault ? AppColors.accent : context.border,
+          ),
+        ),
+        if (!_isDefault) ...[
+          const SizedBox(width: 4),
+          Text(
+            formatRest(restSeconds),
+            key: Key('$id-value'),
+            style: TextStyle(fontSize: 12, color: context.textSecondary),
+          ),
+          SizedBox(
+            width: 34,
+            height: 34,
+            child: IconButton(
+              key: Key('$id-minus'),
+              padding: EdgeInsets.zero,
+              iconSize: 18,
+              onPressed: () => onChanged((value - 15).clamp(0, 600)),
+              icon: const Icon(Icons.remove),
+            ),
+          ),
+          SizedBox(
+            width: 34,
+            height: 34,
+            child: IconButton(
+              key: Key('$id-plus'),
+              padding: EdgeInsets.zero,
+              iconSize: 18,
+              onPressed: () => onChanged((value + 15).clamp(0, 600)),
+              icon: const Icon(Icons.add),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
 }

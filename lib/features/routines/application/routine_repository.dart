@@ -11,19 +11,31 @@ class RoutineDraft {
     required this.targetSets,
     required this.targetReps,
     this.targetWeight,
-    this.restSeconds = 90,
-    this.isWarmup = false,
+    this.restSeconds = inheritRestSeconds,
+    this.warmupSets = 0,
+    this.dropSets = 0,
+    this.failureSets = 0,
     this.linkNext = false,
   });
 
   final String exerciseId;
+
+  /// TOTAL planned sets for this slot (warm-up + working + drop + failure).
   final int targetSets;
   final int targetReps;
 
   /// Planned load, ALWAYS in kg (nullable = "bring your usual").
   final double? targetWeight;
+
+  /// Rest override for this slot, or [inheritRestSeconds] to fall through
+  /// to the exercise override, then the per-type Settings default.
   final int restSeconds;
-  final bool isWarmup;
+
+  /// Per-type set counts (Hevy-style). Working sets are derived:
+  /// `targetSets - warmupSets - dropSets - failureSets`.
+  final int warmupSets;
+  final int dropSets;
+  final int failureSets;
 
   /// Display-only flag from the builder; converted to concrete
   /// `supersetGroup` integers on save.
@@ -89,7 +101,12 @@ class RoutineRepository {
           targetReps: Value(e.targetReps),
           targetWeight: Value(e.targetWeight),
           restSeconds: Value(e.restSeconds),
-          isWarmup: Value(e.isWarmup),
+          warmupSets: Value(e.warmupSets),
+          dropSets: Value(e.dropSets),
+          failureSets: Value(e.failureSets),
+          // Legacy flag kept in sync for the wire codec: an entry counts
+          // as "warm-up" when it plans at least one warm-up set.
+          isWarmup: Value(e.warmupSets > 0),
           updatedAt: now,
         ));
       }

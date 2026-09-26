@@ -15,6 +15,13 @@ mixin SyncColumns on Table {
   DateTimeColumn get deletedAt => dateTime().nullable()(); // tombstone
 }
 
+/// [RoutineExercises.restSeconds] value meaning "no routine override": fall
+/// through to [Exercises.restSeconds], then to the per-type Settings default.
+///
+/// A sentinel rather than NULL because SQLite can only add columns (not make
+/// them nullable) with `ALTER TABLE`, and this column predates v3.
+const inheritRestSeconds = -1;
+
 // ------------------------------ profile -----------------------------------
 
 class Profiles extends Table with SyncColumns {
@@ -63,6 +70,10 @@ class Exercises extends Table with SyncColumns {
   BoolColumn get isCustom => boolean().withDefault(const Constant(false))();
   TextColumn get ownerId => text().nullable()(); // null = global seeded row
 
+  /// Rest between sets of this exercise in seconds; null = inherit the
+  /// Settings default for the set type.
+  IntColumn get restSeconds => integer().nullable()();
+
   @override
   Set<Column> get primaryKey => {id};
 }
@@ -103,7 +114,21 @@ class RoutineExercises extends Table with SyncColumns {
   IntColumn get targetReps => integer().withDefault(const Constant(8))();
   RealColumn get targetRpe => real().nullable()();
   RealColumn get targetWeight => real().nullable()();
+
+  /// Rest after each set of this entry in seconds.
+  /// [inheritRestSeconds] = -1 → fall through to the exercise override,
+  /// then to the per-type Settings default. (Kept NOT NULL so the column
+  /// can be added by `ALTER TABLE` without a table rebuild.)
   IntColumn get restSeconds => integer().withDefault(const Constant(90))();
+
+  /// Per-type planned set counts (Hevy-style). `targetSets` stays the
+  /// TOTAL planned sets; working = targetSets − warmup − drop − failure.
+  IntColumn get warmupSets => integer().withDefault(const Constant(0))();
+  IntColumn get dropSets => integer().withDefault(const Constant(0))();
+  IntColumn get failureSets => integer().withDefault(const Constant(0))();
+
+  /// Legacy v1/v2 flag: the whole entry was warm-up. Kept for wire
+  /// compatibility; derived from [warmupSets] on write since v3.
   BoolColumn get isWarmup => boolean().withDefault(const Constant(false))();
   TextColumn get notes => text().nullable()();
 
@@ -246,15 +271,37 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
         onCreate: (m) async => m.createAll(),
         onUpgrade: (m, from, to) async {
           // v2: the view-only weekly plan (Round 2). Never edit
-          // schemaVersion in place without adding a branch.
-          if (from < 2) await m.createTable(weeklyPlans);
+          // schemaVersion in place without adding a branch. Each branch
+          // gates on `to` as well as `from`, so a step that upgrades only
+          // as far as N (as the Round 2 migration test does) doesn't run
+          // the later branches against a schema that lacks them yet.
+          if (from < 2 && to >= 2) await m.createTable(weeklyPlans);
+
+          // v3: custom rest + per-type planned set counts. `restSeconds`
+          // already exists on routine_exercises, so it only needs its
+          // placeholder rewritten; the count columns are new.
+          if (from < 3 && to >= 3) {
+            await m.addColumn(exercises, exercises.restSeconds);
+            await m.addColumn(routineExercises, routineExercises.warmupSets);
+            await m.addColumn(routineExercises, routineExercises.dropSets);
+            await m.addColumn(routineExercises, routineExercises.failureSets);
+            // The stored 90 was never user-editable — it predates any UI.
+            // -1 marks "inherit exercise → Settings".
+            await customStatement(
+                'UPDATE routine_exercises SET rest_seconds = -1');
+            // Backfill: a v1/v2 warm-up entry meant ALL its sets were
+            // warm-up.
+            await customStatement(
+                'UPDATE routine_exercises SET warmup_sets = target_sets '
+                'WHERE is_warmup = 1');
+          }
         },
         beforeOpen: (details) async {
           await customStatement('PRAGMA foreign_keys = ON');
