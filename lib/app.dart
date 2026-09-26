@@ -445,7 +445,7 @@ class KineticDrawer extends ConsumerWidget {
   Widget _versionFooter(BuildContext context) => Padding(
         padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
         child: Text(
-          'Kinetic 0.1.1 · offline-first',
+          'Kinetic 0.1.2 · offline-first',
           style: TextStyle(fontSize: 12, color: context.textTertiary),
         ),
       );
