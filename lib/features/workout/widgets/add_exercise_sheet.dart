@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/database/database_providers.dart';
+import '../../../core/search/smart_search.dart';
 import '../../../core/theme/app_theme.dart';
 
 /// Searchable exercise picker — returns the exercise id, or null.
@@ -38,8 +39,12 @@ class _AddExerciseSheetState extends ConsumerState<AddExerciseSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final exercises =
-        ref.watch(dbExercisesProvider((category: null, search: _search)));
+    // One subscription for the whole sheet: the family arg no longer
+    // changes per keystroke, so typing never resubscribes (and never
+    // flashes a spinner) — ranking is per-keystroke and client-side
+    // (typos, synonyms, muscle matches — SQL LIKE can't).
+    final exercises = ref.watch(dbExercisesProvider((category: null)));
+    final muscleNames = ref.watch(muscleNamesProvider);
 
     return SizedBox(
       height: MediaQuery.of(context).size.height * 0.75,
@@ -87,28 +92,40 @@ class _AddExerciseSheetState extends ConsumerState<AddExerciseSheet> {
             child: exercises.when(
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (e, _) => Center(child: Text('Error: $e')),
-              data: (list) => ListView.separated(
-                padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
-                itemCount: list.length,
-                separatorBuilder: (_, _) => const SizedBox(height: 6),
-                itemBuilder: (context, i) {
-                  final e = list[i];
-                  return Card(
-                    child: ListTile(
-                      title: Text(e.name,
-                          style:
-                              const TextStyle(fontWeight: FontWeight.w600)),
-                      subtitle: Text(
-                        '${e.category} · ${e.mechanics}',
-                        style: TextStyle(
-                            fontSize: 12, color: context.textSecondary),
-                      ),
-                      trailing: const Icon(Icons.add_circle_outline),
-                      onTap: () => Navigator.of(context).pop(e.id),
+              data: (list) {
+                final ranked = searchCatalog(list, _search,
+                    muscleNames: muscleNames);
+                if (ranked.isEmpty) {
+                  return Center(
+                    child: Text(
+                      'No exercises match "$_search"',
+                      style: TextStyle(color: context.textSecondary),
                     ),
                   );
-                },
-              ),
+                }
+                return ListView.separated(
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+                  itemCount: ranked.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: 6),
+                  itemBuilder: (context, i) {
+                    final e = ranked[i];
+                    return Card(
+                      child: ListTile(
+                        title: Text(e.name,
+                            style: const TextStyle(
+                                fontWeight: FontWeight.w600)),
+                        subtitle: Text(
+                          '${e.category} · ${e.mechanics}',
+                          style: TextStyle(
+                              fontSize: 12, color: context.textSecondary),
+                        ),
+                        trailing: const Icon(Icons.add_circle_outline),
+                        onTap: () => Navigator.of(context).pop(e.id),
+                      ),
+                    );
+                  },
+                );
+              },
             ),
           ),
         ],

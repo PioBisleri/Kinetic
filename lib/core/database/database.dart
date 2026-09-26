@@ -250,15 +250,16 @@ class AppDatabase extends _$AppDatabase {
 
   // ------------------------- query helpers --------------------------------
 
-  Stream<List<Exercise>> watchExercises({String? category, String? search}) {
+  /// Watch the catalog (optionally within one category), name-ordered.
+  ///
+  /// Search is deliberately *not* a SQL concern: ranking (typos, synonyms,
+  /// muscle matches) happens client-side — see core/search/smart_search.dart.
+  Stream<List<Exercise>> watchExercises({String? category}) {
     final query = select(exercises)
       ..where((e) => e.deletedAt.isNull())
       ..orderBy([(e) => OrderingTerm.asc(e.name)]);
     if (category != null) {
       query.where((e) => e.category.equals(category));
-    }
-    if (search != null && search.isNotEmpty) {
-      query.where((e) => e.name.lower().like('%${search.toLowerCase()}%'));
     }
     return query.watch();
   }

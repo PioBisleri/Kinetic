@@ -3,13 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'database.dart';
 
-/// Family over (category, search) so sheets/pages can watch filtered
-/// catalog queries reactively.
+/// Family over category so sheets/pages can watch filtered catalog
+/// queries reactively. Search runs client-side over these rows — see
+/// core/search/smart_search.dart.
 final dbExercisesProvider = StreamProvider.autoDispose
-    .family<List<Exercise>, ({String? category, String? search})>(
+    .family<List<Exercise>, ({String? category})>(
   (ref, args) => ref.watch(databaseProvider).watchExercises(
         category: args.category,
-        search: args.search,
       ),
 );
 
@@ -36,4 +36,14 @@ final musclesProvider = StreamProvider<List<MuscleGroup>>((ref) {
   final q = db.muscleGroups.select()
     ..orderBy([(m) => OrderingTerm.asc(m.orderIndex)]);
   return q.watch();
+});
+
+/// Muscle id → display name for search ranking. Empty until the muscle
+/// stream emits; searchCatalog then falls back to the spaced id.
+final muscleNamesProvider = Provider<Map<String, String>>((ref) {
+  final async = ref.watch(musclesProvider);
+  return switch (async) {
+    AsyncData(:final value) => {for (final m in value) m.id: m.name},
+    _ => const <String, String>{},
+  };
 });
