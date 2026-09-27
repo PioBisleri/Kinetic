@@ -1483,6 +1483,17 @@ class $ExercisesTable extends Exercises
     type: DriftSqlType.int,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _progressionIncrementKgMeta =
+      const VerificationMeta('progressionIncrementKg');
+  @override
+  late final GeneratedColumn<double> progressionIncrementKg =
+      GeneratedColumn<double>(
+        'progression_increment_kg',
+        aliasedName,
+        true,
+        type: DriftSqlType.double,
+        requiredDuringInsert: false,
+      );
   @override
   List<GeneratedColumn> get $columns => [
     updatedAt,
@@ -1502,6 +1513,7 @@ class $ExercisesTable extends Exercises
     isCustom,
     ownerId,
     restSeconds,
+    progressionIncrementKg,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -1642,6 +1654,15 @@ class $ExercisesTable extends Exercises
         ),
       );
     }
+    if (data.containsKey('progression_increment_kg')) {
+      context.handle(
+        _progressionIncrementKgMeta,
+        progressionIncrementKg.isAcceptableOrUnknown(
+          data['progression_increment_kg']!,
+          _progressionIncrementKgMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -1719,6 +1740,10 @@ class $ExercisesTable extends Exercises
         DriftSqlType.int,
         data['${effectivePrefix}rest_seconds'],
       ),
+      progressionIncrementKg: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}progression_increment_kg'],
+      ),
     );
   }
 
@@ -1749,6 +1774,10 @@ class Exercise extends DataClass implements Insertable<Exercise> {
   /// Rest between sets of this exercise in seconds; null = inherit the
   /// Settings default for the set type.
   final int? restSeconds;
+
+  /// Progression step for this exercise in kg; null = inherit the unit
+  /// default (2.5 kg / 5 lb). Canonical kg, like every other weight.
+  final double? progressionIncrementKg;
   const Exercise({
     required this.updatedAt,
     this.syncedAt,
@@ -1767,6 +1796,7 @@ class Exercise extends DataClass implements Insertable<Exercise> {
     required this.isCustom,
     this.ownerId,
     this.restSeconds,
+    this.progressionIncrementKg,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1801,6 +1831,11 @@ class Exercise extends DataClass implements Insertable<Exercise> {
     }
     if (!nullToAbsent || restSeconds != null) {
       map['rest_seconds'] = Variable<int>(restSeconds);
+    }
+    if (!nullToAbsent || progressionIncrementKg != null) {
+      map['progression_increment_kg'] = Variable<double>(
+        progressionIncrementKg,
+      );
     }
     return map;
   }
@@ -1838,6 +1873,9 @@ class Exercise extends DataClass implements Insertable<Exercise> {
       restSeconds: restSeconds == null && nullToAbsent
           ? const Value.absent()
           : Value(restSeconds),
+      progressionIncrementKg: progressionIncrementKg == null && nullToAbsent
+          ? const Value.absent()
+          : Value(progressionIncrementKg),
     );
   }
 
@@ -1864,6 +1902,9 @@ class Exercise extends DataClass implements Insertable<Exercise> {
       isCustom: serializer.fromJson<bool>(json['isCustom']),
       ownerId: serializer.fromJson<String?>(json['ownerId']),
       restSeconds: serializer.fromJson<int?>(json['restSeconds']),
+      progressionIncrementKg: serializer.fromJson<double?>(
+        json['progressionIncrementKg'],
+      ),
     );
   }
   @override
@@ -1887,6 +1928,9 @@ class Exercise extends DataClass implements Insertable<Exercise> {
       'isCustom': serializer.toJson<bool>(isCustom),
       'ownerId': serializer.toJson<String?>(ownerId),
       'restSeconds': serializer.toJson<int?>(restSeconds),
+      'progressionIncrementKg': serializer.toJson<double?>(
+        progressionIncrementKg,
+      ),
     };
   }
 
@@ -1908,6 +1952,7 @@ class Exercise extends DataClass implements Insertable<Exercise> {
     bool? isCustom,
     Value<String?> ownerId = const Value.absent(),
     Value<int?> restSeconds = const Value.absent(),
+    Value<double?> progressionIncrementKg = const Value.absent(),
   }) => Exercise(
     updatedAt: updatedAt ?? this.updatedAt,
     syncedAt: syncedAt.present ? syncedAt.value : this.syncedAt,
@@ -1926,6 +1971,9 @@ class Exercise extends DataClass implements Insertable<Exercise> {
     isCustom: isCustom ?? this.isCustom,
     ownerId: ownerId.present ? ownerId.value : this.ownerId,
     restSeconds: restSeconds.present ? restSeconds.value : this.restSeconds,
+    progressionIncrementKg: progressionIncrementKg.present
+        ? progressionIncrementKg.value
+        : this.progressionIncrementKg,
   );
   Exercise copyWithCompanion(ExercisesCompanion data) {
     return Exercise(
@@ -1958,6 +2006,9 @@ class Exercise extends DataClass implements Insertable<Exercise> {
       restSeconds: data.restSeconds.present
           ? data.restSeconds.value
           : this.restSeconds,
+      progressionIncrementKg: data.progressionIncrementKg.present
+          ? data.progressionIncrementKg.value
+          : this.progressionIncrementKg,
     );
   }
 
@@ -1980,7 +2031,8 @@ class Exercise extends DataClass implements Insertable<Exercise> {
           ..write('thumbnailRef: $thumbnailRef, ')
           ..write('isCustom: $isCustom, ')
           ..write('ownerId: $ownerId, ')
-          ..write('restSeconds: $restSeconds')
+          ..write('restSeconds: $restSeconds, ')
+          ..write('progressionIncrementKg: $progressionIncrementKg')
           ..write(')'))
         .toString();
   }
@@ -2004,6 +2056,7 @@ class Exercise extends DataClass implements Insertable<Exercise> {
     isCustom,
     ownerId,
     restSeconds,
+    progressionIncrementKg,
   );
   @override
   bool operator ==(Object other) =>
@@ -2025,7 +2078,8 @@ class Exercise extends DataClass implements Insertable<Exercise> {
           other.thumbnailRef == this.thumbnailRef &&
           other.isCustom == this.isCustom &&
           other.ownerId == this.ownerId &&
-          other.restSeconds == this.restSeconds);
+          other.restSeconds == this.restSeconds &&
+          other.progressionIncrementKg == this.progressionIncrementKg);
 }
 
 class ExercisesCompanion extends UpdateCompanion<Exercise> {
@@ -2046,6 +2100,7 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
   final Value<bool> isCustom;
   final Value<String?> ownerId;
   final Value<int?> restSeconds;
+  final Value<double?> progressionIncrementKg;
   final Value<int> rowid;
   const ExercisesCompanion({
     this.updatedAt = const Value.absent(),
@@ -2065,6 +2120,7 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
     this.isCustom = const Value.absent(),
     this.ownerId = const Value.absent(),
     this.restSeconds = const Value.absent(),
+    this.progressionIncrementKg = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   ExercisesCompanion.insert({
@@ -2085,6 +2141,7 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
     this.isCustom = const Value.absent(),
     this.ownerId = const Value.absent(),
     this.restSeconds = const Value.absent(),
+    this.progressionIncrementKg = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : updatedAt = Value(updatedAt),
        id = Value(id),
@@ -2109,6 +2166,7 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
     Expression<bool>? isCustom,
     Expression<String>? ownerId,
     Expression<int>? restSeconds,
+    Expression<double>? progressionIncrementKg,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -2129,6 +2187,8 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
       if (isCustom != null) 'is_custom': isCustom,
       if (ownerId != null) 'owner_id': ownerId,
       if (restSeconds != null) 'rest_seconds': restSeconds,
+      if (progressionIncrementKg != null)
+        'progression_increment_kg': progressionIncrementKg,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -2151,6 +2211,7 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
     Value<bool>? isCustom,
     Value<String?>? ownerId,
     Value<int?>? restSeconds,
+    Value<double?>? progressionIncrementKg,
     Value<int>? rowid,
   }) {
     return ExercisesCompanion(
@@ -2171,6 +2232,8 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
       isCustom: isCustom ?? this.isCustom,
       ownerId: ownerId ?? this.ownerId,
       restSeconds: restSeconds ?? this.restSeconds,
+      progressionIncrementKg:
+          progressionIncrementKg ?? this.progressionIncrementKg,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -2229,6 +2292,11 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
     if (restSeconds.present) {
       map['rest_seconds'] = Variable<int>(restSeconds.value);
     }
+    if (progressionIncrementKg.present) {
+      map['progression_increment_kg'] = Variable<double>(
+        progressionIncrementKg.value,
+      );
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -2255,6 +2323,7 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
           ..write('isCustom: $isCustom, ')
           ..write('ownerId: $ownerId, ')
           ..write('restSeconds: $restSeconds, ')
+          ..write('progressionIncrementKg: $progressionIncrementKg, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -8754,6 +8823,7 @@ typedef $$ExercisesTableCreateCompanionBuilder = ExercisesCompanion Function({
   Value<bool> isCustom,
   Value<String?> ownerId,
   Value<int?> restSeconds,
+  Value<double?> progressionIncrementKg,
   Value<int> rowid,
 });
 typedef $$ExercisesTableUpdateCompanionBuilder = ExercisesCompanion Function({
@@ -8774,6 +8844,7 @@ typedef $$ExercisesTableUpdateCompanionBuilder = ExercisesCompanion Function({
   Value<bool> isCustom,
   Value<String?> ownerId,
   Value<int?> restSeconds,
+  Value<double?> progressionIncrementKg,
   Value<int> rowid,
 });
 
@@ -8868,6 +8939,11 @@ class $$ExercisesTableFilterComposer
 
   ColumnFilters<int> get restSeconds => $composableBuilder(
     column: $table.restSeconds,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get progressionIncrementKg => $composableBuilder(
+    column: $table.progressionIncrementKg,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -8965,6 +9041,11 @@ class $$ExercisesTableOrderingComposer
     column: $table.restSeconds,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<double> get progressionIncrementKg => $composableBuilder(
+    column: $table.progressionIncrementKg,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$ExercisesTableAnnotationComposer
@@ -9038,6 +9119,11 @@ class $$ExercisesTableAnnotationComposer
     column: $table.restSeconds,
     builder: (column) => column,
   );
+
+  GeneratedColumn<double> get progressionIncrementKg => $composableBuilder(
+    column: $table.progressionIncrementKg,
+    builder: (column) => column,
+  );
 }
 
 class $$ExercisesTableTableManager
@@ -9085,6 +9171,7 @@ class $$ExercisesTableTableManager
                 Value<bool> isCustom = const Value.absent(),
                 Value<String?> ownerId = const Value.absent(),
                 Value<int?> restSeconds = const Value.absent(),
+                Value<double?> progressionIncrementKg = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ExercisesCompanion(
                 updatedAt: updatedAt,
@@ -9104,6 +9191,7 @@ class $$ExercisesTableTableManager
                 isCustom: isCustom,
                 ownerId: ownerId,
                 restSeconds: restSeconds,
+                progressionIncrementKg: progressionIncrementKg,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -9125,6 +9213,7 @@ class $$ExercisesTableTableManager
                 Value<bool> isCustom = const Value.absent(),
                 Value<String?> ownerId = const Value.absent(),
                 Value<int?> restSeconds = const Value.absent(),
+                Value<double?> progressionIncrementKg = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ExercisesCompanion.insert(
                 updatedAt: updatedAt,
@@ -9144,6 +9233,7 @@ class $$ExercisesTableTableManager
                 isCustom: isCustom,
                 ownerId: ownerId,
                 restSeconds: restSeconds,
+                progressionIncrementKg: progressionIncrementKg,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

@@ -111,7 +111,7 @@ void main() {
       drop: const {'warmup_sets', 'drop_sets', 'failure_sets'},
     );
     await downgradeToV2('exercises', exercisesV2Ddl,
-        drop: const {'rest_seconds'});
+        drop: const {'rest_seconds', 'progression_increment_kg'});
 
     // The exact branch a Round 2 install runs on first Round 3 launch.
     await db.migration.onUpgrade(Migrator(db), 2, 3);
@@ -137,11 +137,14 @@ void main() {
     expect(work.restSeconds, inheritRestSeconds);
     expect(work.targetSets, 3); // untouched
 
-    // Exercise override column exists and defaults to "inherit".
-    final ex =
-        await (db.exercises.select()..where((e) => e.id.equals('cus_test')))
-            .getSingle();
-    expect(ex.restSeconds, isNull);
+    // Exercise override column exists and defaults to "inherit". Read
+    // via raw SQL: the table is deliberately at its v3 shape here, and
+    // today's drift mappings would SELECT columns v4/v5 haven't added.
+    final ex = await db.customSelect(
+      'SELECT rest_seconds FROM exercises WHERE id = ?',
+      variables: [Variable.withString('cus_test')],
+    ).getSingle();
+    expect(ex.data['rest_seconds'], isNull);
 
     // Both tables are fully usable after the upgrade.
     final newId = await RoutineRepository(db).saveRoutine(name: 'Legs', entries: [
@@ -175,7 +178,7 @@ void main() {
       drop: const {'warmup_sets', 'drop_sets', 'failure_sets'},
     );
     await downgradeToV2('exercises', exercisesV2Ddl,
-        drop: const {'rest_seconds'});
+        drop: const {'rest_seconds', 'progression_increment_kg'});
 
     // from = 1 runs BOTH branches (v2 table creation, then v3 columns).
     await db.migration.onUpgrade(Migrator(db), 1, 3);

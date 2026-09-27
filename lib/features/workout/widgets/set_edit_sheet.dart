@@ -152,9 +152,11 @@ class _SetEditSheetState extends ConsumerState<SetEditSheet> {
 
   void _bumpWeight(double direction) {
     final unit = ref.read(settingsProvider).unit;
+    // Follow this exercise's progression override when set.
+    final increment =
+        widget.exercise.progressionIncrementKg ?? stepKg(unit);
     final current = _parseWeight();
-    final next =
-        (current ?? 0) + direction * stepKg(unit);
+    final next = (current ?? 0) + direction * increment;
     final clamped = next < 0 ? 0.0 : next;
     setState(() {
       _draft.weightKg = clamped;
@@ -477,6 +479,7 @@ class _SuggestionChip extends ConsumerWidget {
                   context,
                   suggestion: suggestion,
                   unit: unit,
+                  incrementKg: suggestion.incrementKg,
                 ),
                 borderRadius: BorderRadius.circular(4),
                 child: Padding(

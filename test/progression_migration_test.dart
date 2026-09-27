@@ -4,11 +4,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kinetic/core/database/database.dart';
 import 'package:kinetic/core/database/seed_service.dart';
 
-/// Round 5 schema upgrade: the "Your data" profile columns (v4).
+/// Round 6 schema upgrade: the per-exercise progression increment (v5).
 ///
-/// Rebuilds `profiles` into its v3 shape (SQLite can add columns but not
+/// Rebuilds `exercises` into its v4 shape (SQLite can add columns but not
 /// drop them), then runs the app's own `onUpgrade` branch — the exact
-/// code a Round 3/4 install executes the first time it opens Round 5.
+/// code a Round 5 install executes the first time it opens Round 6.
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
@@ -39,87 +39,57 @@ void main() {
     await db.customStatement('ALTER TABLE ${table}_old RENAME TO $table');
   }
 
-  /// `profiles` as Round 3/4 created it (v3).
-  const profilesV3Ddl = '''
+  /// The exercises table as Round 5 created it (v4): the rest override
+  /// exists, the progression column does not.
+  const exercisesV4Ddl = '''
     updated_at INTEGER NOT NULL, synced_at INTEGER, deleted_at INTEGER,
-    id TEXT NOT NULL, username TEXT,
-    unit_system TEXT NOT NULL DEFAULT 'kg',
-    theme TEXT NOT NULL DEFAULT 'dark',
-    bodyweight_kg REAL, PRIMARY KEY (id)
+    id TEXT NOT NULL, name TEXT NOT NULL, mechanics TEXT NOT NULL,
+    force_type TEXT, category TEXT NOT NULL DEFAULT 'barbell',
+    primary_muscle_id TEXT NOT NULL,
+    equipment TEXT NOT NULL DEFAULT '[]',
+    default_metric TEXT NOT NULL DEFAULT 'weight_reps',
+    animation_kind TEXT NOT NULL DEFAULT 'none',
+    animation_ref TEXT, thumbnail_ref TEXT,
+    is_custom INTEGER NOT NULL DEFAULT 0, owner_id TEXT,
+    rest_seconds INTEGER,
+    PRIMARY KEY (id)
   ''';
 
-  /// The five columns v4 adds to `profiles`.
-  const v4ProfileColumns = [
-    'height_cm',
-    'birth_date',
-    'sex',
-    'body_fat_pct',
-    'training_goal',
-  ];
-
-  Future<List<String>> profileColumns() async {
-    final cols = await db.customSelect('PRAGMA table_info(profiles)').get();
+  Future<List<String>> exerciseColumns() async {
+    final cols = await db.customSelect('PRAGMA table_info(exercises)').get();
     return [for (final r in cols) r.data['name'] as String];
   }
 
-  Future<void> downgradeProfiles() =>
-      downgradeTo('profiles', profilesV3Ddl, drop: v4ProfileColumns.toSet());
-
-  test('v3 → v4 adds the Your data columns, existing row untouched',
+  test('v4 → v5 adds progression_increment_kg, rows default to inherit',
       () async {
-    // A profile as a Round 4 user would have it.
-    await db.profiles.insertOnConflictUpdate(ProfilesCompanion.insert(
-      id: 'local',
-      updatedAt: DateTime.now(),
-      username: const Value('Pio'),
-      unitSystem: const Value('lbs'),
-      bodyweightKg: const Value(82.5),
-    ));
+    await downgradeTo('exercises', exercisesV4Ddl,
+        drop: const {'progression_increment_kg'});
+    expect(await exerciseColumns(),
+        isNot(contains('progression_increment_kg')));
 
-    await downgradeProfiles();
-    expect(await profileColumns(), isNot(contains('height_cm')));
+    // The exact branch a Round 5 install runs on first Round 6 launch.
+    await db.migration.onUpgrade(Migrator(db), 4, 5);
 
-    // The exact branch a Round 4 install runs on first Round 5 launch.
-    await db.migration.onUpgrade(Migrator(db), 3, 4);
+    expect(await exerciseColumns(), contains('progression_increment_kg'));
 
-    final names = await profileColumns();
-    expect(names, containsAll(v4ProfileColumns));
-
-    // Old data survives; new columns read NULL until the user fills them.
-    final row = await (db.profiles.select()
-          ..where((p) => p.id.equals('local')))
+    // Existing rows read NULL → follow the unit default, like before.
+    final bench = await (db.exercises.select()
+          ..where((e) => e.id.equals('barbell-bench-press')))
         .getSingle();
-    expect(row.username, 'Pio');
-    expect(row.unitSystem, 'lbs');
-    expect(row.bodyweightKg, 82.5);
-    expect(row.heightCm, isNull);
-    expect(row.birthDate, isNull);
-    expect(row.sex, isNull);
-    expect(row.bodyFatPct, isNull);
-    expect(row.trainingGoal, isNull);
+    expect(bench.progressionIncrementKg, isNull);
+    expect(bench.restSeconds, isNull); // untouched by this branch
 
-    // The new columns are writable immediately after the upgrade.
-    await db.profiles.insertOnConflictUpdate(ProfilesCompanion.insert(
-      id: 'local',
-      updatedAt: DateTime.now(),
-      heightCm: const Value(180),
-      birthDate: const Value('1996-03-04'),
-      sex: const Value('other'),
-      bodyFatPct: const Value(14.5),
-      trainingGoal: const Value('hypertrophy'),
-    ));
-    final updated = await (db.profiles.select()
-          ..where((p) => p.id.equals('local')))
+    // The new column is writable immediately after the upgrade.
+    await (db.update(db.exercises)
+          ..where((e) => e.id.equals('barbell-bench-press')))
+        .write(const ExercisesCompanion(progressionIncrementKg: Value(1.25)));
+    final updated = await (db.exercises.select()
+          ..where((e) => e.id.equals('barbell-bench-press')))
         .getSingle();
-    expect(updated.heightCm, 180);
-    expect(updated.birthDate, '1996-03-04');
-    expect(updated.sex, 'other');
-    expect(updated.bodyFatPct, 14.5);
-    expect(updated.trainingGoal, 'hypertrophy');
-    expect(updated.bodyweightKg, 82.5); // partial upsert kept it
+    expect(updated.progressionIncrementKg, 1.25);
   });
 
-  test('v1 → v4 upgrade still replays every earlier branch', () async {
+  test('v1 → v5 upgrade still replays every earlier branch', () async {
     await db.customSelect('SELECT 1').getSingle();
     await db.customStatement('DROP TABLE ${db.weeklyPlans.actualTableName}');
     await downgradeTo(
@@ -153,10 +123,21 @@ void main() {
       ''',
       drop: const {'rest_seconds', 'progression_increment_kg'},
     );
-    await downgradeProfiles();
+    await downgradeTo(
+      'profiles',
+      '''
+      updated_at INTEGER NOT NULL, synced_at INTEGER, deleted_at INTEGER,
+      id TEXT NOT NULL, username TEXT,
+      unit_system TEXT NOT NULL DEFAULT 'kg',
+      theme TEXT NOT NULL DEFAULT 'dark',
+      bodyweight_kg REAL, PRIMARY KEY (id)
+      ''',
+      drop: const {'height_cm', 'birth_date', 'sex', 'body_fat_pct',
+        'training_goal'},
+    );
 
-    // from = 1 runs ALL branches: v2 table, v3 columns, v4 profile.
-    await db.migration.onUpgrade(Migrator(db), 1, 4);
+    // from = 1 runs ALL branches: v2 table, v3 columns, v4 profile, v5 step.
+    await db.migration.onUpgrade(Migrator(db), 1, 5);
 
     // v2: weekly plan table exists again.
     await db.weeklyPlans.insertOnConflictUpdate(WeeklyPlansCompanion.insert(
@@ -169,7 +150,8 @@ void main() {
         .getSingle();
     expect(plan.routineId, 'push-day');
 
-    // v3: per-type counts exist on routine_exercises.
+    // v3: per-type counts exist on routine_exercises, rest override on
+    // exercises.
     final reCols =
         await db.customSelect('PRAGMA table_info(routine_exercises)').get();
     final reNames = [for (final r in reCols) r.data['name']];
@@ -177,6 +159,20 @@ void main() {
         reNames, containsAll(['warmup_sets', 'drop_sets', 'failure_sets']));
 
     // v4: Your data columns exist on profiles.
-    expect(await profileColumns(), containsAll(v4ProfileColumns));
+    final profileCols =
+        await db.customSelect('PRAGMA table_info(profiles)').get();
+    final pNames = [for (final r in profileCols) r.data['name']];
+    expect(
+        pNames,
+        containsAll(['height_cm', 'birth_date', 'sex', 'body_fat_pct',
+          'training_goal']));
+
+    // v5: progression column exists and seeded rows inherit the default.
+    expect(await exerciseColumns(),
+        containsAll(['rest_seconds', 'progression_increment_kg']));
+    final bench = await (db.exercises.select()
+          ..where((e) => e.id.equals('barbell-bench-press')))
+        .getSingle();
+    expect(bench.progressionIncrementKg, isNull);
   });
 }

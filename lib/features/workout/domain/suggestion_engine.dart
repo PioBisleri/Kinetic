@@ -11,8 +11,9 @@
 /// * **without a target** (free workout) — a set of ≥10 reps earns an
 ///   increment, anything else repeats the weight.
 ///
-/// Weights are stored/returned in kg; [incrementKg] comes from the unit
-/// setting (2.5 kg / 5 lb via `stepKg`), so the engine stays unit-agnostic.
+/// Weights are stored/returned in kg; `incrementKg` comes from the
+/// exercise's progression override when set, else the unit setting
+/// (2.5 kg / 5 lb via `stepKg`), so the engine stays unit-agnostic.
 library;
 
 /// One completed hard set from a prior workout.
@@ -37,11 +38,16 @@ class Suggestion {
     required this.weightKg,
     required this.action,
     required this.reason,
+    this.incrementKg = SuggestionEngine.defaultIncrementKg,
   });
 
   final double weightKg;
   final SuggestionAction action;
   final String reason; // short, user-facing
+
+  /// The step this suggestion snapped to — echoed in the why-sheet so
+  /// per-exercise overrides are visible.
+  final double incrementKg;
 }
 
 class SuggestionEngine {
@@ -73,6 +79,7 @@ class SuggestionEngine {
           weightKg: snap(targetWeightKg, incrementKg),
           action: SuggestionAction.start,
           reason: 'Routine target',
+          incrementKg: incrementKg,
         );
       }
       return null;
@@ -87,6 +94,7 @@ class SuggestionEngine {
           weightKg: snap(last.weightKg + incrementKg, incrementKg),
           action: SuggestionAction.progress,
           reason: 'Hit $targetReps reps last session',
+          incrementKg: incrementKg,
         );
       }
       // Missed the target — deload if the last N sessions all stalled at
@@ -104,6 +112,7 @@ class SuggestionEngine {
             weightKg: deloaded,
             action: SuggestionAction.deload,
             reason: '$deloadAfterMisses sessions stalled — reset ~10%',
+            incrementKg: incrementKg,
           );
         }
       }
@@ -111,6 +120,7 @@ class SuggestionEngine {
         weightKg: snap(last.weightKg, incrementKg),
         action: SuggestionAction.repeat,
         reason: 'Working up to $targetReps reps',
+        incrementKg: incrementKg,
       );
     }
 
@@ -120,6 +130,7 @@ class SuggestionEngine {
         weightKg: snap(last.weightKg + incrementKg, incrementKg),
         action: SuggestionAction.progress,
         reason: 'Repped out ${last.reps} reps',
+        incrementKg: incrementKg,
       );
     }
     return Suggestion(
@@ -128,6 +139,7 @@ class SuggestionEngine {
       reason: last.reps <= 4
           ? 'Heavy set — repeat the weight'
           : 'Solid set — repeat to build volume',
+      incrementKg: incrementKg,
     );
   }
 

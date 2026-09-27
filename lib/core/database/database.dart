@@ -84,6 +84,10 @@ class Exercises extends Table with SyncColumns {
   /// Settings default for the set type.
   IntColumn get restSeconds => integer().nullable()();
 
+  /// Progression step for this exercise in kg; null = inherit the unit
+  /// default (2.5 kg / 5 lb). Canonical kg, like every other weight.
+  RealColumn get progressionIncrementKg => real().nullable()();
+
   @override
   Set<Column> get primaryKey => {id};
 }
@@ -281,7 +285,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -322,6 +326,15 @@ class AppDatabase extends _$AppDatabase {
             await m.addColumn(profiles, profiles.sex);
             await m.addColumn(profiles, profiles.bodyFatPct);
             await m.addColumn(profiles, profiles.trainingGoal);
+          }
+
+          // v5: per-exercise progression increment (Round 6). Nullable —
+          // NULL means "follow the unit default" — so a single ADD COLUMN
+          // with no backfill; every seeded and custom exercise simply
+          // keeps behaving like before until overridden.
+          if (from < 5 && to >= 5) {
+            await m.addColumn(
+                exercises, exercises.progressionIncrementKg);
           }
         },
         beforeOpen: (details) async {

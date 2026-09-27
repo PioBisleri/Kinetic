@@ -11,6 +11,7 @@ Future<void> showSuggestionWhySheet(
   BuildContext context, {
   required Suggestion suggestion,
   required UnitSystem unit,
+  double? incrementKg,
 }) =>
     showModalBottomSheet<void>(
       context: context,
@@ -18,14 +19,26 @@ Future<void> showSuggestionWhySheet(
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(6)),
       ),
-      builder: (_) => _SuggestionWhySheet(suggestion: suggestion, unit: unit),
+      builder: (_) => _SuggestionWhySheet(
+        suggestion: suggestion,
+        unit: unit,
+        incrementKg: incrementKg,
+      ),
     );
 
 class _SuggestionWhySheet extends StatelessWidget {
-  const _SuggestionWhySheet({required this.suggestion, required this.unit});
+  const _SuggestionWhySheet({
+    required this.suggestion,
+    required this.unit,
+    this.incrementKg,
+  });
 
   final Suggestion suggestion;
   final UnitSystem unit;
+
+  /// The step actually used for this suggestion. Null → the sheet falls
+  /// back to the unit default and says so.
+  final double? incrementKg;
 
   static const _rules = [
     (
@@ -57,7 +70,12 @@ class _SuggestionWhySheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final lbl = unitLabel(unit);
-    final step = formatWeight(stepKg(unit), unit);
+    // Per-exercise overrides beat the unit default; the footer says
+    // which one produced this suggestion.
+    final effKg = incrementKg ?? stepKg(unit);
+    final isDefault = (effKg - stepKg(unit)).abs() < 1e-9;
+    final step = formatWeight(effKg, unit);
+    final source = isDefault ? 'per the unit setting' : 'set for this exercise';
 
     return SafeArea(
       child: SingleChildScrollView(
@@ -157,7 +175,7 @@ class _SuggestionWhySheet extends StatelessWidget {
             const SizedBox(height: 12),
             Text(
               'History uses the top set of each prior session · '
-              'increments are $step $lbl per the unit setting.',
+              'increments are $step $lbl $source.',
               style: TextStyle(fontSize: 11, color: context.textTertiary),
             ),
           ],

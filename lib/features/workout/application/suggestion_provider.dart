@@ -42,6 +42,13 @@ final exerciseSuggestionProvider =
         targetWeightKg = planned?.targetWeight;
       }
 
+      // Per-exercise progression override; null = unit default.
+      final exercise = await (db.exercises.select()
+            ..where((e) => e.id.equals(exerciseId))
+            ..limit(1))
+          .getSingleOrNull();
+      final incrementKg = exercise?.progressionIncrementKg ?? stepKg(unit);
+
       // Prior completed hard sets for this exercise.
       final query = db.workoutSets.select()
         ..where((s) =>
@@ -69,7 +76,7 @@ final exerciseSuggestionProvider =
               ],
               targetReps: targetReps,
               targetWeightKg: targetWeightKg,
-              incrementKg: stepKg(unit),
+              incrementKg: incrementKg,
             ),
           );
     });

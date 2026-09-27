@@ -11,6 +11,7 @@ import '../../core/database/database_providers.dart';
 import '../../core/settings/settings.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/rest_format.dart';
+import '../../core/utils/weight_units.dart';
 
 /// Display parents (see seed `groups`) — every other muscle row is a
 /// loggable leaf. `chest` is a leaf despite also being a group id, so it
@@ -61,6 +62,10 @@ class _ExerciseEditPageState extends ConsumerState<ExerciseEditPage> {
   /// Rest override for this exercise; null = use the Settings default.
   int? _restSec;
 
+  /// Progression step override in kg; null = use the unit default
+  /// (2.5 kg / 5 lb).
+  double? _incrementKg;
+
   /// Per-muscle share of set volume for each secondary muscle (0–1,
   /// default 0.4). The primary muscle is always 1.0.
   final Map<String, double> _contributions = {};
@@ -99,6 +104,7 @@ class _ExerciseEditPageState extends ConsumerState<ExerciseEditPage> {
       _primaryId = exercise.primaryMuscleId;
       _metric = exercise.defaultMetric;
       _restSec = exercise.restSeconds;
+      _incrementKg = exercise.progressionIncrementKg;
       _equipmentCtrl.text =
           (jsonDecode(exercise.equipment) as List).cast<String>().join(', ');
       _secondary = {
@@ -149,6 +155,7 @@ class _ExerciseEditPageState extends ConsumerState<ExerciseEditPage> {
                 isCustom: const Value(true),
                 ownerId: const Value('local'),
                 restSeconds: Value(_restSec),
+                progressionIncrementKg: Value(_incrementKg),
                 updatedAt: now,
               ),
             );
@@ -167,6 +174,7 @@ class _ExerciseEditPageState extends ConsumerState<ExerciseEditPage> {
           equipment: Value(equipment),
           defaultMetric: Value(_metric),
           restSeconds: Value(_restSec),
+          progressionIncrementKg: Value(_incrementKg),
           updatedAt: Value(now),
         ));
         await (db.delete(db.exerciseMuscleMap)
@@ -207,6 +215,7 @@ class _ExerciseEditPageState extends ConsumerState<ExerciseEditPage> {
   @override
   Widget build(BuildContext context) {
     final muscles = ref.watch(musclesProvider);
+    final unit = ref.watch(settingsProvider).unit;
 
     return Scaffold(
       appBar: AppBar(
@@ -454,6 +463,75 @@ class _ExerciseEditPageState extends ConsumerState<ExerciseEditPage> {
                     ],
                   ),
                 ),
+                const SizedBox(height: 20),
+                if (_metric == 'weight_reps') ...[
+                  const _SectionLabel('Load increment'),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Row(
+                      children: [
+                        FilterChip(
+                          key: const Key('exercise-increment-default'),
+                          label: const Text('Default'),
+                          selected: _incrementKg == null,
+                          onSelected: (useDefault) {
+                            final seed = _incrementKg ?? stepKg(unit);
+                            setState(() =>
+                                _incrementKg = useDefault ? null : seed);
+                          },
+                          selectedColor:
+                              AppColors.accent.withValues(alpha: 0.18),
+                          checkmarkColor: AppColors.accent,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            _incrementKg == null
+                                ? 'Uses ${formatWeight(stepKg(unit), unit)} '
+                                    '${unitLabel(unit)} default'
+                                : '${formatWeight(_incrementKg!, unit)} '
+                                    '${unitLabel(unit)}',
+                            key: const Key('exercise-increment-value'),
+                            style: TextStyle(
+                                fontSize: 13, color: context.textTertiary),
+                          ),
+                        ),
+                        IconButton(
+                          key: const Key('exercise-increment-minus'),
+                          icon: const Icon(Icons.remove, size: 18),
+                          onPressed: () {
+                            final base = kgToDisplay(
+                                _incrementKg ?? stepKg(unit), unit);
+                            final floor =
+                                unit == UnitSystem.kg ? 0.25 : 0.5;
+                            final next =
+                                (base - (unit == UnitSystem.kg ? 0.5 : 1))
+                                    .clamp(floor, 40)
+                                    .toDouble();
+                            setState(() =>
+                                _incrementKg = displayToKg(next, unit));
+                          },
+                        ),
+                        IconButton(
+                          key: const Key('exercise-increment-plus'),
+                          icon: const Icon(Icons.add, size: 18),
+                          onPressed: () {
+                            final base = kgToDisplay(
+                                _incrementKg ?? stepKg(unit), unit);
+                            final floor =
+                                unit == UnitSystem.kg ? 0.25 : 0.5;
+                            final next =
+                                (base + (unit == UnitSystem.kg ? 0.5 : 1))
+                                    .clamp(floor, 40)
+                                    .toDouble();
+                            setState(() =>
+                                _incrementKg = displayToKg(next, unit));
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 24),
               ],
             ),

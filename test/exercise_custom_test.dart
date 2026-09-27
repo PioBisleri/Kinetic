@@ -481,4 +481,71 @@ void main() {
     expect(reset.restSeconds, isNull); // inherit again
     await endApp(tester);
   });
+
+  testWidgets('exercise load increment: default → custom → back to default',
+      (tester) async {
+    await pumpApp(tester);
+    await tester.tap(find.text('Routines'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('open-library')));
+    await tester.pumpAndSettle();
+    await scrollLibraryTo(tester, find.text('Barbell Bench Press'));
+    await tester.tap(find.text('Barbell Bench Press'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('edit-exercise')));
+    await tester.pumpAndSettle();
+
+    // The increment row sits below Rest between sets.
+    final chipFinder = find.byKey(const Key('exercise-increment-default'));
+    await tester.scrollUntilVisible(
+      chipFinder,
+      260,
+      scrollable: pageScrollable(ExerciseEditPage),
+    );
+    await tester.ensureVisible(chipFinder);
+    await tester.pumpAndSettle();
+
+    // Seeded exercises have no override → chip ON, unit default shown.
+    final chip = tester.widget<FilterChip>(chipFinder);
+    expect(chip.selected, isTrue);
+    expect(find.text('Uses 2.5 kg default'), findsOneWidget);
+
+    // Leave Default → seeds from the unit step (2.5 kg).
+    await tester.tap(chipFinder);
+    await tester.pumpAndSettle();
+    expect(find.text('2.5 kg'), findsOneWidget);
+
+    // −0.5 → 2 kg, saved to the row.
+    await tester.tap(find.byKey(const Key('exercise-increment-minus')));
+    await tester.pumpAndSettle();
+    expect(find.text('2 kg'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('exercise-save')));
+    await tester.pumpAndSettle();
+    final saved = await (db.select(db.exercises)
+          ..where((e) => e.id.equals('barbell-bench-press')))
+        .getSingle();
+    expect(saved.progressionIncrementKg, 2.0);
+
+    // Re-open → round trip → then hand it back to the default.
+    await tester.tap(find.byKey(const Key('edit-exercise')));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      chipFinder,
+      260,
+      scrollable: pageScrollable(ExerciseEditPage),
+    );
+    await tester.ensureVisible(chipFinder);
+    await tester.pumpAndSettle();
+    expect(find.text('2 kg'), findsOneWidget);
+
+    await tester.tap(chipFinder);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('exercise-save')));
+    await tester.pumpAndSettle();
+    final reset = await (db.select(db.exercises)
+          ..where((e) => e.id.equals('barbell-bench-press')))
+        .getSingle();
+    expect(reset.progressionIncrementKg, isNull); // inherit again
+    await endApp(tester);
+  });
 }
