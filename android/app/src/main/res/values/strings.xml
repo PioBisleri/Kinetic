@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_description">This week\'s volume, your streak and the next-up routine</string>
+    <string name="widget_this_week">This week</string>
+    <string name="widget_streak">Streak</string>
+</resources>

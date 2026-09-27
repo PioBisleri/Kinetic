@@ -1,10 +1,13 @@
+import 'dart:async' show StreamSubscription, unawaited;
 import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:home_widget/home_widget.dart';
 import 'package:quick_actions/quick_actions.dart';
 
+import 'core/database/database.dart';
 import 'core/notifications/weekly_reminder_service.dart';
 import 'core/navigation/shell_navigation.dart';
 import 'core/settings/settings.dart';
@@ -12,6 +15,7 @@ import 'core/sync/sync_providers.dart';
 import 'core/theme/app_theme.dart';
 import 'features/analytics/analytics_page.dart';
 import 'features/home/home_page.dart';
+import 'features/home/home_screen_widget.dart';
 import 'features/profile/profile_page.dart';
 import 'features/routines/exercise_detail_page.dart';
 import 'features/routines/exercise_edit_page.dart';
@@ -115,11 +119,16 @@ class _KineticAppState extends ConsumerState<KineticApp>
     with WidgetsBindingObserver {
   static const _quickActions = QuickActions();
 
+  /// Home-screen widget taps (warm relaunches).
+  StreamSubscription<Uri?>? _widgetClickSub;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _initQuickActions();
+    _initHomeWidget();
+    _updateHomeWidget();
     _rearmReminder();
   }
 
@@ -167,8 +176,41 @@ class _KineticAppState extends ConsumerState<KineticApp>
     } catch (_) {}
   }
 
+  /// Home-screen widget taps: cold start (`initiallyLaunched…`) and warm
+  /// relaunches (`widgetClicked`) both carry `kinetic://widget/workout`,
+  /// handled by the exact same flow as the quick action above. Every call
+  /// is guarded — the channel is absent in widget tests.
+  void _initHomeWidget() {
+    try {
+      unawaited(HomeWidget.initiallyLaunchedFromHomeWidget()
+          .then(_onWidgetLaunch)
+          .catchError((Object _) {}));
+      _widgetClickSub = HomeWidget.widgetClicked.listen(
+        _onWidgetLaunch,
+        onError: (Object _) {},
+      );
+    } catch (_) {}
+  }
+
+  Future<void> _onWidgetLaunch(Uri? uri) async {
+    if (uri == null || uri.path != '/workout') return;
+    await _onQuickAction('start_workout');
+  }
+
+  /// Refresh the home-screen widget's numbers — best-effort and never
+  /// throws (see [updateHomeScreenWidget]).
+  Future<void> _updateHomeWidget() async {
+    try {
+      await updateHomeScreenWidget(
+        ref.read(databaseProvider),
+        ref.read(settingsProvider).unit,
+      );
+    } catch (_) {}
+  }
+
   @override
   void dispose() {
+    _widgetClickSub?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -177,6 +219,12 @@ class _KineticAppState extends ConsumerState<KineticApp>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       ref.read(syncControllerProvider.notifier).syncNow();
+      // Time may have moved on (a new week, a streak at risk) — catch up.
+      _updateHomeWidget();
+    } else if (state == AppLifecycleState.paused) {
+      // Push whatever just changed (finish, edits) while we're in the
+      // foreground — the launcher redraws before the user sees it again.
+      _updateHomeWidget();
     }
   }
 

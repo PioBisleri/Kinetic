@@ -30,6 +30,20 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <!-- Home-screen widget: weekly volume, streak, next-up routine.
+             Values are pushed from Dart via home_widget; taps launch the
+             app with kinetic://widget/workout (see KineticWidgetProvider). -->
+        <receiver
+            android:name=".KineticWidgetProvider"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/kinetic_widget_info" />
+        </receiver>
+
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

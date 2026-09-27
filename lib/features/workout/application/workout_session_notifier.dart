@@ -6,8 +6,10 @@ import 'package:uuid/uuid.dart';
 
 import '../../../core/database/database.dart';
 import '../../../core/notifications/rest_notification_service.dart';
+import '../../../core/settings/settings.dart';
 import '../../analytics/application/rollup_service.dart';
 import '../../analytics/domain/analytics_math.dart';
+import '../../home/home_screen_widget.dart';
 
 /// The in-memory view of the workout currently being logged.
 class WorkoutSession {
@@ -217,6 +219,12 @@ class WorkoutSessionNotifier extends AsyncNotifier<WorkoutSession?> {
     ref.read(restTimerProvider.notifier).reset();
     ref.invalidateSelf();
     await future;
+    // Fresh numbers on the home-screen widget (best-effort, non-blocking).
+    // Guarded: tests may run without a SharedPreferences override, and the
+    // widget is cosmetic — never let it fail a workout finish.
+    try {
+      unawaited(updateHomeScreenWidget(_db, ref.read(settingsProvider).unit));
+    } catch (_) {}
   }
 
   /// Throw the whole session away without saving it to history: hard-delete

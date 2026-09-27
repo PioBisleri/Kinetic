@@ -1,4 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="ic_launcher_background">#0E1116</color>
+    <!-- Home-screen widget palette — dark, flat, teal accent (app-matched). -->
+    <color name="widget_background">#161B1D</color>
+    <color name="widget_border">#2A3436</color>
+    <color name="widget_accent">#22D3A5</color>
+    <color name="widget_text">#E9EEEE</color>
+    <color name="widget_label">#7C8C8E</color>
 </resources>

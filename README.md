@@ -3,7 +3,7 @@
 ![version](https://img.shields.io/badge/version-0.1.2-22D3A5)
 ![Flutter](https://img.shields.io/badge/Flutter-3.47-02569B?logo=flutter&logoColor=white)
 ![Dart](https://img.shields.io/badge/Dart-3.13-0175C2?logo=dart&logoColor=white)
-![tests](https://img.shields.io/badge/tests-241%20passing-22D3A5)
+![tests](https://img.shields.io/badge/tests-246%20passing-22D3A5)
 ![Android](https://img.shields.io/badge/platform-Android-3DDC84?logo=android&logoColor=white)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
@@ -66,6 +66,9 @@ Three tiers, resolved routine → exercise → app settings:
   last-vs-previous session deltas
 
 ### Data
+- **Your data** profile: name, height (cm or ft/in), date of birth, sex,
+  body fat %, training goal, bodyweight — plus a derived BMI row
+  (display-only; the grade math never sees them)
 - Full JSON backup (profile, exercises + muscle maps, routines,
   workouts + sets) and CSV export of every set, via the OS share sheet
 - JSON import replaces all local data (older backups normalize
@@ -75,6 +78,8 @@ Three tiers, resolved routine → exercise → app settings:
   transport; the Supabase project is not live yet — see roadmap)
 - Weekly workout reminder notification and a home-screen
   "Start Workout" quick action
+- Home-screen widget: this week's volume, streak and next-up routine —
+  tap it to boot (or resume) straight into the logger
 
 ## Tech stack
 
@@ -82,7 +87,7 @@ Three tiers, resolved routine → exercise → app settings:
 |---|---|
 | Framework | Flutter (Dart ^3.13) |
 | State | Riverpod 3 (`Notifier` / `AsyncNotifier`) |
-| Local DB | Drift (SQLite, WAL) — source of truth, schema v3 |
+| Local DB | Drift (SQLite, WAL) — source of truth, schema v4 |
 | Cloud | Supabase (optional; RLS-locked per user) |
 | Routing | go_router — 4-tab stateful shell + pushed routes |
 | Charts | fl_chart |
@@ -133,7 +138,7 @@ term drives the body heat map.
 flutter pub get
 dart run build_runner build --delete-conflicting-outputs   # after schema edits
 flutter analyze
-flutter test          # 241 tests
+flutter test          # 246 tests
 flutter run
 ```
 
@@ -166,7 +171,7 @@ lib/
     export/                  JSON/CSV backup builders + share sheet
     utils/                   plate calculator, rest formatting
   features/
-    home/                    start workout + stat cards
+    home/                    start workout, stat cards, home-widget stats
     routines/                library, builder, weekly plan, progress
     workout/                 live logger, session notifier, rest resolver
     analytics/               charts, rollups, grade engine, heat map
@@ -175,8 +180,6 @@ lib/
 supabase/schema.sql          remote DDL (not applied until Phase 10)
 assets/seed/                 19 muscle groups, 89 exercises
 ```
-<<<<<<< HEAD
-=======
 
 ## Delivery history
 
@@ -199,24 +202,16 @@ assets/seed/                 19 muscle groups, 89 exercises
   rest system (schema v3)
 - **Round 4 ✅ (v0.1.2)** frosted-glass drawer — translucent blur over
   the active tab, tab shortcuts, Start Workout / Exercise Library entries
+- **Round 5 ✅** profile "Your data" + BMI (schema v4), algorithm
+  transparency (grade breakdowns, how-grades/suggestion sheets), GitHub
+  Actions CI, home-screen widget
 
 ## Roadmap
 
-- **Phase 9** home-screen widget + volume landmarks
+- **Phase 9** volume landmarks
 - **Phase 10** end-to-end encrypted sync — `schema.sql` must not be
   applied to the Supabase project before this lands
 
 ## License
 
-<<<<<<< HEAD
-This repository does not currently include a LICENSE file. Before publicly distributing or publishing the project, add an appropriate open source license.
-
-## Summary
-
-Kinetic is built for people who care about performance, consistency, and ownership of their training data. It combines the speed and flexibility of local-first mobile tooling with the power of modern analytics and optional cloud sync.
-
-Whether you are tracking a simple home workout or managing long-term training progress, Kinetic is designed to be dependable, accurate, and focused on the work that matters.
->>>>>>> 76f4f9d (README: resolve committed merge-conflict markers; document Round 4)
-=======
 MIT — see [LICENSE](LICENSE).
->>>>>>> 6bfc444 (frosted-glass drawer — blur + token tint, tab shortcuts, Start Workout / Exercise Library)

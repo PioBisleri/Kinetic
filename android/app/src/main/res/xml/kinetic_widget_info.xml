@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Widget metadata: ~4×2 cells, no system polling (updates are pushed
+     from the app on launch, workout finish, and app pause/resume). -->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/widget_description"
+    android:initialLayout="@layout/kinetic_widget"
+    android:minHeight="80dp"
+    android:minWidth="180dp"
+    android:previewLayout="@layout/kinetic_widget"
+    android:resizeMode="horizontal|vertical"
+    android:targetCellHeight="2"
+    android:targetCellWidth="4"
+    android:updatePeriodMillis="0"
+    android:widgetCategory="home_screen" />
