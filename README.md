@@ -151,16 +151,22 @@ Release APK (fully local; cloud sync stays "not configured" without
 dart-defines):
 
 ```bash
-flutter build apk --release
+./build-apk.sh            # -> kinetic-v<version>.apk in the repo root
 ```
 
-Optional sync build:
+The script runs `flutter build apk --release` (with the offline-safe
+`--no-version-check`) and copies the result to a file named after the
+pubspec version. Extra arguments pass straight through, so an optional
+sync build is:
 
 ```bash
-flutter build apk \
+./build-apk.sh \
   --dart-define=SUPABASE_URL=https://<project>.supabase.co \
   --dart-define=SUPABASE_ANON_KEY=<anon key>
 ```
+
+Either way the raw artifact also stays at
+`build/app/outputs/flutter-apk/app-release.apk`.
 
 ## Project structure
 
