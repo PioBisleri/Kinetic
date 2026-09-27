@@ -24,6 +24,7 @@ String buildBackupJson({
   required List<RoutineExercise> routineExercises,
   required List<Workout> workouts,
   required List<WorkoutSet> sets,
+  List<BodyMetric> bodyMetrics = const [],
 }) {
   final mapByExercise = <String, List<ExerciseMuscleMapData>>{};
   for (final m in muscleMap) {
@@ -73,6 +74,9 @@ String buildBackupJson({
               s.toJson(serializer: backupSerializer),
           ],
         },
+    ],
+    'bodyMetrics': [
+      for (final m in bodyMetrics) m.toJson(serializer: backupSerializer),
     ],
   };
   return const JsonEncoder.withIndent('  ').convert(doc);
@@ -154,6 +158,7 @@ class ExportService {
           ..where((r) => r.deletedAt.isNull()))
         .get();
     final workouts = await _db.workouts.select().get();
+    final bodyMetrics = await _db.bodyMetrics.select().get();
 
     final routineIds = {for (final r in routines) r.id};
     final workoutIds = {for (final w in workouts) w.id};
@@ -172,6 +177,7 @@ class ExportService {
       ],
       workouts: workouts,
       sets: [for (final s in allSets) if (workoutIds.contains(s.workoutId)) s],
+      bodyMetrics: bodyMetrics,
     );
   }
 

@@ -5,6 +5,7 @@ import 'package:kinetic/core/database/database.dart';
 import 'package:kinetic/core/sync/sync_codec.dart';
 import 'package:kinetic/core/sync/sync_engine.dart';
 import 'package:kinetic/core/sync/sync_transport.dart';
+import 'package:kinetic/features/profile/body_metric_log.dart';
 import 'package:kinetic/features/routines/application/routine_repository.dart';
 
 /// In-memory stand-in for the Supabase remote: stores wire rows exactly as
@@ -348,6 +349,43 @@ void main() {
       expect(profile.sex, 'other');
       expect(profile.bodyFatPct, 14.5);
       expect(profile.trainingGoal, 'hypertrophy');
+    });
+
+    test('weigh-ins replicate, and a later correction wins', () async {
+      await logBodyWeight(dbA, 82.5, now: DateTime(2026, 9, 20));
+      await logBodyWeight(dbA, 82.1, now: DateTime(2026, 9, 21));
+
+      await engine(dbA, recomputedA).sync();
+      expect(remoteRows('body_metrics'), hasLength(2));
+      await engine(dbB, recomputedB).sync();
+
+      final onB = await (dbB.bodyMetrics.select()
+            ..orderBy([(m) => OrderingTerm.asc(m.id)]))
+          .get();
+      expect(onB, hasLength(2));
+      expect(onB.map((m) => m.weightKg), [82.5, 82.1]);
+      // Applied rows are pre-marked clean — no echo push from B.
+      expect(onB.every((m) => m.syncedAt == m.updatedAt), isTrue);
+
+      // B corrects the same day with a strictly newer stamp; the pull
+      // gate must keep it locally, then push it so A converges.
+      final t2 = DateTime.now().toUtc().add(const Duration(minutes: 1));
+      await (dbB.bodyMetrics.update()
+            ..where((m) => m.id.equals('2026-09-21')))
+          .write(BodyMetricsCompanion(
+              weightKg: const Value(81.9), updatedAt: Value(t2)));
+
+      await engine(dbB, recomputedB).sync(); // push B's correction
+      await engine(dbA, recomputedA).sync(); // A pulls the newer row
+
+      final remoteRow = remoteRows('body_metrics')
+          .singleWhere((r) => r['id'] == '2026-09-21');
+      expect(remoteRow['weight_kg'], 81.9);
+      final aRow = await (dbA.bodyMetrics.select()
+            ..where((m) => m.id.equals('2026-09-21')))
+          .getSingle();
+      expect(aRow.weightKg, 81.9);
+      expect(aRow.syncedAt, aRow.updatedAt);
     });
 
     test('last-write-wins: newer row wins in both directions', () async {

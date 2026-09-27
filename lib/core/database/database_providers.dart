@@ -30,6 +30,15 @@ final profileProvider = StreamProvider<Profile?>(
       .map((rows) => rows.isEmpty ? null : rows.first),
 );
 
+/// Weight-trend points (Round 6): one row per local day, oldest first,
+/// tombstones excluded.
+final bodyMetricsProvider = StreamProvider<List<BodyMetric>>((ref) {
+  final q = ref.watch(databaseProvider).bodyMetrics.select()
+    ..where((m) => m.deletedAt.isNull())
+    ..orderBy([(m) => OrderingTerm.asc(m.id)]);
+  return q.watch();
+});
+
 /// Muscle catalog in display order (grade board + heat map).
 final musclesProvider = StreamProvider<List<MuscleGroup>>((ref) {
   final db = ref.watch(databaseProvider);

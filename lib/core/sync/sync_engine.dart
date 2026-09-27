@@ -72,11 +72,13 @@ class SyncEngine {
     pulled += await _pullExercises(cut);
     pulled += await _pullRoutines(cut);
     pulled += await _pullWorkouts(cut);
+    pulled += await _pullBodyMetrics(cut);
 
     pushed += await _pushProfiles();
     pushed += await _pushExercises();
     pushed += await _pushRoutines();
     pushed += await _pushWorkouts();
+    pushed += await _pushBodyMetrics();
 
     return SyncResult(startedAt: startedAt, pulled: pulled, pushed: pushed);
   }
@@ -192,6 +194,27 @@ class SyncEngine {
       await _applyWorkout(w, children[w.id] ?? const []);
     }
     return candidates.length;
+  }
+
+  /// Weigh-ins are flat rows keyed by day — plain LWW like profiles.
+  Future<int> _pullBodyMetrics(DateTime cut) async {
+    final rows = await transport.fetchChanged('body_metrics', since: cut);
+    var applied = 0;
+    for (final raw in rows) {
+      final incoming = BodyMetric.fromJson(
+        SyncCodec.decode(raw),
+        serializer: SyncCodec.serializer,
+      );
+      final local = await _bodyMetric(incoming.id);
+      if (!_accepts(incoming.updatedAt, local?.updatedAt,
+          hasLocal: local != null, tombstone: incoming.deletedAt != null)) {
+        continue;
+      }
+      await db.bodyMetrics.insertOnConflictUpdate(
+          incoming.copyWith(syncedAt: Value(incoming.updatedAt)).toCompanion(false));
+      applied++;
+    }
+    return applied;
   }
 
   /// Last-write-wins gate, shared by the non-workout pulls.
@@ -471,6 +494,24 @@ class SyncEngine {
     return parents.length;
   }
 
+  Future<int> _pushBodyMetrics() async {
+    final dirty = await (db.bodyMetrics.select()
+          ..where((m) =>
+              m.syncedAt.isNull() | m.updatedAt.isBiggerThan(m.syncedAt)))
+        .get();
+    if (dirty.isEmpty) return 0;
+    await transport.upsert('body_metrics', [
+      for (final m in dirty)
+        SyncCodec.encode(m.toJson(serializer: SyncCodec.serializer)),
+    ]);
+    for (final m in dirty) {
+      await (db.update(db.bodyMetrics)
+            ..where((t) => t.id.equals(m.id) & t.updatedAt.equals(m.updatedAt)))
+          .write(BodyMetricsCompanion(syncedAt: Value(m.updatedAt)));
+    }
+    return dirty.length;
+  }
+
   /// `updatedAt` for a retry bump: strictly newer than every row we just
   /// tried to push, even if the device clock sits behind them.
   static DateTime _bumpTime(Iterable<DateTime> stamps) {
@@ -509,4 +550,8 @@ class SyncEngine {
 
   Future<Workout?> _workout(String id) =>
       (db.workouts.select()..where((w) => w.id.equals(id))).getSingleOrNull();
+
+  Future<BodyMetric?> _bodyMetric(String id) =>
+      (db.bodyMetrics.select()..where((m) => m.id.equals(id)))
+          .getSingleOrNull();
 }

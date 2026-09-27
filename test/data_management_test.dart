@@ -10,6 +10,7 @@ import 'package:kinetic/core/export/export_service.dart';
 import 'package:kinetic/core/export/import_service.dart';
 import 'package:kinetic/features/analytics/application/analytics_providers.dart';
 import 'package:kinetic/features/analytics/application/rollup_service.dart';
+import 'package:kinetic/features/profile/body_metric_log.dart';
 import 'package:kinetic/features/routines/application/routine_repository.dart';
 
 /// Profile → Data: JSON import (replace-all) and the scoped deletes.
@@ -282,6 +283,24 @@ void main() {
       expect(profile.trainingGoal, 'hypertrophy');
     });
 
+    test('weight-trend rows survive export → import', () async {
+      await logBodyWeight(db, 82.5, now: DateTime(2026, 9, 20));
+      await logBodyWeight(db, 82.1, now: DateTime(2026, 9, 21));
+      final json = await ExportService(db).buildJson();
+
+      // Fresh install, then restore the backup.
+      await DeleteService(db).deleteAllData();
+      expect(await db.bodyMetrics.select().get(), isEmpty);
+
+      await ImportService(db).importJson(json);
+      final rows = await (db.bodyMetrics.select()
+            ..orderBy([(m) => OrderingTerm.asc(m.id)]))
+          .get();
+      expect(rows, hasLength(2));
+      expect(rows.map((m) => m.id), ['2026-09-20', '2026-09-21']);
+      expect(rows.map((m) => m.weightKg), [82.5, 82.1]);
+    });
+
     test('a pre-Round-5 profile backup (no Your data keys) still restores',
         () async {
       // Exactly what Round 4's exporter wrote for the profile row.
@@ -495,6 +514,7 @@ void main() {
         username: const Value('gudiya'),
         updatedAt: DateTime(2026, 9, 20),
       ));
+      await logBodyWeight(db, 82.5, now: DateTime(2026, 9, 20));
 
       await DeleteService(db).deleteAllData();
 
@@ -505,6 +525,7 @@ void main() {
       expect(await db.select(db.routineExercises).get(), isEmpty);
       expect(await db.select(db.exerciseHistory).get(), isEmpty);
       expect(await db.select(db.muscleVolumeDaily).get(), isEmpty);
+      expect(await db.select(db.bodyMetrics).get(), isEmpty);
       expect(await db.select(db.profiles).get(), isEmpty);
 
       // …while the bundled catalogs come back, without custom rows.

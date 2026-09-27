@@ -770,6 +770,371 @@ class ProfilesCompanion extends UpdateCompanion<Profile> {
   }
 }
 
+class $BodyMetricsTable extends BodyMetrics
+    with TableInfo<$BodyMetricsTable, BodyMetric> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $BodyMetricsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _syncedAtMeta = const VerificationMeta(
+    'syncedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> syncedAt = GeneratedColumn<DateTime>(
+    'synced_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> deletedAt = GeneratedColumn<DateTime>(
+    'deleted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _weightKgMeta = const VerificationMeta(
+    'weightKg',
+  );
+  @override
+  late final GeneratedColumn<double> weightKg = GeneratedColumn<double>(
+    'weight_kg',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    updatedAt,
+    syncedAt,
+    deletedAt,
+    id,
+    weightKg,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'body_metrics';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<BodyMetric> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
+    if (data.containsKey('synced_at')) {
+      context.handle(
+        _syncedAtMeta,
+        syncedAt.isAcceptableOrUnknown(data['synced_at']!, _syncedAtMeta),
+      );
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
+    }
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('weight_kg')) {
+      context.handle(
+        _weightKgMeta,
+        weightKg.isAcceptableOrUnknown(data['weight_kg']!, _weightKgMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  BodyMetric map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return BodyMetric(
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+      syncedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}synced_at'],
+      ),
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}deleted_at'],
+      ),
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      weightKg: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}weight_kg'],
+      ),
+    );
+  }
+
+  @override
+  $BodyMetricsTable createAlias(String alias) {
+    return $BodyMetricsTable(attachedDatabase, alias);
+  }
+}
+
+class BodyMetric extends DataClass implements Insertable<BodyMetric> {
+  final DateTime updatedAt;
+  final DateTime? syncedAt;
+  final DateTime? deletedAt;
+  final String id;
+  final double? weightKg;
+  const BodyMetric({
+    required this.updatedAt,
+    this.syncedAt,
+    this.deletedAt,
+    required this.id,
+    this.weightKg,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    if (!nullToAbsent || syncedAt != null) {
+      map['synced_at'] = Variable<DateTime>(syncedAt);
+    }
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt);
+    }
+    map['id'] = Variable<String>(id);
+    if (!nullToAbsent || weightKg != null) {
+      map['weight_kg'] = Variable<double>(weightKg);
+    }
+    return map;
+  }
+
+  BodyMetricsCompanion toCompanion(bool nullToAbsent) {
+    return BodyMetricsCompanion(
+      updatedAt: Value(updatedAt),
+      syncedAt: syncedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(syncedAt),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
+      id: Value(id),
+      weightKg: weightKg == null && nullToAbsent
+          ? const Value.absent()
+          : Value(weightKg),
+    );
+  }
+
+  factory BodyMetric.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return BodyMetric(
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+      syncedAt: serializer.fromJson<DateTime?>(json['syncedAt']),
+      deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
+      id: serializer.fromJson<String>(json['id']),
+      weightKg: serializer.fromJson<double?>(json['weightKg']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+      'syncedAt': serializer.toJson<DateTime?>(syncedAt),
+      'deletedAt': serializer.toJson<DateTime?>(deletedAt),
+      'id': serializer.toJson<String>(id),
+      'weightKg': serializer.toJson<double?>(weightKg),
+    };
+  }
+
+  BodyMetric copyWith({
+    DateTime? updatedAt,
+    Value<DateTime?> syncedAt = const Value.absent(),
+    Value<DateTime?> deletedAt = const Value.absent(),
+    String? id,
+    Value<double?> weightKg = const Value.absent(),
+  }) => BodyMetric(
+    updatedAt: updatedAt ?? this.updatedAt,
+    syncedAt: syncedAt.present ? syncedAt.value : this.syncedAt,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+    id: id ?? this.id,
+    weightKg: weightKg.present ? weightKg.value : this.weightKg,
+  );
+  BodyMetric copyWithCompanion(BodyMetricsCompanion data) {
+    return BodyMetric(
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      syncedAt: data.syncedAt.present ? data.syncedAt.value : this.syncedAt,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+      id: data.id.present ? data.id.value : this.id,
+      weightKg: data.weightKg.present ? data.weightKg.value : this.weightKg,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('BodyMetric(')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('syncedAt: $syncedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('id: $id, ')
+          ..write('weightKg: $weightKg')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(updatedAt, syncedAt, deletedAt, id, weightKg);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is BodyMetric &&
+          other.updatedAt == this.updatedAt &&
+          other.syncedAt == this.syncedAt &&
+          other.deletedAt == this.deletedAt &&
+          other.id == this.id &&
+          other.weightKg == this.weightKg);
+}
+
+class BodyMetricsCompanion extends UpdateCompanion<BodyMetric> {
+  final Value<DateTime> updatedAt;
+  final Value<DateTime?> syncedAt;
+  final Value<DateTime?> deletedAt;
+  final Value<String> id;
+  final Value<double?> weightKg;
+  final Value<int> rowid;
+  const BodyMetricsCompanion({
+    this.updatedAt = const Value.absent(),
+    this.syncedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.id = const Value.absent(),
+    this.weightKg = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  BodyMetricsCompanion.insert({
+    required DateTime updatedAt,
+    this.syncedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    required String id,
+    this.weightKg = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : updatedAt = Value(updatedAt),
+       id = Value(id);
+  static Insertable<BodyMetric> custom({
+    Expression<DateTime>? updatedAt,
+    Expression<DateTime>? syncedAt,
+    Expression<DateTime>? deletedAt,
+    Expression<String>? id,
+    Expression<double>? weightKg,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (syncedAt != null) 'synced_at': syncedAt,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+      if (id != null) 'id': id,
+      if (weightKg != null) 'weight_kg': weightKg,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  BodyMetricsCompanion copyWith({
+    Value<DateTime>? updatedAt,
+    Value<DateTime?>? syncedAt,
+    Value<DateTime?>? deletedAt,
+    Value<String>? id,
+    Value<double?>? weightKg,
+    Value<int>? rowid,
+  }) {
+    return BodyMetricsCompanion(
+      updatedAt: updatedAt ?? this.updatedAt,
+      syncedAt: syncedAt ?? this.syncedAt,
+      deletedAt: deletedAt ?? this.deletedAt,
+      id: id ?? this.id,
+      weightKg: weightKg ?? this.weightKg,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (syncedAt.present) {
+      map['synced_at'] = Variable<DateTime>(syncedAt.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt.value);
+    }
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (weightKg.present) {
+      map['weight_kg'] = Variable<double>(weightKg.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('BodyMetricsCompanion(')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('syncedAt: $syncedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('id: $id, ')
+          ..write('weightKg: $weightKg, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $MuscleGroupsTable extends MuscleGroups
     with TableInfo<$MuscleGroupsTable, MuscleGroup> {
   @override
@@ -8134,6 +8499,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
   late final $ProfilesTable profiles = $ProfilesTable(this);
+  late final $BodyMetricsTable bodyMetrics = $BodyMetricsTable(this);
   late final $MuscleGroupsTable muscleGroups = $MuscleGroupsTable(this);
   late final $ExercisesTable exercises = $ExercisesTable(this);
   late final $ExerciseMuscleMapTable exerciseMuscleMap =
@@ -8159,6 +8525,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   @override
   List<DatabaseSchemaEntity> get allSchemaEntities => [
     profiles,
+    bodyMetrics,
     muscleGroups,
     exercises,
     exerciseMuscleMap,
@@ -8533,6 +8900,215 @@ typedef $$ProfilesTableProcessedTableManager =
       $$ProfilesTableUpdateCompanionBuilder,
       (Profile, BaseReferences<_$AppDatabase, $ProfilesTable, Profile>),
       Profile,
+      PrefetchHooks Function()
+    >;
+typedef $$BodyMetricsTableCreateCompanionBuilder =
+    BodyMetricsCompanion Function({
+      required DateTime updatedAt,
+      Value<DateTime?> syncedAt,
+      Value<DateTime?> deletedAt,
+      required String id,
+      Value<double?> weightKg,
+      Value<int> rowid,
+    });
+typedef $$BodyMetricsTableUpdateCompanionBuilder =
+    BodyMetricsCompanion Function({
+      Value<DateTime> updatedAt,
+      Value<DateTime?> syncedAt,
+      Value<DateTime?> deletedAt,
+      Value<String> id,
+      Value<double?> weightKg,
+      Value<int> rowid,
+    });
+
+class $$BodyMetricsTableFilterComposer
+    extends Composer<_$AppDatabase, $BodyMetricsTable> {
+  $$BodyMetricsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get syncedAt => $composableBuilder(
+    column: $table.syncedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get weightKg => $composableBuilder(
+    column: $table.weightKg,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$BodyMetricsTableOrderingComposer
+    extends Composer<_$AppDatabase, $BodyMetricsTable> {
+  $$BodyMetricsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get syncedAt => $composableBuilder(
+    column: $table.syncedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get weightKg => $composableBuilder(
+    column: $table.weightKg,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$BodyMetricsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $BodyMetricsTable> {
+  $$BodyMetricsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get syncedAt =>
+      $composableBuilder(column: $table.syncedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<double> get weightKg =>
+      $composableBuilder(column: $table.weightKg, builder: (column) => column);
+}
+
+class $$BodyMetricsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $BodyMetricsTable,
+          BodyMetric,
+          $$BodyMetricsTableFilterComposer,
+          $$BodyMetricsTableOrderingComposer,
+          $$BodyMetricsTableAnnotationComposer,
+          $$BodyMetricsTableCreateCompanionBuilder,
+          $$BodyMetricsTableUpdateCompanionBuilder,
+          (
+            BodyMetric,
+            BaseReferences<_$AppDatabase, $BodyMetricsTable, BodyMetric>,
+          ),
+          BodyMetric,
+          PrefetchHooks Function()
+        > {
+  $$BodyMetricsTableTableManager(_$AppDatabase db, $BodyMetricsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$BodyMetricsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$BodyMetricsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$BodyMetricsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<DateTime?> syncedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<String> id = const Value.absent(),
+                Value<double?> weightKg = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => BodyMetricsCompanion(
+                updatedAt: updatedAt,
+                syncedAt: syncedAt,
+                deletedAt: deletedAt,
+                id: id,
+                weightKg: weightKg,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required DateTime updatedAt,
+                Value<DateTime?> syncedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                required String id,
+                Value<double?> weightKg = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => BodyMetricsCompanion.insert(
+                updatedAt: updatedAt,
+                syncedAt: syncedAt,
+                deletedAt: deletedAt,
+                id: id,
+                weightKg: weightKg,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$BodyMetricsTable, BodyMetric>(table),
+                  BaseReferences<_$AppDatabase, $BodyMetricsTable, BodyMetric>(
+                    db,
+                    table,
+                    e,
+                  ),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$BodyMetricsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $BodyMetricsTable,
+      BodyMetric,
+      $$BodyMetricsTableFilterComposer,
+      $$BodyMetricsTableOrderingComposer,
+      $$BodyMetricsTableAnnotationComposer,
+      $$BodyMetricsTableCreateCompanionBuilder,
+      $$BodyMetricsTableUpdateCompanionBuilder,
+      (
+        BodyMetric,
+        BaseReferences<_$AppDatabase, $BodyMetricsTable, BodyMetric>,
+      ),
+      BodyMetric,
       PrefetchHooks Function()
     >;
 typedef $$MuscleGroupsTableCreateCompanionBuilder =
@@ -12267,6 +12843,8 @@ class $AppDatabaseManager {
   $AppDatabaseManager(this._db);
   $$ProfilesTableTableManager get profiles =>
       $$ProfilesTableTableManager(_db, _db.profiles);
+  $$BodyMetricsTableTableManager get bodyMetrics =>
+      $$BodyMetricsTableTableManager(_db, _db.bodyMetrics);
   $$MuscleGroupsTableTableManager get muscleGroups =>
       $$MuscleGroupsTableTableManager(_db, _db.muscleGroups);
   $$ExercisesTableTableManager get exercises =>

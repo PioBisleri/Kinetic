@@ -12,6 +12,9 @@ import '../../core/utils/bmi.dart';
 import '../../core/utils/height_units.dart';
 import '../../core/utils/weight_units.dart';
 import '../../core/widgets/section_card.dart';
+import 'body_metric_log.dart';
+import 'weight_trend.dart';
+import 'weight_trend_sheet.dart';
 
 /// "Your data" — every personal input in one card (Round 5): name,
 /// height, date of birth, sex, body fat %, training goal, bodyweight,
@@ -37,6 +40,7 @@ class YourDataCard extends StatelessWidget {
         _GoalRow(),
         _BodyweightRow(),
         _BmiRow(),
+        _WeightTrendRow(),
       ],
     );
   }
@@ -546,6 +550,7 @@ class _BodyweightFieldState extends ConsumerState<_BodyweightField> {
     if (value == null || value <= 0 || value > 400) return; // ignore garbage
     final kg = displayToKg(value, unit);
     _dirty = false; // stream emit below writes back the canonical display
+    final prev = ref.read(profileProvider).value?.bodyweightKg;
     await _writeProfile(
       ref,
       ProfilesCompanion.insert(
@@ -554,6 +559,11 @@ class _BodyweightFieldState extends ConsumerState<_BodyweightField> {
         bodyweightKg: Value(kg),
       ),
     );
+    // A changed value becomes a point on the weight trend (same-day
+    // saves upsert one row, so corrections never duplicate the day).
+    if (prev == null || (prev - kg).abs() > 0.005) {
+      await logBodyWeight(ref.read(databaseProvider), kg);
+    }
   }
 
   @override
@@ -622,6 +632,48 @@ class _BmiRow extends ConsumerWidget {
                 color: context.textSecondary,
               ),
             ),
+    );
+  }
+}
+
+/// Weight-trend summary row (Round 6) — the chart lives behind the tap.
+class _WeightTrendRow extends ConsumerWidget {
+  const _WeightTrendRow();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final unit = ref.watch(settingsProvider).unit;
+    final rows = ref.watch(bodyMetricsProvider).value ?? const [];
+    final points = trendPoints(rows, DateTime.now());
+    final lbl = unitLabel(unit);
+
+    final String subtitle;
+    if (points.isEmpty) {
+      subtitle = 'Weigh in above to start the chart';
+    } else if (points.length == 1) {
+      subtitle = '${formatWeight(points.first.weightKg, unit)} $lbl'
+          ' · 1 entry';
+    } else {
+      final delta = trendDelta(points)!;
+      subtitle = '${formatWeight(points.last.weightKg, unit)} $lbl · '
+          '${delta >= 0 ? '+' : '-'}${formatWeight(delta.abs(), unit)} $lbl'
+          ' / ${weightTrendWeeks}w';
+    }
+
+    return ListTile(
+      key: const Key('profile-weight-trend'),
+      dense: true,
+      title: const Text('Weight trend'),
+      subtitle: Text(
+        subtitle,
+        style: TextStyle(fontSize: 12, color: context.textTertiary),
+      ),
+      trailing: Icon(
+        Icons.chevron_right,
+        size: 20,
+        color: context.textTertiary,
+      ),
+      onTap: points.isEmpty ? null : () => showWeightTrendSheet(context),
     );
   }
 }

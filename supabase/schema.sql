@@ -61,6 +61,10 @@ create table if not exists public.exercises (
   thumbnail_ref      text,
   is_custom          boolean not null default false,
   owner_id           text, -- 'local' for custom rows, null for seed rows
+  -- Rest + progression overrides (Round 3 / v3, Round 6 / v5): NULL
+  -- inherits the Settings default (seconds) / unit default (kg step).
+  rest_seconds             integer,
+  progression_increment_kg double precision,
   updated_at         timestamptz not null default now(),
   deleted_at         timestamptz,
   primary key (user_id, id)
@@ -147,6 +151,19 @@ create table if not exists public.workout_sets (
   primary key (user_id, id)
 );
 
+-- ------------------------------- body metrics ------------------------------
+-- Weight-trend points (Round 6 / local schema v6): one row per local
+-- calendar day, LWW per row like profiles.
+
+create table if not exists public.body_metrics (
+  user_id     uuid not null default auth.uid(),
+  id          text not null, -- local day key 'YYYY-MM-DD'
+  weight_kg   double precision,
+  updated_at  timestamptz not null default now(),
+  deleted_at  timestamptz,
+  primary key (user_id, id)
+);
+
 -- --------------------------------- indexes --------------------------------
 -- fetchChanged scans updated_at per user; children are fetched per parent.
 
@@ -154,6 +171,7 @@ create index if not exists profiles_updated_at_idx     on public.profiles       
 create index if not exists exercises_updated_at_idx    on public.exercises           (user_id, updated_at);
 create index if not exists routines_updated_at_idx     on public.routines            (user_id, updated_at);
 create index if not exists workouts_updated_at_idx     on public.workouts            (user_id, updated_at);
+create index if not exists body_metrics_updated_at_idx on public.body_metrics        (user_id, updated_at);
 create index if not exists exercise_map_exercise_idx   on public.exercise_muscle_map (user_id, exercise_id);
 create index if not exists routine_exercises_routine_idx on public.routine_exercises (user_id, routine_id);
 create index if not exists workout_sets_workout_idx    on public.workout_sets        (user_id, workout_id);
@@ -167,13 +185,15 @@ alter table public.routines            enable row level security;
 alter table public.routine_exercises   enable row level security;
 alter table public.workouts            enable row level security;
 alter table public.workout_sets        enable row level security;
+alter table public.body_metrics        enable row level security;
 
 do $$
 declare t text;
 begin
   foreach t in array array[
     'profiles', 'exercises', 'exercise_muscle_map',
-    'routines', 'routine_exercises', 'workouts', 'workout_sets'
+    'routines', 'routine_exercises', 'workouts', 'workout_sets',
+    'body_metrics'
   ] loop
     execute format(
       'drop policy if exists "own rows" on public.%I;' ||

@@ -190,6 +190,14 @@ class ImportService {
                 serializer: backupSerializer,
               ),
         ]);
+    // Additive key: pre-Round-6 backups simply have no weigh-ins.
+    final bodyMetrics = _decode(() => [
+          for (final j in doc['bodyMetrics'] as List? ?? const [])
+            BodyMetric.fromJson(
+              j as Map<String, dynamic>,
+              serializer: backupSerializer,
+            ),
+        ]);
 
     // ---- replace-all, parents before children (no FK constraints exist)
     await _db.transaction(() async {
@@ -200,6 +208,7 @@ class ImportService {
       await _db.delete(_db.exerciseHistory).go();
       await _db.delete(_db.muscleVolumeDaily).go();
       await _db.delete(_db.muscleGradeHistory).go();
+      await _db.delete(_db.bodyMetrics).go();
       await _db.delete(_db.exerciseMuscleMap).go();
       await _db.delete(_db.exercises).go();
 
@@ -229,6 +238,11 @@ class ImportService {
       }
       if (profile != null) {
         await _db.into(_db.profiles).insertOnConflictUpdate(profile.toCompanion(false));
+      }
+      for (final m in bodyMetrics) {
+        await _db
+            .into(_db.bodyMetrics)
+            .insertOnConflictUpdate(m.toCompanion(false));
       }
     });
 

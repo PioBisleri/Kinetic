@@ -7,6 +7,7 @@ import 'package:kinetic/app.dart';
 import 'package:kinetic/core/database/database.dart';
 import 'package:kinetic/core/database/seed_service.dart';
 import 'package:kinetic/core/settings/settings.dart';
+import 'package:kinetic/core/utils/day_key.dart';
 import 'package:kinetic/features/profile/profile_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -182,6 +183,32 @@ void main() {
 
     await submit(tester, find.byKey(const Key('profile-bf')), '14.5');
     expect((await localProfile())?.bodyFatPct, 14.5);
+
+    await endApp(tester);
+  });
+
+  testWidgets('saving a weight logs today\'s point and opens the trend sheet',
+      (tester) async {
+    await pumpApp(tester);
+    await openProfile(tester);
+
+    await submit(tester, find.byKey(const Key('bodyweight-input')), '72');
+
+    // The save captured today's weigh-in as a trend point.
+    final rows = await db.bodyMetrics.select().get();
+    expect(rows, hasLength(1));
+    expect(rows.single.id, dayKey(DateTime.now()));
+    expect(rows.single.weightKg, 72);
+
+    // The row summarizes the single entry and opens the chart.
+    await scrollUntilBuilt(tester, find.byKey(const Key('profile-weight-trend')));
+    expect(find.text('72 kg · 1 entry'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('profile-weight-trend')));
+    await tester.pumpAndSettle();
+    expect(find.text('last 12 weeks · one point per weigh-in'), findsOneWidget);
+    expect(find.text('7-day avg'), findsOneWidget);
+    expect(find.text('Weigh-in'), findsOneWidget); // legend
 
     await endApp(tester);
   });

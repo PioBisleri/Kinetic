@@ -2,6 +2,8 @@ import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../utils/day_key.dart';
+
 part 'database.g.dart';
 
 // ---------------------------------------------------------------------------
@@ -40,6 +42,19 @@ class Profiles extends Table with SyncColumns {
   TextColumn get sex => text().nullable()();
   RealColumn get bodyFatPct => real().nullable()();
   TextColumn get trainingGoal => text().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+// --------------------------- body metrics ---------------------------------
+
+/// One weigh-in per local calendar day (Round 6 / v6): the trend's data
+/// points. Keyed by `dayKey` ('2026-09-27'), so re-weighing today
+/// updates the row in place — locally and, via LWW, remotely.
+class BodyMetrics extends Table with SyncColumns {
+  TextColumn get id => text()(); // local day key
+  RealColumn get weightKg => real().nullable()();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -266,6 +281,7 @@ class SyncQueue extends Table {
 
 @DriftDatabase(tables: [
   Profiles,
+  BodyMetrics,
   MuscleGroups,
   Exercises,
   ExerciseMuscleMap,
@@ -285,7 +301,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -335,6 +351,25 @@ class AppDatabase extends _$AppDatabase {
           if (from < 5 && to >= 5) {
             await m.addColumn(
                 exercises, exercises.progressionIncrementKg);
+          }
+
+          // v6: bodyweight trend (Round 6). A fresh table plus one
+          // backfill: upgrading users' current profile weight becomes
+          // today's first point (real value, real date — nothing is
+          // invented for past days).
+          if (from < 6 && to >= 6) {
+            await m.createTable(bodyMetrics);
+            await customStatement(
+              'INSERT OR IGNORE INTO body_metrics '
+              '(id, weight_kg, updated_at) '
+              'SELECT ?, bodyweight_kg, ? '
+              'FROM profiles WHERE id = ? AND bodyweight_kg IS NOT NULL',
+              [
+                dayKey(DateTime.now()),
+                DateTime.now().toUtc().millisecondsSinceEpoch,
+                'local',
+              ],
+            );
           }
         },
         beforeOpen: (details) async {
