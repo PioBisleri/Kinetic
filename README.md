@@ -3,7 +3,7 @@
 ![version](https://img.shields.io/badge/version-0.1.3-22D3A5)
 ![Flutter](https://img.shields.io/badge/Flutter-3.47-02569B?logo=flutter&logoColor=white)
 ![Dart](https://img.shields.io/badge/Dart-3.13-0175C2?logo=dart&logoColor=white)
-![tests](https://img.shields.io/badge/tests-246%20passing-22D3A5)
+![tests](https://img.shields.io/badge/tests-276%20passing-22D3A5)
 ![Android](https://img.shields.io/badge/platform-Android-3DDC84?logo=android&logoColor=white)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
@@ -34,7 +34,8 @@ database is always the source of truth.
 - Rest timer auto-starts after each completed set; duration comes from
   the routine entry → exercise → app default chain (see *Rest system*)
 - Plate calculator (kg or lb plates, optional micro-loading plates)
-- Next-weight suggestions via double progression with auto-deload
+- Next-weight suggestions via double progression with auto-deload;
+  the step is per-exercise (load increment override or inherit)
 - Finish/discard flow with confirmation; in-progress workouts resume
   after a restart
 
@@ -61,6 +62,8 @@ Three tiers, resolved routine → exercise → app settings:
 ### Analytics
 - Weekly volume and 1RM progression charts, consistency calendar
 - **Muscle Grade** (F–S) per muscle and muscle balance ratios
+- **Volume landmarks** — MEV / MAV / MRV sets-per-week bands per muscle
+  on a color-graded track (editable per muscle, curated defaults)
 - Body heat map: red → grey over 48–72 h since a muscle was trained
 - Exercise progress screen: e1RM/volume trend, all-time PRs,
   last-vs-previous session deltas
@@ -68,9 +71,11 @@ Three tiers, resolved routine → exercise → app settings:
 ### Data
 - **Your data** profile: name, height (cm or ft/in), date of birth, sex,
   body fat %, training goal, bodyweight — plus a derived BMI row
-  (display-only; the grade math never sees them)
+  (display-only; the grade math never sees them) and a weigh-in log
+  with a 12-week bodyweight trend
 - Full JSON backup (profile, exercises + muscle maps, routines,
-  workouts + sets) and CSV export of every set, via the OS share sheet
+  workouts + sets, weigh-ins, landmark overrides) and CSV export of
+  every set, via the OS share sheet
 - JSON import replaces all local data (older backups normalize
   automatically on the way in)
 - Optional Supabase sync: pull→push with per-row last-write-wins,
@@ -138,7 +143,7 @@ term drives the body heat map.
 flutter pub get
 dart run build_runner build --delete-conflicting-outputs   # after schema edits
 flutter analyze
-flutter test          # 246 tests
+flutter test          # 276 tests
 flutter run
 ```
 
@@ -205,10 +210,11 @@ assets/seed/                 19 muscle groups, 89 exercises
 - **Round 5 ✅ (v0.1.3)** profile "Your data" + BMI (schema v4), algorithm
   transparency (grade breakdowns, how-grades/suggestion sheets), GitHub
   Actions CI, home-screen widget
+- **Round 6 ✅** per-exercise progression increments (schema v5), bodyweight
+  trend (schema v6), volume landmarks card (schema v7)
 
 ## Roadmap
 
-- **Phase 9** volume landmarks
 - **Phase 10** end-to-end encrypted sync — `schema.sql` must not be
   applied to the Supabase project before this lands
 
