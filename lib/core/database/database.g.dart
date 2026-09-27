@@ -1135,6 +1135,477 @@ class BodyMetricsCompanion extends UpdateCompanion<BodyMetric> {
   }
 }
 
+class $VolumeLandmarksTable extends VolumeLandmarks
+    with TableInfo<$VolumeLandmarksTable, VolumeLandmark> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $VolumeLandmarksTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _syncedAtMeta = const VerificationMeta(
+    'syncedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> syncedAt = GeneratedColumn<DateTime>(
+    'synced_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> deletedAt = GeneratedColumn<DateTime>(
+    'deleted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _muscleIdMeta = const VerificationMeta(
+    'muscleId',
+  );
+  @override
+  late final GeneratedColumn<String> muscleId = GeneratedColumn<String>(
+    'muscle_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _mevSetsMeta = const VerificationMeta(
+    'mevSets',
+  );
+  @override
+  late final GeneratedColumn<int> mevSets = GeneratedColumn<int>(
+    'mev_sets',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _mavSetsMeta = const VerificationMeta(
+    'mavSets',
+  );
+  @override
+  late final GeneratedColumn<int> mavSets = GeneratedColumn<int>(
+    'mav_sets',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _mrvSetsMeta = const VerificationMeta(
+    'mrvSets',
+  );
+  @override
+  late final GeneratedColumn<int> mrvSets = GeneratedColumn<int>(
+    'mrv_sets',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    updatedAt,
+    syncedAt,
+    deletedAt,
+    muscleId,
+    mevSets,
+    mavSets,
+    mrvSets,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'volume_landmarks';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<VolumeLandmark> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
+    if (data.containsKey('synced_at')) {
+      context.handle(
+        _syncedAtMeta,
+        syncedAt.isAcceptableOrUnknown(data['synced_at']!, _syncedAtMeta),
+      );
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
+    }
+    if (data.containsKey('muscle_id')) {
+      context.handle(
+        _muscleIdMeta,
+        muscleId.isAcceptableOrUnknown(data['muscle_id']!, _muscleIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_muscleIdMeta);
+    }
+    if (data.containsKey('mev_sets')) {
+      context.handle(
+        _mevSetsMeta,
+        mevSets.isAcceptableOrUnknown(data['mev_sets']!, _mevSetsMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_mevSetsMeta);
+    }
+    if (data.containsKey('mav_sets')) {
+      context.handle(
+        _mavSetsMeta,
+        mavSets.isAcceptableOrUnknown(data['mav_sets']!, _mavSetsMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_mavSetsMeta);
+    }
+    if (data.containsKey('mrv_sets')) {
+      context.handle(
+        _mrvSetsMeta,
+        mrvSets.isAcceptableOrUnknown(data['mrv_sets']!, _mrvSetsMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_mrvSetsMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {muscleId};
+  @override
+  VolumeLandmark map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return VolumeLandmark(
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+      syncedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}synced_at'],
+      ),
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}deleted_at'],
+      ),
+      muscleId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}muscle_id'],
+      )!,
+      mevSets: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}mev_sets'],
+      )!,
+      mavSets: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}mav_sets'],
+      )!,
+      mrvSets: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}mrv_sets'],
+      )!,
+    );
+  }
+
+  @override
+  $VolumeLandmarksTable createAlias(String alias) {
+    return $VolumeLandmarksTable(attachedDatabase, alias);
+  }
+}
+
+class VolumeLandmark extends DataClass implements Insertable<VolumeLandmark> {
+  final DateTime updatedAt;
+  final DateTime? syncedAt;
+  final DateTime? deletedAt;
+  final String muscleId;
+  final int mevSets;
+  final int mavSets;
+  final int mrvSets;
+  const VolumeLandmark({
+    required this.updatedAt,
+    this.syncedAt,
+    this.deletedAt,
+    required this.muscleId,
+    required this.mevSets,
+    required this.mavSets,
+    required this.mrvSets,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    if (!nullToAbsent || syncedAt != null) {
+      map['synced_at'] = Variable<DateTime>(syncedAt);
+    }
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt);
+    }
+    map['muscle_id'] = Variable<String>(muscleId);
+    map['mev_sets'] = Variable<int>(mevSets);
+    map['mav_sets'] = Variable<int>(mavSets);
+    map['mrv_sets'] = Variable<int>(mrvSets);
+    return map;
+  }
+
+  VolumeLandmarksCompanion toCompanion(bool nullToAbsent) {
+    return VolumeLandmarksCompanion(
+      updatedAt: Value(updatedAt),
+      syncedAt: syncedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(syncedAt),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
+      muscleId: Value(muscleId),
+      mevSets: Value(mevSets),
+      mavSets: Value(mavSets),
+      mrvSets: Value(mrvSets),
+    );
+  }
+
+  factory VolumeLandmark.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return VolumeLandmark(
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+      syncedAt: serializer.fromJson<DateTime?>(json['syncedAt']),
+      deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
+      muscleId: serializer.fromJson<String>(json['muscleId']),
+      mevSets: serializer.fromJson<int>(json['mevSets']),
+      mavSets: serializer.fromJson<int>(json['mavSets']),
+      mrvSets: serializer.fromJson<int>(json['mrvSets']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+      'syncedAt': serializer.toJson<DateTime?>(syncedAt),
+      'deletedAt': serializer.toJson<DateTime?>(deletedAt),
+      'muscleId': serializer.toJson<String>(muscleId),
+      'mevSets': serializer.toJson<int>(mevSets),
+      'mavSets': serializer.toJson<int>(mavSets),
+      'mrvSets': serializer.toJson<int>(mrvSets),
+    };
+  }
+
+  VolumeLandmark copyWith({
+    DateTime? updatedAt,
+    Value<DateTime?> syncedAt = const Value.absent(),
+    Value<DateTime?> deletedAt = const Value.absent(),
+    String? muscleId,
+    int? mevSets,
+    int? mavSets,
+    int? mrvSets,
+  }) => VolumeLandmark(
+    updatedAt: updatedAt ?? this.updatedAt,
+    syncedAt: syncedAt.present ? syncedAt.value : this.syncedAt,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+    muscleId: muscleId ?? this.muscleId,
+    mevSets: mevSets ?? this.mevSets,
+    mavSets: mavSets ?? this.mavSets,
+    mrvSets: mrvSets ?? this.mrvSets,
+  );
+  VolumeLandmark copyWithCompanion(VolumeLandmarksCompanion data) {
+    return VolumeLandmark(
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      syncedAt: data.syncedAt.present ? data.syncedAt.value : this.syncedAt,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+      muscleId: data.muscleId.present ? data.muscleId.value : this.muscleId,
+      mevSets: data.mevSets.present ? data.mevSets.value : this.mevSets,
+      mavSets: data.mavSets.present ? data.mavSets.value : this.mavSets,
+      mrvSets: data.mrvSets.present ? data.mrvSets.value : this.mrvSets,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('VolumeLandmark(')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('syncedAt: $syncedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('muscleId: $muscleId, ')
+          ..write('mevSets: $mevSets, ')
+          ..write('mavSets: $mavSets, ')
+          ..write('mrvSets: $mrvSets')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    updatedAt,
+    syncedAt,
+    deletedAt,
+    muscleId,
+    mevSets,
+    mavSets,
+    mrvSets,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is VolumeLandmark &&
+          other.updatedAt == this.updatedAt &&
+          other.syncedAt == this.syncedAt &&
+          other.deletedAt == this.deletedAt &&
+          other.muscleId == this.muscleId &&
+          other.mevSets == this.mevSets &&
+          other.mavSets == this.mavSets &&
+          other.mrvSets == this.mrvSets);
+}
+
+class VolumeLandmarksCompanion extends UpdateCompanion<VolumeLandmark> {
+  final Value<DateTime> updatedAt;
+  final Value<DateTime?> syncedAt;
+  final Value<DateTime?> deletedAt;
+  final Value<String> muscleId;
+  final Value<int> mevSets;
+  final Value<int> mavSets;
+  final Value<int> mrvSets;
+  final Value<int> rowid;
+  const VolumeLandmarksCompanion({
+    this.updatedAt = const Value.absent(),
+    this.syncedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.muscleId = const Value.absent(),
+    this.mevSets = const Value.absent(),
+    this.mavSets = const Value.absent(),
+    this.mrvSets = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  VolumeLandmarksCompanion.insert({
+    required DateTime updatedAt,
+    this.syncedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    required String muscleId,
+    required int mevSets,
+    required int mavSets,
+    required int mrvSets,
+    this.rowid = const Value.absent(),
+  }) : updatedAt = Value(updatedAt),
+       muscleId = Value(muscleId),
+       mevSets = Value(mevSets),
+       mavSets = Value(mavSets),
+       mrvSets = Value(mrvSets);
+  static Insertable<VolumeLandmark> custom({
+    Expression<DateTime>? updatedAt,
+    Expression<DateTime>? syncedAt,
+    Expression<DateTime>? deletedAt,
+    Expression<String>? muscleId,
+    Expression<int>? mevSets,
+    Expression<int>? mavSets,
+    Expression<int>? mrvSets,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (syncedAt != null) 'synced_at': syncedAt,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+      if (muscleId != null) 'muscle_id': muscleId,
+      if (mevSets != null) 'mev_sets': mevSets,
+      if (mavSets != null) 'mav_sets': mavSets,
+      if (mrvSets != null) 'mrv_sets': mrvSets,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  VolumeLandmarksCompanion copyWith({
+    Value<DateTime>? updatedAt,
+    Value<DateTime?>? syncedAt,
+    Value<DateTime?>? deletedAt,
+    Value<String>? muscleId,
+    Value<int>? mevSets,
+    Value<int>? mavSets,
+    Value<int>? mrvSets,
+    Value<int>? rowid,
+  }) {
+    return VolumeLandmarksCompanion(
+      updatedAt: updatedAt ?? this.updatedAt,
+      syncedAt: syncedAt ?? this.syncedAt,
+      deletedAt: deletedAt ?? this.deletedAt,
+      muscleId: muscleId ?? this.muscleId,
+      mevSets: mevSets ?? this.mevSets,
+      mavSets: mavSets ?? this.mavSets,
+      mrvSets: mrvSets ?? this.mrvSets,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (syncedAt.present) {
+      map['synced_at'] = Variable<DateTime>(syncedAt.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt.value);
+    }
+    if (muscleId.present) {
+      map['muscle_id'] = Variable<String>(muscleId.value);
+    }
+    if (mevSets.present) {
+      map['mev_sets'] = Variable<int>(mevSets.value);
+    }
+    if (mavSets.present) {
+      map['mav_sets'] = Variable<int>(mavSets.value);
+    }
+    if (mrvSets.present) {
+      map['mrv_sets'] = Variable<int>(mrvSets.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('VolumeLandmarksCompanion(')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('syncedAt: $syncedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('muscleId: $muscleId, ')
+          ..write('mevSets: $mevSets, ')
+          ..write('mavSets: $mavSets, ')
+          ..write('mrvSets: $mrvSets, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $MuscleGroupsTable extends MuscleGroups
     with TableInfo<$MuscleGroupsTable, MuscleGroup> {
   @override
@@ -8500,6 +8971,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
   late final $ProfilesTable profiles = $ProfilesTable(this);
   late final $BodyMetricsTable bodyMetrics = $BodyMetricsTable(this);
+  late final $VolumeLandmarksTable volumeLandmarks = $VolumeLandmarksTable(
+    this,
+  );
   late final $MuscleGroupsTable muscleGroups = $MuscleGroupsTable(this);
   late final $ExercisesTable exercises = $ExercisesTable(this);
   late final $ExerciseMuscleMapTable exerciseMuscleMap =
@@ -8526,6 +9000,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   List<DatabaseSchemaEntity> get allSchemaEntities => [
     profiles,
     bodyMetrics,
+    volumeLandmarks,
     muscleGroups,
     exercises,
     exerciseMuscleMap,
@@ -9109,6 +9584,259 @@ typedef $$BodyMetricsTableProcessedTableManager =
         BaseReferences<_$AppDatabase, $BodyMetricsTable, BodyMetric>,
       ),
       BodyMetric,
+      PrefetchHooks Function()
+    >;
+typedef $$VolumeLandmarksTableCreateCompanionBuilder =
+    VolumeLandmarksCompanion Function({
+      required DateTime updatedAt,
+      Value<DateTime?> syncedAt,
+      Value<DateTime?> deletedAt,
+      required String muscleId,
+      required int mevSets,
+      required int mavSets,
+      required int mrvSets,
+      Value<int> rowid,
+    });
+typedef $$VolumeLandmarksTableUpdateCompanionBuilder =
+    VolumeLandmarksCompanion Function({
+      Value<DateTime> updatedAt,
+      Value<DateTime?> syncedAt,
+      Value<DateTime?> deletedAt,
+      Value<String> muscleId,
+      Value<int> mevSets,
+      Value<int> mavSets,
+      Value<int> mrvSets,
+      Value<int> rowid,
+    });
+
+class $$VolumeLandmarksTableFilterComposer
+    extends Composer<_$AppDatabase, $VolumeLandmarksTable> {
+  $$VolumeLandmarksTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get syncedAt => $composableBuilder(
+    column: $table.syncedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get muscleId => $composableBuilder(
+    column: $table.muscleId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get mevSets => $composableBuilder(
+    column: $table.mevSets,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get mavSets => $composableBuilder(
+    column: $table.mavSets,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get mrvSets => $composableBuilder(
+    column: $table.mrvSets,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$VolumeLandmarksTableOrderingComposer
+    extends Composer<_$AppDatabase, $VolumeLandmarksTable> {
+  $$VolumeLandmarksTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get syncedAt => $composableBuilder(
+    column: $table.syncedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get muscleId => $composableBuilder(
+    column: $table.muscleId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get mevSets => $composableBuilder(
+    column: $table.mevSets,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get mavSets => $composableBuilder(
+    column: $table.mavSets,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get mrvSets => $composableBuilder(
+    column: $table.mrvSets,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$VolumeLandmarksTableAnnotationComposer
+    extends Composer<_$AppDatabase, $VolumeLandmarksTable> {
+  $$VolumeLandmarksTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get syncedAt =>
+      $composableBuilder(column: $table.syncedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get muscleId =>
+      $composableBuilder(column: $table.muscleId, builder: (column) => column);
+
+  GeneratedColumn<int> get mevSets =>
+      $composableBuilder(column: $table.mevSets, builder: (column) => column);
+
+  GeneratedColumn<int> get mavSets =>
+      $composableBuilder(column: $table.mavSets, builder: (column) => column);
+
+  GeneratedColumn<int> get mrvSets =>
+      $composableBuilder(column: $table.mrvSets, builder: (column) => column);
+}
+
+class $$VolumeLandmarksTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $VolumeLandmarksTable,
+          VolumeLandmark,
+          $$VolumeLandmarksTableFilterComposer,
+          $$VolumeLandmarksTableOrderingComposer,
+          $$VolumeLandmarksTableAnnotationComposer,
+          $$VolumeLandmarksTableCreateCompanionBuilder,
+          $$VolumeLandmarksTableUpdateCompanionBuilder,
+          (
+            VolumeLandmark,
+            BaseReferences<
+              _$AppDatabase,
+              $VolumeLandmarksTable,
+              VolumeLandmark
+            >,
+          ),
+          VolumeLandmark,
+          PrefetchHooks Function()
+        > {
+  $$VolumeLandmarksTableTableManager(
+    _$AppDatabase db,
+    $VolumeLandmarksTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$VolumeLandmarksTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$VolumeLandmarksTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$VolumeLandmarksTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<DateTime?> syncedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<String> muscleId = const Value.absent(),
+                Value<int> mevSets = const Value.absent(),
+                Value<int> mavSets = const Value.absent(),
+                Value<int> mrvSets = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => VolumeLandmarksCompanion(
+                updatedAt: updatedAt,
+                syncedAt: syncedAt,
+                deletedAt: deletedAt,
+                muscleId: muscleId,
+                mevSets: mevSets,
+                mavSets: mavSets,
+                mrvSets: mrvSets,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required DateTime updatedAt,
+                Value<DateTime?> syncedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                required String muscleId,
+                required int mevSets,
+                required int mavSets,
+                required int mrvSets,
+                Value<int> rowid = const Value.absent(),
+              }) => VolumeLandmarksCompanion.insert(
+                updatedAt: updatedAt,
+                syncedAt: syncedAt,
+                deletedAt: deletedAt,
+                muscleId: muscleId,
+                mevSets: mevSets,
+                mavSets: mavSets,
+                mrvSets: mrvSets,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$VolumeLandmarksTable, VolumeLandmark>(table),
+                  BaseReferences<
+                    _$AppDatabase,
+                    $VolumeLandmarksTable,
+                    VolumeLandmark
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$VolumeLandmarksTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $VolumeLandmarksTable,
+      VolumeLandmark,
+      $$VolumeLandmarksTableFilterComposer,
+      $$VolumeLandmarksTableOrderingComposer,
+      $$VolumeLandmarksTableAnnotationComposer,
+      $$VolumeLandmarksTableCreateCompanionBuilder,
+      $$VolumeLandmarksTableUpdateCompanionBuilder,
+      (
+        VolumeLandmark,
+        BaseReferences<_$AppDatabase, $VolumeLandmarksTable, VolumeLandmark>,
+      ),
+      VolumeLandmark,
       PrefetchHooks Function()
     >;
 typedef $$MuscleGroupsTableCreateCompanionBuilder =
@@ -12845,6 +13573,8 @@ class $AppDatabaseManager {
       $$ProfilesTableTableManager(_db, _db.profiles);
   $$BodyMetricsTableTableManager get bodyMetrics =>
       $$BodyMetricsTableTableManager(_db, _db.bodyMetrics);
+  $$VolumeLandmarksTableTableManager get volumeLandmarks =>
+      $$VolumeLandmarksTableTableManager(_db, _db.volumeLandmarks);
   $$MuscleGroupsTableTableManager get muscleGroups =>
       $$MuscleGroupsTableTableManager(_db, _db.muscleGroups);
   $$ExercisesTableTableManager get exercises =>

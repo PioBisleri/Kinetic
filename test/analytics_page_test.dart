@@ -144,6 +144,11 @@ void main() {
       matches(RegExp(r'^\d+w$')),
     );
     expect(find.byType(BarChart), findsOneWidget);
+    // The Round 6 landmarks card sits between the volume chart and
+    // Strength, so the ListView starts with the line chart below its
+    // build window — scroll until it exists.
+    await tester.scrollUntilVisible(find.byType(LineChart), 200);
+    await tester.pumpAndSettle();
     expect(find.byType(LineChart), findsOneWidget);
     expect(find.byKey(const Key('exercise-picker')), findsOneWidget);
     expect(find.text('Barbell Bench Press'), findsWidgets);

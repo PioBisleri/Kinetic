@@ -208,6 +208,34 @@ final muscleWindowProvider = StreamProvider<Map<String, MuscleWindow>>((ref) {
 double volumeOf(Map<String, MuscleWindow> window, List<String> muscleIds) =>
     muscleIds.fold(0.0, (sum, id) => sum + (window[id]?.volumeKg ?? 0));
 
+/// Hard sets per muscle inside the selected period — the same rollup
+/// rows the weekly-volume chart reads, so the landmarks card counts
+/// "sets per week" exactly like the rest of the page (Round 6).
+final periodSetsProvider = StreamProvider<Map<String, int>>((ref) {
+  final db = ref.watch(databaseProvider);
+  final weeks = ref.watch(analyticsPeriodProvider);
+  final since = periodStart(weeks, DateTime.now());
+  final q = db.muscleVolumeDaily.select()
+    ..where(
+        (m) => m.userId.equals(_userId) & m.date.isBiggerOrEqualValue(since));
+  return q.watch().map((rows) {
+    final sets = <String, int>{};
+    for (final r in rows) {
+      sets[r.muscleId] = (sets[r.muscleId] ?? 0) + r.totalSets;
+    }
+    return sets;
+  });
+});
+
+/// Landmark *overrides* only — the card merges these over the curated
+/// defaults; an absent row simply means "default" (Round 6).
+final landmarkOverridesProvider =
+    StreamProvider<Map<String, VolumeLandmark>>((ref) {
+  final q = ref.watch(databaseProvider).volumeLandmarks.select()
+    ..orderBy([(v) => OrderingTerm.asc(v.muscleId)]);
+  return q.watch().map((rows) => {for (final v in rows) v.muscleId: v});
+});
+
 /// One agonist/antagonist comparison, straight from the seed JSON.
 class BalancePairConfig {
   const BalancePairConfig({

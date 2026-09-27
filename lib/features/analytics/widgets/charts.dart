@@ -23,12 +23,18 @@ class ChartCard extends StatelessWidget {
     required this.subtitle,
     required this.child,
     this.onInfo,
+    this.infoKey = const Key('chart-info'),
   });
 
   final String title;
   final String subtitle;
   final Widget child;
   final VoidCallback? onInfo;
+
+  /// Key for the info button. Defaults to the shared `chart-info`; pass a
+  /// distinct key when a page carries several info sheets so tests can
+  /// target one card unambiguously.
+  final Key infoKey;
 
   @override
   Widget build(BuildContext context) {
@@ -51,7 +57,7 @@ class ChartCard extends StatelessWidget {
                 ),
                 if (onInfo != null)
                   IconButton(
-                    key: const Key('chart-info'),
+                    key: infoKey,
                     onPressed: onInfo,
                     tooltip: 'How this works',
                     padding: EdgeInsets.zero,

@@ -9,7 +9,9 @@ import 'package:kinetic/core/database/seed_service.dart';
 import 'package:kinetic/core/export/export_service.dart';
 import 'package:kinetic/core/export/import_service.dart';
 import 'package:kinetic/features/analytics/application/analytics_providers.dart';
+import 'package:kinetic/features/analytics/application/landmark_store.dart';
 import 'package:kinetic/features/analytics/application/rollup_service.dart';
+import 'package:kinetic/features/analytics/domain/volume_landmarks.dart';
 import 'package:kinetic/features/profile/body_metric_log.dart';
 import 'package:kinetic/features/routines/application/routine_repository.dart';
 
@@ -301,6 +303,32 @@ void main() {
       expect(rows.map((m) => m.weightKg), [82.5, 82.1]);
     });
 
+    test('landmark edits survive export → import', () async {
+      await LandmarkStore(db)
+          .save('chest', const Landmark(mev: 10, mav: 20, mrv: 25));
+      final json = await ExportService(db).buildJson();
+
+      // Wipe → every muscle falls back to its curated default.
+      await DeleteService(db).deleteAllData();
+      expect(await db.volumeLandmarks.select().get(), isEmpty);
+      expect(LandmarkStore.effective(const {})['chest']!.mev, 8);
+
+      await ImportService(db).importJson(json);
+      final row = await (db.volumeLandmarks.select()
+            ..where((v) => v.muscleId.equals('chest')))
+          .getSingle();
+      expect(row.mevSets, 10);
+      expect(row.mavSets, 20);
+      expect(row.mrvSets, 25);
+      // Untouched muscles stay on defaults — no phantom rows.
+      expect(
+        await (db.volumeLandmarks.select()
+              ..where((v) => v.muscleId.equals('lats')))
+            .get(),
+        isEmpty,
+      );
+    });
+
     test('a pre-Round-5 profile backup (no Your data keys) still restores',
         () async {
       // Exactly what Round 4's exporter wrote for the profile row.
@@ -515,6 +543,8 @@ void main() {
         updatedAt: DateTime(2026, 9, 20),
       ));
       await logBodyWeight(db, 82.5, now: DateTime(2026, 9, 20));
+      await LandmarkStore(db)
+          .save('chest', const Landmark(mev: 10, mav: 20, mrv: 25));
 
       await DeleteService(db).deleteAllData();
 
@@ -526,6 +556,7 @@ void main() {
       expect(await db.select(db.exerciseHistory).get(), isEmpty);
       expect(await db.select(db.muscleVolumeDaily).get(), isEmpty);
       expect(await db.select(db.bodyMetrics).get(), isEmpty);
+      expect(await db.select(db.volumeLandmarks).get(), isEmpty);
       expect(await db.select(db.profiles).get(), isEmpty);
 
       // …while the bundled catalogs come back, without custom rows.

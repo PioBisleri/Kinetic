@@ -198,6 +198,15 @@ class ImportService {
               serializer: backupSerializer,
             ),
         ]);
+    // Additive key: backups without landmark edits fall back to the
+    // curated defaults (an absent row means "default").
+    final volumeLandmarks = _decode(() => [
+          for (final j in doc['volumeLandmarks'] as List? ?? const [])
+            VolumeLandmark.fromJson(
+              j as Map<String, dynamic>,
+              serializer: backupSerializer,
+            ),
+        ]);
 
     // ---- replace-all, parents before children (no FK constraints exist)
     await _db.transaction(() async {
@@ -209,6 +218,7 @@ class ImportService {
       await _db.delete(_db.muscleVolumeDaily).go();
       await _db.delete(_db.muscleGradeHistory).go();
       await _db.delete(_db.bodyMetrics).go();
+      await _db.delete(_db.volumeLandmarks).go();
       await _db.delete(_db.exerciseMuscleMap).go();
       await _db.delete(_db.exercises).go();
 
@@ -243,6 +253,11 @@ class ImportService {
         await _db
             .into(_db.bodyMetrics)
             .insertOnConflictUpdate(m.toCompanion(false));
+      }
+      for (final v in volumeLandmarks) {
+        await _db
+            .into(_db.volumeLandmarks)
+            .insertOnConflictUpdate(v.toCompanion(false));
       }
     });
 

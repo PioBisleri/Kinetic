@@ -60,6 +60,23 @@ class BodyMetrics extends Table with SyncColumns {
   Set<Column> get primaryKey => {id};
 }
 
+// -------------------------- volume landmarks ------------------------------
+
+/// Per-muscle weekly volume landmarks (Round 6 / v7): MEV/MAV/MRV in
+/// hard sets per week. Stores *overrides only* — a missing row means
+/// "use the curated default" (domain/volume_landmarks.dart), so the
+/// migration is create-only with nothing to backfill. Local-only like
+/// the weekly plan; the tombstone columns keep a Phase 10 opt-in cheap.
+class VolumeLandmarks extends Table with SyncColumns {
+  TextColumn get muscleId => text()();
+  IntColumn get mevSets => integer()();
+  IntColumn get mavSets => integer()();
+  IntColumn get mrvSets => integer()();
+
+  @override
+  Set<Column> get primaryKey => {muscleId};
+}
+
 // --------------------------- muscle groups --------------------------------
 
 class MuscleGroups extends Table with SyncColumns {
@@ -282,6 +299,7 @@ class SyncQueue extends Table {
 @DriftDatabase(tables: [
   Profiles,
   BodyMetrics,
+  VolumeLandmarks,
   MuscleGroups,
   Exercises,
   ExerciseMuscleMap,
@@ -301,7 +319,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 7;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -370,6 +388,13 @@ class AppDatabase extends _$AppDatabase {
                 'local',
               ],
             );
+          }
+
+          // v7: volume landmarks (Round 6). Create-only by design:
+          // absent rows fall back to the curated defaults in code, so
+          // there is no backfill and no seed pass.
+          if (from < 7 && to >= 7) {
+            await m.createTable(volumeLandmarks);
           }
         },
         beforeOpen: (details) async {

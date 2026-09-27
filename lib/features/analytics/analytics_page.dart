@@ -10,6 +10,7 @@ import 'widgets/balance_card.dart';
 import 'widgets/body_map.dart';
 import 'widgets/charts.dart';
 import 'widgets/grade_board.dart';
+import 'widgets/landmarks_card.dart';
 
 class AnalyticsPage extends ConsumerWidget {
   const AnalyticsPage({super.key});
@@ -60,6 +61,8 @@ class AnalyticsPage extends ConsumerWidget {
                   unit: unit,
                 ),
               ),
+              const SizedBox(height: 16),
+              const VolumeLandmarksCard(),
               const SizedBox(height: 16),
               StrengthCard(
                 weeks: weeks,
