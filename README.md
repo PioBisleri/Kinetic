@@ -3,7 +3,7 @@
 ![version](https://img.shields.io/badge/version-0.1.2-22D3A5)
 ![Flutter](https://img.shields.io/badge/Flutter-3.47-02569B?logo=flutter&logoColor=white)
 ![Dart](https://img.shields.io/badge/Dart-3.13-0175C2?logo=dart&logoColor=white)
-![tests](https://img.shields.io/badge/tests-216%20passing-22D3A5)
+![tests](https://img.shields.io/badge/tests-233%20passing-22D3A5)
 ![Android](https://img.shields.io/badge/platform-Android-3DDC84?logo=android&logoColor=white)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
@@ -133,7 +133,7 @@ term drives the body heat map.
 flutter pub get
 dart run build_runner build --delete-conflicting-outputs   # after schema edits
 flutter analyze
-flutter test          # 216 tests
+flutter test          # 233 tests
 flutter run
 ```
 

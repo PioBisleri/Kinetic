@@ -1,23 +1,19 @@
 import 'dart:convert';
 
-import 'package:drift/drift.dart' hide Column;
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/database/database.dart';
-import '../../core/database/database_providers.dart';
 import '../../core/database/delete_service.dart';
 import '../../core/export/export_service.dart';
 import '../../core/export/import_service.dart';
 import '../../core/navigation/shell_navigation.dart';
-import '../../core/settings/settings.dart';
 import '../../core/theme/app_theme.dart';
-import '../../core/utils/weight_units.dart';
 import '../../core/widgets/section_card.dart';
 import '../workout/application/workout_session_notifier.dart';
+import 'your_data_card.dart';
 
 class ProfilePage extends ConsumerWidget {
   const ProfilePage({super.key});
@@ -32,15 +28,7 @@ class ProfilePage extends ConsumerWidget {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          SectionCard(title: 'Body', children: [
-            ListTile(
-              leading: const Icon(Icons.monitor_weight_outlined),
-              title: const Text('Bodyweight'),
-              subtitle:
-                  const Text('Powers Muscle Grade strength scores'),
-              trailing: SizedBox(width: 120, child: _BodyweightField()),
-            ),
-          ]),
+          const YourDataCard(),
           const SizedBox(height: 16),
           SectionCard(title: 'Privacy', children: [
             const ListTile(
@@ -352,78 +340,3 @@ class _TypeToDeleteDialogState extends State<_TypeToDeleteDialog> {
 }
 
 enum ExportKind { json, csv }
-
-/// Bodyweight input, shown in display units and stored in kg on the local
-/// profile row. Hydration follows the profile stream until the user edits.
-class _BodyweightField extends ConsumerStatefulWidget {
-  const _BodyweightField();
-
-  @override
-  ConsumerState<_BodyweightField> createState() => _BodyweightFieldState();
-}
-
-class _BodyweightFieldState extends ConsumerState<_BodyweightField> {
-  final _controller = TextEditingController();
-  UnitSystem? _shownUnit;
-  bool _dirty = false;
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  void _hydrate(double? kg, UnitSystem unit) {
-    if (_dirty) return;
-    _shownUnit = unit;
-    final text = kg == null ? '' : formatWeight(kg, unit);
-    if (_controller.text != text) _controller.text = text;
-  }
-
-  Future<void> _save(String text, UnitSystem unit) async {
-    final value = double.tryParse(text.trim().replaceAll(',', '.'));
-    if (value == null || value <= 0 || value > 400) return; // ignore garbage
-    final kg = displayToKg(value, unit);
-    final db = ref.read(databaseProvider);
-    _dirty = false; // stream emit below writes back the canonical display
-    await db.profiles.insertOnConflictUpdate(ProfilesCompanion.insert(
-      id: 'local',
-      updatedAt: DateTime.now(),
-      bodyweightKg: Value(kg),
-    ));
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final unit = ref.watch(settingsProvider).unit;
-    final kg = ref.watch(profileProvider).value?.bodyweightKg;
-
-    // First build or a unit toggle → reformat from the stored kg.
-    if (!_dirty && _shownUnit != unit) _hydrate(kg, unit);
-    // Profile rows arriving later (or our own save) → keep text canonical.
-    ref.listen(
-      profileProvider,
-      (prev, next) => _hydrate(next.value?.bodyweightKg, unit),
-    );
-
-    return TextField(
-      key: const Key('bodyweight-input'),
-      controller: _controller,
-      textAlign: TextAlign.right,
-      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-      inputFormatters: [
-        FilteringTextInputFormatter.allow(RegExp(r'^\d{0,3}(\.\d?)?$')),
-      ],
-      decoration: InputDecoration(
-        isDense: true,
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-        suffixText: unit == UnitSystem.lbs ? 'lb' : 'kg',
-        suffixStyle: TextStyle(
-            fontSize: 12, color: context.textTertiary),
-      ),
-      onChanged: (_) => _dirty = true,
-      onSubmitted: (text) => _save(text, unit),
-    );
-  }
-}

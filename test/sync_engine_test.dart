@@ -322,11 +322,16 @@ void main() {
       expect(recomputedB, containsAll([loggedAt]));
     });
 
-    test('profile replicates', () async {
+    test('profile replicates — including the Your data columns', () async {
       final t = stamp();
       await dbA.profiles.insertOnConflictUpdate(ProfilesCompanion.insert(
         id: 'local',
         bodyweightKg: Value(72.5),
+        heightCm: Value(180),
+        birthDate: Value('1996-03-04'),
+        sex: Value('other'),
+        bodyFatPct: Value(14.5),
+        trainingGoal: Value('hypertrophy'),
         updatedAt: t,
       ));
       await engine(dbA, recomputedA).sync();
@@ -337,6 +342,12 @@ void main() {
           .getSingle();
       expect(profile.bodyweightKg, 72.5);
       expect(profile.id, 'local');
+      // Round 5 columns ride the same generic codec — no special case.
+      expect(profile.heightCm, 180);
+      expect(profile.birthDate, '1996-03-04');
+      expect(profile.sex, 'other');
+      expect(profile.bodyFatPct, 14.5);
+      expect(profile.trainingGoal, 'hypertrophy');
     });
 
     test('last-write-wins: newer row wins in both directions', () async {

@@ -33,6 +33,12 @@ create table if not exists public.profiles (
   unit_system   text not null default 'kg',
   theme         text not null default 'dark',
   bodyweight_kg double precision,
+  -- "Your data" (Round 5 / local schema v4) — nullable, display-only.
+  height_cm     double precision,
+  birth_date    text,          -- ISO yyyy-MM-dd
+  sex           text,          -- female | male | other
+  body_fat_pct  double precision,
+  training_goal text,          -- strength | hypertrophy | general
   updated_at    timestamptz not null default now(),
   deleted_at    timestamptz,
   primary key (user_id, id)

@@ -251,6 +251,75 @@ void main() {
       expect(ex.restSeconds, isNull);
     });
 
+    test('Your data profile fields survive export → import', () async {
+      await db.profiles.insertOnConflictUpdate(ProfilesCompanion.insert(
+        id: 'local',
+        username: const Value('Pio'),
+        bodyweightKg: const Value(82.5),
+        heightCm: const Value(181),
+        birthDate: const Value('1996-03-04'),
+        sex: const Value('other'),
+        bodyFatPct: const Value(14.5),
+        trainingGoal: const Value('hypertrophy'),
+        updatedAt: DateTime(2026, 9, 20),
+      ));
+      final json = await ExportService(db).buildJson();
+
+      // Fresh install, then restore the backup.
+      await DeleteService(db).deleteAllData();
+      final summary = await ImportService(db).importJson(json);
+      expect(summary.profileRestored, isTrue);
+
+      final profile = await (db.profiles.select()
+            ..where((p) => p.id.equals('local')))
+          .getSingle();
+      expect(profile.username, 'Pio');
+      expect(profile.bodyweightKg, 82.5);
+      expect(profile.heightCm, 181);
+      expect(profile.birthDate, '1996-03-04');
+      expect(profile.sex, 'other');
+      expect(profile.bodyFatPct, 14.5);
+      expect(profile.trainingGoal, 'hypertrophy');
+    });
+
+    test('a pre-Round-5 profile backup (no Your data keys) still restores',
+        () async {
+      // Exactly what Round 4's exporter wrote for the profile row.
+      const legacy = '''
+      {
+        "app": "kinetic",
+        "format": 1,
+        "exportedAt": "2026-09-01T10:00:00.000",
+        "profile": {
+          "id": "local",
+          "username": "old",
+          "unitSystem": "kg",
+          "theme": "dark",
+          "bodyweightKg": 70.0,
+          "updatedAt": "2026-09-01T10:00:00.000"
+        },
+        "exercises": [],
+        "routines": [],
+        "workouts": []
+      }
+      ''';
+
+      final summary = await ImportService(db).importJson(legacy);
+      expect(summary.profileRestored, isTrue);
+
+      final profile = await (db.profiles.select()
+            ..where((p) => p.id.equals('local')))
+          .getSingle();
+      expect(profile.username, 'old');
+      expect(profile.bodyweightKg, 70.0);
+      // New columns read NULL until the user fills them in.
+      expect(profile.heightCm, isNull);
+      expect(profile.birthDate, isNull);
+      expect(profile.sex, isNull);
+      expect(profile.bodyFatPct, isNull);
+      expect(profile.trainingGoal, isNull);
+    });
+
     test('invalid backups are rejected before anything is written',
         () async {
       await seedWorkout(DateTime(2026, 9, 20, 10));

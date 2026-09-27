@@ -31,6 +31,16 @@ class Profiles extends Table with SyncColumns {
   TextColumn get theme => text().withDefault(const Constant('dark'))();
   RealColumn get bodyweightKg => real().nullable()();
 
+  // "Your data" (Round 5 / v4) — all nullable, display-only inputs.
+  // Canonical storage: height in cm, birth date as ISO yyyy-MM-dd,
+  // sex in {female, male, other}, goal in {strength, hypertrophy,
+  // general}. Body fat is a percentage.
+  RealColumn get heightCm => real().nullable()();
+  TextColumn get birthDate => text().nullable()();
+  TextColumn get sex => text().nullable()();
+  RealColumn get bodyFatPct => real().nullable()();
+  TextColumn get trainingGoal => text().nullable()();
+
   @override
   Set<Column> get primaryKey => {id};
 }
@@ -271,7 +281,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -301,6 +311,17 @@ class AppDatabase extends _$AppDatabase {
             await customStatement(
                 'UPDATE routine_exercises SET warmup_sets = target_sets '
                 'WHERE is_warmup = 1');
+          }
+
+          // v4: "Your data" profile fields (Round 5). Every column is
+          // nullable, so this is five plain ADD COLUMNs — no rebuild, no
+          // backfill; existing rows simply read NULL until filled in.
+          if (from < 4 && to >= 4) {
+            await m.addColumn(profiles, profiles.heightCm);
+            await m.addColumn(profiles, profiles.birthDate);
+            await m.addColumn(profiles, profiles.sex);
+            await m.addColumn(profiles, profiles.bodyFatPct);
+            await m.addColumn(profiles, profiles.trainingGoal);
           }
         },
         beforeOpen: (details) async {

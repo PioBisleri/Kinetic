@@ -94,6 +94,59 @@ class $ProfilesTable extends Profiles with TableInfo<$ProfilesTable, Profile> {
     type: DriftSqlType.double,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _heightCmMeta = const VerificationMeta(
+    'heightCm',
+  );
+  @override
+  late final GeneratedColumn<double> heightCm = GeneratedColumn<double>(
+    'height_cm',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _birthDateMeta = const VerificationMeta(
+    'birthDate',
+  );
+  @override
+  late final GeneratedColumn<String> birthDate = GeneratedColumn<String>(
+    'birth_date',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _sexMeta = const VerificationMeta('sex');
+  @override
+  late final GeneratedColumn<String> sex = GeneratedColumn<String>(
+    'sex',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _bodyFatPctMeta = const VerificationMeta(
+    'bodyFatPct',
+  );
+  @override
+  late final GeneratedColumn<double> bodyFatPct = GeneratedColumn<double>(
+    'body_fat_pct',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _trainingGoalMeta = const VerificationMeta(
+    'trainingGoal',
+  );
+  @override
+  late final GeneratedColumn<String> trainingGoal = GeneratedColumn<String>(
+    'training_goal',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     updatedAt,
@@ -104,6 +157,11 @@ class $ProfilesTable extends Profiles with TableInfo<$ProfilesTable, Profile> {
     unitSystem,
     theme,
     bodyweightKg,
+    heightCm,
+    birthDate,
+    sex,
+    bodyFatPct,
+    trainingGoal,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -169,6 +227,42 @@ class $ProfilesTable extends Profiles with TableInfo<$ProfilesTable, Profile> {
         ),
       );
     }
+    if (data.containsKey('height_cm')) {
+      context.handle(
+        _heightCmMeta,
+        heightCm.isAcceptableOrUnknown(data['height_cm']!, _heightCmMeta),
+      );
+    }
+    if (data.containsKey('birth_date')) {
+      context.handle(
+        _birthDateMeta,
+        birthDate.isAcceptableOrUnknown(data['birth_date']!, _birthDateMeta),
+      );
+    }
+    if (data.containsKey('sex')) {
+      context.handle(
+        _sexMeta,
+        sex.isAcceptableOrUnknown(data['sex']!, _sexMeta),
+      );
+    }
+    if (data.containsKey('body_fat_pct')) {
+      context.handle(
+        _bodyFatPctMeta,
+        bodyFatPct.isAcceptableOrUnknown(
+          data['body_fat_pct']!,
+          _bodyFatPctMeta,
+        ),
+      );
+    }
+    if (data.containsKey('training_goal')) {
+      context.handle(
+        _trainingGoalMeta,
+        trainingGoal.isAcceptableOrUnknown(
+          data['training_goal']!,
+          _trainingGoalMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -210,6 +304,26 @@ class $ProfilesTable extends Profiles with TableInfo<$ProfilesTable, Profile> {
         DriftSqlType.double,
         data['${effectivePrefix}bodyweight_kg'],
       ),
+      heightCm: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}height_cm'],
+      ),
+      birthDate: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}birth_date'],
+      ),
+      sex: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sex'],
+      ),
+      bodyFatPct: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}body_fat_pct'],
+      ),
+      trainingGoal: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}training_goal'],
+      ),
     );
   }
 
@@ -228,6 +342,11 @@ class Profile extends DataClass implements Insertable<Profile> {
   final String unitSystem;
   final String theme;
   final double? bodyweightKg;
+  final double? heightCm;
+  final String? birthDate;
+  final String? sex;
+  final double? bodyFatPct;
+  final String? trainingGoal;
   const Profile({
     required this.updatedAt,
     this.syncedAt,
@@ -237,6 +356,11 @@ class Profile extends DataClass implements Insertable<Profile> {
     required this.unitSystem,
     required this.theme,
     this.bodyweightKg,
+    this.heightCm,
+    this.birthDate,
+    this.sex,
+    this.bodyFatPct,
+    this.trainingGoal,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -256,6 +380,21 @@ class Profile extends DataClass implements Insertable<Profile> {
     map['theme'] = Variable<String>(theme);
     if (!nullToAbsent || bodyweightKg != null) {
       map['bodyweight_kg'] = Variable<double>(bodyweightKg);
+    }
+    if (!nullToAbsent || heightCm != null) {
+      map['height_cm'] = Variable<double>(heightCm);
+    }
+    if (!nullToAbsent || birthDate != null) {
+      map['birth_date'] = Variable<String>(birthDate);
+    }
+    if (!nullToAbsent || sex != null) {
+      map['sex'] = Variable<String>(sex);
+    }
+    if (!nullToAbsent || bodyFatPct != null) {
+      map['body_fat_pct'] = Variable<double>(bodyFatPct);
+    }
+    if (!nullToAbsent || trainingGoal != null) {
+      map['training_goal'] = Variable<String>(trainingGoal);
     }
     return map;
   }
@@ -278,6 +417,19 @@ class Profile extends DataClass implements Insertable<Profile> {
       bodyweightKg: bodyweightKg == null && nullToAbsent
           ? const Value.absent()
           : Value(bodyweightKg),
+      heightCm: heightCm == null && nullToAbsent
+          ? const Value.absent()
+          : Value(heightCm),
+      birthDate: birthDate == null && nullToAbsent
+          ? const Value.absent()
+          : Value(birthDate),
+      sex: sex == null && nullToAbsent ? const Value.absent() : Value(sex),
+      bodyFatPct: bodyFatPct == null && nullToAbsent
+          ? const Value.absent()
+          : Value(bodyFatPct),
+      trainingGoal: trainingGoal == null && nullToAbsent
+          ? const Value.absent()
+          : Value(trainingGoal),
     );
   }
 
@@ -295,6 +447,11 @@ class Profile extends DataClass implements Insertable<Profile> {
       unitSystem: serializer.fromJson<String>(json['unitSystem']),
       theme: serializer.fromJson<String>(json['theme']),
       bodyweightKg: serializer.fromJson<double?>(json['bodyweightKg']),
+      heightCm: serializer.fromJson<double?>(json['heightCm']),
+      birthDate: serializer.fromJson<String?>(json['birthDate']),
+      sex: serializer.fromJson<String?>(json['sex']),
+      bodyFatPct: serializer.fromJson<double?>(json['bodyFatPct']),
+      trainingGoal: serializer.fromJson<String?>(json['trainingGoal']),
     );
   }
   @override
@@ -309,6 +466,11 @@ class Profile extends DataClass implements Insertable<Profile> {
       'unitSystem': serializer.toJson<String>(unitSystem),
       'theme': serializer.toJson<String>(theme),
       'bodyweightKg': serializer.toJson<double?>(bodyweightKg),
+      'heightCm': serializer.toJson<double?>(heightCm),
+      'birthDate': serializer.toJson<String?>(birthDate),
+      'sex': serializer.toJson<String?>(sex),
+      'bodyFatPct': serializer.toJson<double?>(bodyFatPct),
+      'trainingGoal': serializer.toJson<String?>(trainingGoal),
     };
   }
 
@@ -321,6 +483,11 @@ class Profile extends DataClass implements Insertable<Profile> {
     String? unitSystem,
     String? theme,
     Value<double?> bodyweightKg = const Value.absent(),
+    Value<double?> heightCm = const Value.absent(),
+    Value<String?> birthDate = const Value.absent(),
+    Value<String?> sex = const Value.absent(),
+    Value<double?> bodyFatPct = const Value.absent(),
+    Value<String?> trainingGoal = const Value.absent(),
   }) => Profile(
     updatedAt: updatedAt ?? this.updatedAt,
     syncedAt: syncedAt.present ? syncedAt.value : this.syncedAt,
@@ -330,6 +497,11 @@ class Profile extends DataClass implements Insertable<Profile> {
     unitSystem: unitSystem ?? this.unitSystem,
     theme: theme ?? this.theme,
     bodyweightKg: bodyweightKg.present ? bodyweightKg.value : this.bodyweightKg,
+    heightCm: heightCm.present ? heightCm.value : this.heightCm,
+    birthDate: birthDate.present ? birthDate.value : this.birthDate,
+    sex: sex.present ? sex.value : this.sex,
+    bodyFatPct: bodyFatPct.present ? bodyFatPct.value : this.bodyFatPct,
+    trainingGoal: trainingGoal.present ? trainingGoal.value : this.trainingGoal,
   );
   Profile copyWithCompanion(ProfilesCompanion data) {
     return Profile(
@@ -345,6 +517,15 @@ class Profile extends DataClass implements Insertable<Profile> {
       bodyweightKg: data.bodyweightKg.present
           ? data.bodyweightKg.value
           : this.bodyweightKg,
+      heightCm: data.heightCm.present ? data.heightCm.value : this.heightCm,
+      birthDate: data.birthDate.present ? data.birthDate.value : this.birthDate,
+      sex: data.sex.present ? data.sex.value : this.sex,
+      bodyFatPct: data.bodyFatPct.present
+          ? data.bodyFatPct.value
+          : this.bodyFatPct,
+      trainingGoal: data.trainingGoal.present
+          ? data.trainingGoal.value
+          : this.trainingGoal,
     );
   }
 
@@ -358,7 +539,12 @@ class Profile extends DataClass implements Insertable<Profile> {
           ..write('username: $username, ')
           ..write('unitSystem: $unitSystem, ')
           ..write('theme: $theme, ')
-          ..write('bodyweightKg: $bodyweightKg')
+          ..write('bodyweightKg: $bodyweightKg, ')
+          ..write('heightCm: $heightCm, ')
+          ..write('birthDate: $birthDate, ')
+          ..write('sex: $sex, ')
+          ..write('bodyFatPct: $bodyFatPct, ')
+          ..write('trainingGoal: $trainingGoal')
           ..write(')'))
         .toString();
   }
@@ -373,6 +559,11 @@ class Profile extends DataClass implements Insertable<Profile> {
     unitSystem,
     theme,
     bodyweightKg,
+    heightCm,
+    birthDate,
+    sex,
+    bodyFatPct,
+    trainingGoal,
   );
   @override
   bool operator ==(Object other) =>
@@ -385,7 +576,12 @@ class Profile extends DataClass implements Insertable<Profile> {
           other.username == this.username &&
           other.unitSystem == this.unitSystem &&
           other.theme == this.theme &&
-          other.bodyweightKg == this.bodyweightKg);
+          other.bodyweightKg == this.bodyweightKg &&
+          other.heightCm == this.heightCm &&
+          other.birthDate == this.birthDate &&
+          other.sex == this.sex &&
+          other.bodyFatPct == this.bodyFatPct &&
+          other.trainingGoal == this.trainingGoal);
 }
 
 class ProfilesCompanion extends UpdateCompanion<Profile> {
@@ -397,6 +593,11 @@ class ProfilesCompanion extends UpdateCompanion<Profile> {
   final Value<String> unitSystem;
   final Value<String> theme;
   final Value<double?> bodyweightKg;
+  final Value<double?> heightCm;
+  final Value<String?> birthDate;
+  final Value<String?> sex;
+  final Value<double?> bodyFatPct;
+  final Value<String?> trainingGoal;
   final Value<int> rowid;
   const ProfilesCompanion({
     this.updatedAt = const Value.absent(),
@@ -407,6 +608,11 @@ class ProfilesCompanion extends UpdateCompanion<Profile> {
     this.unitSystem = const Value.absent(),
     this.theme = const Value.absent(),
     this.bodyweightKg = const Value.absent(),
+    this.heightCm = const Value.absent(),
+    this.birthDate = const Value.absent(),
+    this.sex = const Value.absent(),
+    this.bodyFatPct = const Value.absent(),
+    this.trainingGoal = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   ProfilesCompanion.insert({
@@ -418,6 +624,11 @@ class ProfilesCompanion extends UpdateCompanion<Profile> {
     this.unitSystem = const Value.absent(),
     this.theme = const Value.absent(),
     this.bodyweightKg = const Value.absent(),
+    this.heightCm = const Value.absent(),
+    this.birthDate = const Value.absent(),
+    this.sex = const Value.absent(),
+    this.bodyFatPct = const Value.absent(),
+    this.trainingGoal = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : updatedAt = Value(updatedAt),
        id = Value(id);
@@ -430,6 +641,11 @@ class ProfilesCompanion extends UpdateCompanion<Profile> {
     Expression<String>? unitSystem,
     Expression<String>? theme,
     Expression<double>? bodyweightKg,
+    Expression<double>? heightCm,
+    Expression<String>? birthDate,
+    Expression<String>? sex,
+    Expression<double>? bodyFatPct,
+    Expression<String>? trainingGoal,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -441,6 +657,11 @@ class ProfilesCompanion extends UpdateCompanion<Profile> {
       if (unitSystem != null) 'unit_system': unitSystem,
       if (theme != null) 'theme': theme,
       if (bodyweightKg != null) 'bodyweight_kg': bodyweightKg,
+      if (heightCm != null) 'height_cm': heightCm,
+      if (birthDate != null) 'birth_date': birthDate,
+      if (sex != null) 'sex': sex,
+      if (bodyFatPct != null) 'body_fat_pct': bodyFatPct,
+      if (trainingGoal != null) 'training_goal': trainingGoal,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -454,6 +675,11 @@ class ProfilesCompanion extends UpdateCompanion<Profile> {
     Value<String>? unitSystem,
     Value<String>? theme,
     Value<double?>? bodyweightKg,
+    Value<double?>? heightCm,
+    Value<String?>? birthDate,
+    Value<String?>? sex,
+    Value<double?>? bodyFatPct,
+    Value<String?>? trainingGoal,
     Value<int>? rowid,
   }) {
     return ProfilesCompanion(
@@ -465,6 +691,11 @@ class ProfilesCompanion extends UpdateCompanion<Profile> {
       unitSystem: unitSystem ?? this.unitSystem,
       theme: theme ?? this.theme,
       bodyweightKg: bodyweightKg ?? this.bodyweightKg,
+      heightCm: heightCm ?? this.heightCm,
+      birthDate: birthDate ?? this.birthDate,
+      sex: sex ?? this.sex,
+      bodyFatPct: bodyFatPct ?? this.bodyFatPct,
+      trainingGoal: trainingGoal ?? this.trainingGoal,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -496,6 +727,21 @@ class ProfilesCompanion extends UpdateCompanion<Profile> {
     if (bodyweightKg.present) {
       map['bodyweight_kg'] = Variable<double>(bodyweightKg.value);
     }
+    if (heightCm.present) {
+      map['height_cm'] = Variable<double>(heightCm.value);
+    }
+    if (birthDate.present) {
+      map['birth_date'] = Variable<String>(birthDate.value);
+    }
+    if (sex.present) {
+      map['sex'] = Variable<String>(sex.value);
+    }
+    if (bodyFatPct.present) {
+      map['body_fat_pct'] = Variable<double>(bodyFatPct.value);
+    }
+    if (trainingGoal.present) {
+      map['training_goal'] = Variable<String>(trainingGoal.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -513,6 +759,11 @@ class ProfilesCompanion extends UpdateCompanion<Profile> {
           ..write('unitSystem: $unitSystem, ')
           ..write('theme: $theme, ')
           ..write('bodyweightKg: $bodyweightKg, ')
+          ..write('heightCm: $heightCm, ')
+          ..write('birthDate: $birthDate, ')
+          ..write('sex: $sex, ')
+          ..write('bodyFatPct: $bodyFatPct, ')
+          ..write('trainingGoal: $trainingGoal, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -7863,6 +8114,11 @@ typedef $$ProfilesTableCreateCompanionBuilder = ProfilesCompanion Function({
   Value<String> unitSystem,
   Value<String> theme,
   Value<double?> bodyweightKg,
+  Value<double?> heightCm,
+  Value<String?> birthDate,
+  Value<String?> sex,
+  Value<double?> bodyFatPct,
+  Value<String?> trainingGoal,
   Value<int> rowid,
 });
 typedef $$ProfilesTableUpdateCompanionBuilder = ProfilesCompanion Function({
@@ -7874,6 +8130,11 @@ typedef $$ProfilesTableUpdateCompanionBuilder = ProfilesCompanion Function({
   Value<String> unitSystem,
   Value<String> theme,
   Value<double?> bodyweightKg,
+  Value<double?> heightCm,
+  Value<String?> birthDate,
+  Value<String?> sex,
+  Value<double?> bodyFatPct,
+  Value<String?> trainingGoal,
   Value<int> rowid,
 });
 
@@ -7923,6 +8184,31 @@ class $$ProfilesTableFilterComposer
 
   ColumnFilters<double> get bodyweightKg => $composableBuilder(
     column: $table.bodyweightKg,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get heightCm => $composableBuilder(
+    column: $table.heightCm,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get birthDate => $composableBuilder(
+    column: $table.birthDate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sex => $composableBuilder(
+    column: $table.sex,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get bodyFatPct => $composableBuilder(
+    column: $table.bodyFatPct,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get trainingGoal => $composableBuilder(
+    column: $table.trainingGoal,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -7975,6 +8261,31 @@ class $$ProfilesTableOrderingComposer
     column: $table.bodyweightKg,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<double> get heightCm => $composableBuilder(
+    column: $table.heightCm,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get birthDate => $composableBuilder(
+    column: $table.birthDate,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get sex => $composableBuilder(
+    column: $table.sex,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get bodyFatPct => $composableBuilder(
+    column: $table.bodyFatPct,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get trainingGoal => $composableBuilder(
+    column: $table.trainingGoal,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$ProfilesTableAnnotationComposer
@@ -8011,6 +8322,25 @@ class $$ProfilesTableAnnotationComposer
 
   GeneratedColumn<double> get bodyweightKg => $composableBuilder(
     column: $table.bodyweightKg,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get heightCm =>
+      $composableBuilder(column: $table.heightCm, builder: (column) => column);
+
+  GeneratedColumn<String> get birthDate =>
+      $composableBuilder(column: $table.birthDate, builder: (column) => column);
+
+  GeneratedColumn<String> get sex =>
+      $composableBuilder(column: $table.sex, builder: (column) => column);
+
+  GeneratedColumn<double> get bodyFatPct => $composableBuilder(
+    column: $table.bodyFatPct,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get trainingGoal => $composableBuilder(
+    column: $table.trainingGoal,
     builder: (column) => column,
   );
 }
@@ -8051,6 +8381,11 @@ class $$ProfilesTableTableManager
                 Value<String> unitSystem = const Value.absent(),
                 Value<String> theme = const Value.absent(),
                 Value<double?> bodyweightKg = const Value.absent(),
+                Value<double?> heightCm = const Value.absent(),
+                Value<String?> birthDate = const Value.absent(),
+                Value<String?> sex = const Value.absent(),
+                Value<double?> bodyFatPct = const Value.absent(),
+                Value<String?> trainingGoal = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ProfilesCompanion(
                 updatedAt: updatedAt,
@@ -8061,6 +8396,11 @@ class $$ProfilesTableTableManager
                 unitSystem: unitSystem,
                 theme: theme,
                 bodyweightKg: bodyweightKg,
+                heightCm: heightCm,
+                birthDate: birthDate,
+                sex: sex,
+                bodyFatPct: bodyFatPct,
+                trainingGoal: trainingGoal,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -8073,6 +8413,11 @@ class $$ProfilesTableTableManager
                 Value<String> unitSystem = const Value.absent(),
                 Value<String> theme = const Value.absent(),
                 Value<double?> bodyweightKg = const Value.absent(),
+                Value<double?> heightCm = const Value.absent(),
+                Value<String?> birthDate = const Value.absent(),
+                Value<String?> sex = const Value.absent(),
+                Value<double?> bodyFatPct = const Value.absent(),
+                Value<String?> trainingGoal = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ProfilesCompanion.insert(
                 updatedAt: updatedAt,
@@ -8083,6 +8428,11 @@ class $$ProfilesTableTableManager
                 unitSystem: unitSystem,
                 theme: theme,
                 bodyweightKg: bodyweightKg,
+                heightCm: heightCm,
+                birthDate: birthDate,
+                sex: sex,
+                bodyFatPct: bodyFatPct,
+                trainingGoal: trainingGoal,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
