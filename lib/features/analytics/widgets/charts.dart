@@ -15,17 +15,20 @@ TextStyle _axisStyle(BuildContext context) =>
 String _unitLabel(UnitSystem u) => u == UnitSystem.lbs ? 'lb' : 'kg';
 
 /// Shared card chrome: title + caption + child, on any Analytics chart.
+/// [onInfo] adds a small header button for sheets that explain the math.
 class ChartCard extends StatelessWidget {
   const ChartCard({
     super.key,
     required this.title,
     required this.subtitle,
     required this.child,
+    this.onInfo,
   });
 
   final String title;
   final String subtitle;
   final Widget child;
+  final VoidCallback? onInfo;
 
   @override
   Widget build(BuildContext context) {
@@ -35,12 +38,30 @@ class ChartCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              title,
-              style: Theme.of(context)
-                  .textTheme
-                  .titleMedium
-                  ?.copyWith(fontWeight: FontWeight.w700),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    title,
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleMedium
+                        ?.copyWith(fontWeight: FontWeight.w700),
+                  ),
+                ),
+                if (onInfo != null)
+                  IconButton(
+                    key: const Key('chart-info'),
+                    onPressed: onInfo,
+                    tooltip: 'How this works',
+                    padding: EdgeInsets.zero,
+                    constraints:
+                        const BoxConstraints(minWidth: 32, minHeight: 32),
+                    visualDensity: VisualDensity.compact,
+                    icon: Icon(Icons.info_outline,
+                        size: 20, color: context.textTertiary),
+                  ),
+              ],
             ),
             const SizedBox(height: 4),
             Text(subtitle,

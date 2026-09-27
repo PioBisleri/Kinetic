@@ -9,6 +9,7 @@ import '../../../core/utils/weight_units.dart';
 import '../application/suggestion_provider.dart';
 import '../domain/suggestion_engine.dart';
 import 'plate_bar.dart';
+import 'suggestion_why_sheet.dart';
 
 /// What the editor hands back — the caller decides how to persist.
 class SetDraft {
@@ -466,6 +467,24 @@ class _SuggestionChip extends ConsumerWidget {
                     color: AppColors.accent,
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
+              InkWell(
+                key: const Key('suggestion-info'),
+                onTap: () => showSuggestionWhySheet(
+                  context,
+                  suggestion: suggestion,
+                  unit: unit,
+                ),
+                borderRadius: BorderRadius.circular(4),
+                child: Padding(
+                  padding: const EdgeInsets.all(4),
+                  child: Icon(
+                    Icons.info_outline,
+                    size: 14,
+                    color: AppColors.accent,
                   ),
                 ),
               ),

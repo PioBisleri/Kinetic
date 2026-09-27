@@ -15,6 +15,9 @@ class GradeEngine {
   static const volumeWeekTarget = 8000.0;
   static const volumeRef = 1000.0; // compression constant
 
+  /// Weeks in the rolling window (30 / 7).
+  static const volumeWeekTargetWeeks = 4.33;
+
   /// Sessions expected per 30 days (≈2×/week).
   static const defaultTargetSessions = 8;
 
@@ -53,7 +56,8 @@ class GradeEngine {
   // ---- components ---------------------------------------------------------
 
   /// Log-normalised volume score for [volumeKg] accumulated over the window.
-  static double volumeScore(double volumeKg, {double weeksInWindow = 4.33}) {
+  static double volumeScore(double volumeKg,
+      {double weeksInWindow = volumeWeekTargetWeeks}) {
     final target = volumeWeekTarget * weeksInWindow;
     if (volumeKg <= 0) return 0;
     final score =
@@ -167,6 +171,24 @@ class GradeEngine {
   /// 0 (untrained/cold) .. 1 (trained today).
   static double freshness({required double hoursSinceTrained}) =>
       (1 - hoursSinceTrained / freshnessHalfWindowH).clamp(0.0, 1.0);
+
+  /// One-line human verdict over the same 72h window the consistency
+  /// score damps with — shown next to the breakdown sheet's inputs.
+  static String freshnessVerdict(double hoursSinceTrained) {
+    if (hoursSinceTrained.isNaN || hoursSinceTrained.isInfinite) {
+      return 'Never trained — consistency starts at 0';
+    }
+    if (hoursSinceTrained >= freshnessHalfWindowH) {
+      return 'Cold — nothing for 72h, freshness credit is 0';
+    }
+    final h = hoursSinceTrained.round();
+    if (hoursSinceTrained <= 24) {
+      return h == 0
+          ? 'Fresh — trained just now'
+          : 'Fresh — trained ${h}h ago';
+    }
+    return 'Cooling — trained ${h}h ago, credit is fading';
+  }
 
   // ---- tiny math helpers (avoid dart:math import churn in tests) ----------
 
