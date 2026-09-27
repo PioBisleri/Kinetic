@@ -91,7 +91,7 @@ void main() {
     expect(find.byKey(const Key('drawer-library')), findsOneWidget);
     expect(find.byKey(const Key('drawer-schedule')), findsOneWidget);
     expect(find.byKey(const Key('drawer-settings')), findsOneWidget);
-    expect(find.text('Kinetic 0.1.3 · offline-first'), findsOneWidget);
+    expect(find.text('Kinetic 0.1.4 · offline-first'), findsOneWidget);
 
     await endApp(tester);
   });

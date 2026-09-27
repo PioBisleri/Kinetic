@@ -1,6 +1,6 @@
-# Kinetic v0.1.3
+# Kinetic v0.1.4
 
-![version](https://img.shields.io/badge/version-0.1.3-22D3A5)
+![version](https://img.shields.io/badge/version-0.1.4-22D3A5)
 ![Flutter](https://img.shields.io/badge/Flutter-3.47-02569B?logo=flutter&logoColor=white)
 ![Dart](https://img.shields.io/badge/Dart-3.13-0175C2?logo=dart&logoColor=white)
 ![tests](https://img.shields.io/badge/tests-276%20passing-22D3A5)
@@ -210,8 +210,8 @@ assets/seed/                 19 muscle groups, 89 exercises
 - **Round 5 ✅ (v0.1.3)** profile "Your data" + BMI (schema v4), algorithm
   transparency (grade breakdowns, how-grades/suggestion sheets), GitHub
   Actions CI, home-screen widget
-- **Round 6 ✅** per-exercise progression increments (schema v5), bodyweight
-  trend (schema v6), volume landmarks card (schema v7)
+- **Round 6 ✅ (v0.1.4)** per-exercise progression increments (schema v5),
+  bodyweight trend (schema v6), volume landmarks card (schema v7)
 
 ## Roadmap
 
