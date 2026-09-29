@@ -2,7 +2,7 @@
 
 > Offline-first fitness tracker (Hevy-like), personal analytics only — **no social
 > features, ever**. This file exists so the project can move to another machine
-> without losing context. Last updated: **2026-09-27**, at **v0.1.4+4**,
+> without losing context. Last updated: **2026-09-29**, at **v0.1.4+4**,
 > schema **v7**, **276 tests green**, all CI runs **passing**.
 
 ---
@@ -14,20 +14,14 @@
 | Version | `0.1.4+4` (`pubspec.yaml`) |
 | DB schema | **v7** (`AppDatabase.schemaVersion`) |
 | Tests | **276 passing**, 44 test files, `flutter analyze` clean |
-| Repo | `main` @ `cbaf43e`, working tree clean |
+| Repo | `main` @ `9e33586`, working tree clean |
 | Remote | `origin` = `git@github.com:PioBisleri/Kinetic.git` (public) |
-| Pushed | everything **through `124aad7`** (6C landmarks) |
-| **Unpushed** | **3 commits: `281119b` README · `134a231` v0.1.4 bump · `cbaf43e` build script** |
-| CI | GitHub Actions `CI` — 7 runs, all `conclusion: success` (analyze + test on Flutter 3.47.5) |
+| Pushed | everything **through `9e33586`** (this handoff doc) |
+| CI | GitHub Actions `CI` — all runs `conclusion: success` (analyze + test on Flutter 3.47.5) |
 | Supabase | **project NOT live**, `supabase/schema.sql` **never applied** (by design, see §10) |
 | Device | `R9ZY305521H`; release APK signed with the **debug key** (intentional) |
 
-⚠️ **Before moving machines: push the 3 outstanding commits** (or `git bundle` them).
-Otherwise GitHub alone will not give you the newest state.
-
-```bash
-git push origin main          # from this machine
-```
+✅ **All commits are pushed** — a fresh clone of `origin/main` gives the full state.
 
 ---
 
