@@ -294,8 +294,9 @@ class _RoutineEditorPageState extends ConsumerState<RoutineEditorPage> {
       canPop: !_hasChanges || _popping,
       onPopInvokedWithResult: (didPop, result) async {
         if (didPop) return;
+        final navigator = Navigator.of(context);
         final discard = await _confirmDiscard();
-        if (discard && mounted) context.pop();
+        if (discard && mounted) navigator.pop();
       },
       child: Scaffold(
       appBar: AppBar(

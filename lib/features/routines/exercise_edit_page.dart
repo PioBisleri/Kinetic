@@ -241,8 +241,9 @@ class _ExerciseEditPageState extends ConsumerState<ExerciseEditPage> {
       canPop: !_dirty,
       onPopInvokedWithResult: (didPop, result) async {
         if (didPop) return;
+        final navigator = Navigator.of(context);
         final discard = await _confirmDiscard();
-        if (discard && mounted) context.pop();
+        if (discard && mounted) navigator.pop();
       },
       child: Scaffold(
       appBar: AppBar(
