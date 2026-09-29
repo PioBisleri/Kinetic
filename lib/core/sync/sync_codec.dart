@@ -1,5 +1,7 @@
 import 'package:drift/drift.dart' show ValueSerializer;
 
+import 'sync_encryption.dart';
+
 /// Wire format for Phase 7 sync:
 ///
 /// * column keys are snake_case (remote Postgres convention),
@@ -10,6 +12,10 @@ import 'package:drift/drift.dart' show ValueSerializer;
 ///
 /// Drift's default serializer writes DateTimes as unix epoch millis; the
 /// remote schema uses `timestamptz`, so we override it.
+///
+/// Phase 10: when [encryption] is set, non-filter columns are encrypted
+/// into a `payload` column (AES-256-GCM). Filter columns (`id`,
+/// `updated_at`, `user_id`, parent FKs) stay plaintext for PostgREST.
 const SyncValueSerializer syncValueSerializer = SyncValueSerializer();
 
 class SyncValueSerializer extends ValueSerializer {
@@ -41,8 +47,18 @@ class SyncCodec {
 
   static const ValueSerializer serializer = syncValueSerializer;
 
+  /// Set once at app startup when sync encryption is enabled. When null,
+  /// encode/decode behave as plaintext (Phase 7 behavior).
+  static SyncEncryption? encryption;
+
   /// Local `DataClass.toJson` map → wire row (snake_case, no local-only keys).
-  static Map<String, dynamic> encode(Map<String, dynamic> json) {
+  ///
+  /// When [encryption] is set and [table] is known, non-filter columns are
+  /// encrypted into a `payload` column.
+  static Future<Map<String, dynamic>> encode(
+    Map<String, dynamic> json, {
+    String? table,
+  }) async {
     final out = <String, dynamic>{};
     json.forEach((key, value) {
       // Local bookkeeping + the placeholder uid never cross the wire; the
@@ -50,19 +66,26 @@ class SyncCodec {
       if (key == 'syncedAt' || key == 'userId') return;
       out[_snake(key)] = value;
     });
-    return out;
+    if (encryption == null || table == null) return out;
+    final filterCols = SyncEncryption.filterColumns[table] ?? const {};
+    return encryption!.encryptRow(out, filterCols);
   }
 
   /// Wire row → local `DataClass.fromJson` map.
   ///
   /// The transport already strips the auth `user_id`; [userId] re-injects the
   /// local placeholder for tables whose data class requires a non-null uid.
-  static Map<String, dynamic> decode(
+  ///
+  /// When [encryption] is set, the `payload` column is decrypted first.
+  static Future<Map<String, dynamic>> decode(
     Map<String, dynamic> row, {
     String? userId,
-  }) {
+    String? table,
+  }) async {
+    final decrypted =
+        encryption == null ? row : await encryption!.decryptRow(row);
     final out = <String, dynamic>{};
-    row.forEach((key, value) {
+    decrypted.forEach((key, value) {
       if (key == 'user_id') return;
       out[_camel(key)] = value;
     });

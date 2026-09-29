@@ -57,6 +57,10 @@ class SyncEngine {
   static const _overlap = Duration(minutes: 15);
   static const _firstSync = Duration(days: 365 * 5); // ≈ 2020-01-01
 
+  /// Minimum sync protocol version this client speaks. Servers reporting a
+  /// lower version are refused. Set to 24 per the Round-1 decision.
+  static const minSyncVersion = 24;
+
   Future<SyncResult> sync({DateTime? since}) async {
     final startedAt = DateTime.now().toUtc();
     final cut = since == null
@@ -92,7 +96,7 @@ class SyncEngine {
     var applied = 0;
     for (final raw in rows) {
       final incoming =
-          Profile.fromJson(SyncCodec.decode(raw), serializer: SyncCodec.serializer);
+          Profile.fromJson(await SyncCodec.decode(raw, table: 'profiles'), serializer: SyncCodec.serializer);
       final local = await _profile(incoming.id);
       if (!_accepts(incoming.updatedAt, local?.updatedAt,
           hasLocal: local != null, tombstone: incoming.deletedAt != null)) {
@@ -113,7 +117,7 @@ class SyncEngine {
     final candidates = <Exercise>[];
     for (final raw in rows) {
       final incoming =
-          Exercise.fromJson(SyncCodec.decode(raw), serializer: SyncCodec.serializer);
+          Exercise.fromJson(await SyncCodec.decode(raw, table: 'exercises'), serializer: SyncCodec.serializer);
       final local = await _exercise(incoming.id);
       if (!_accepts(incoming.updatedAt, local?.updatedAt,
           hasLocal: local != null, tombstone: incoming.deletedAt != null)) {
@@ -140,7 +144,7 @@ class SyncEngine {
     final candidates = <Routine>[];
     for (final raw in rows) {
       final incoming = Routine.fromJson(
-        SyncCodec.decode(raw, userId: 'local'),
+        await SyncCodec.decode(raw, userId: 'local', table: 'routines'),
         serializer: SyncCodec.serializer,
       );
       final local = await _routine(incoming.id);
@@ -169,7 +173,7 @@ class SyncEngine {
     final candidates = <Workout>[];
     for (final raw in rows) {
       final incoming = Workout.fromJson(
-        SyncCodec.decode(raw, userId: 'local'),
+        await SyncCodec.decode(raw, userId: 'local', table: 'workouts'),
         serializer: SyncCodec.serializer,
       );
       final local = await _workout(incoming.id);
@@ -202,7 +206,7 @@ class SyncEngine {
     var applied = 0;
     for (final raw in rows) {
       final incoming = BodyMetric.fromJson(
-        SyncCodec.decode(raw),
+        await SyncCodec.decode(raw, table: 'body_metrics'),
         serializer: SyncCodec.serializer,
       );
       final local = await _bodyMetric(incoming.id);
@@ -328,7 +332,7 @@ class SyncEngine {
     for (final raw in rows) {
       final parentId = raw[parentColumn] as String?;
       if (parentId == null) continue;
-      (out[parentId] ??= <T>[]).add(decodeRow(SyncCodec.decode(raw)));
+      (out[parentId] ??= <T>[]).add(decodeRow(await SyncCodec.decode(raw, table: table)));
     }
     return out;
   }
@@ -344,7 +348,7 @@ class SyncEngine {
     if (dirty.isEmpty) return 0;
     await transport.upsert('profiles', [
       for (final p in dirty)
-        SyncCodec.encode(p.toJson(serializer: SyncCodec.serializer)),
+        await SyncCodec.encode(p.toJson(serializer: SyncCodec.serializer), table: 'profiles'),
     ]);
     for (final p in dirty) {
       await (db.update(db.profiles)
@@ -366,7 +370,7 @@ class SyncEngine {
 
     await transport.upsert('exercises', [
       for (final e in dirty)
-        SyncCodec.encode(e.toJson(serializer: SyncCodec.serializer)),
+        await SyncCodec.encode(e.toJson(serializer: SyncCodec.serializer), table: 'exercises'),
     ]);
     try {
       await transport.replaceChildren(
@@ -375,7 +379,7 @@ class SyncEngine {
         ids,
         [
           for (final m in mapRows)
-            SyncCodec.encode(m.toJson(serializer: SyncCodec.serializer)),
+        await SyncCodec.encode(m.toJson(serializer: SyncCodec.serializer), table: 'body_metrics'),
         ],
       );
     } catch (_) {
@@ -414,7 +418,7 @@ class SyncEngine {
 
     await transport.upsert('routines', [
       for (final r in parents)
-        SyncCodec.encode(r.toJson(serializer: SyncCodec.serializer)),
+        await SyncCodec.encode(r.toJson(serializer: SyncCodec.serializer), table: 'routines'),
     ]);
     try {
       await transport.replaceChildren(
@@ -423,7 +427,7 @@ class SyncEngine {
         idList,
         [
           for (final c in children)
-            SyncCodec.encode(c.toJson(serializer: SyncCodec.serializer)),
+            await SyncCodec.encode(c.toJson(serializer: SyncCodec.serializer), table: 'routine_exercises'),
         ],
       );
     } catch (_) {
@@ -465,7 +469,7 @@ class SyncEngine {
 
     await transport.upsert('workouts', [
       for (final w in parents)
-        SyncCodec.encode(w.toJson(serializer: SyncCodec.serializer)),
+        await SyncCodec.encode(w.toJson(serializer: SyncCodec.serializer), table: 'workouts'),
     ]);
     try {
       await transport.replaceChildren(
@@ -474,7 +478,7 @@ class SyncEngine {
         idList,
         [
           for (final s in children)
-            SyncCodec.encode(s.toJson(serializer: SyncCodec.serializer)),
+            await SyncCodec.encode(s.toJson(serializer: SyncCodec.serializer), table: 'workout_sets'),
         ],
       );
     } catch (_) {
@@ -502,7 +506,7 @@ class SyncEngine {
     if (dirty.isEmpty) return 0;
     await transport.upsert('body_metrics', [
       for (final m in dirty)
-        SyncCodec.encode(m.toJson(serializer: SyncCodec.serializer)),
+        await SyncCodec.encode(m.toJson(serializer: SyncCodec.serializer), table: 'exercise_muscle_map'),
     ]);
     for (final m in dirty) {
       await (db.update(db.bodyMetrics)

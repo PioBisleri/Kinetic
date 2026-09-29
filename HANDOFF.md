@@ -244,6 +244,13 @@ Android 4×2 home-screen widget (volume/streak/next-up, tap boots logger).
   gate on it). Flutter CLI warning is a false positive (static scan).
 - **7C** — schema v8: dropped never-used `sync_queue` table (16 → 15 tables).
   Migration test added.
+- **7D** — UX polish: PopScope unsaved-changes guard (routine + exercise editors),
+  remove-from-workout confirmation, Home "Start from routine" sheet, haptic +
+  undo snackbar, profile errorText on invalid input, stepper hit targets 34→44px,
+  add-exercise autofocus + "Create" row.
+- **7E** — Phase 10 encryption: `cryptography` package, Argon2id key derivation,
+  AES-256-GCM payload encryption at `SyncCodec.encode/decode`, format column
+  handling, `minSyncVersion = 24`, key setup UI in Settings. 284 tests green.
 
 ---
 

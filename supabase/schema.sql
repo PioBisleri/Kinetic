@@ -41,6 +41,7 @@ create table if not exists public.profiles (
   training_goal text,          -- strength | hypertrophy | general
   updated_at    timestamptz not null default now(),
   deleted_at    timestamptz,
+  format        integer not null default 1, -- 1 = plaintext, 2 = encrypted payload
   primary key (user_id, id)
 );
 
@@ -67,6 +68,7 @@ create table if not exists public.exercises (
   progression_increment_kg double precision,
   updated_at         timestamptz not null default now(),
   deleted_at         timestamptz,
+  format             integer not null default 1,
   primary key (user_id, id)
 );
 
@@ -77,6 +79,7 @@ create table if not exists public.exercise_muscle_map (
   muscle_id    text not null,
   contribution double precision not null default 1.0,
   role         text not null default 'secondary',
+  format       integer not null default 1,
   primary key (user_id, exercise_id, muscle_id)
 );
 
@@ -90,6 +93,7 @@ create table if not exists public.routines (
   order_index integer not null default 0,
   updated_at  timestamptz not null default now(),
   deleted_at  timestamptz,
+  format      integer not null default 1,
   primary key (user_id, id)
 );
 
@@ -109,6 +113,7 @@ create table if not exists public.routine_exercises (
   notes          text,
   updated_at     timestamptz not null default now(),
   deleted_at     timestamptz,
+  format         integer not null default 1,
   primary key (user_id, id)
 );
 
@@ -126,6 +131,7 @@ create table if not exists public.workouts (
   notes         text,
   updated_at    timestamptz not null default now(),
   deleted_at    timestamptz,
+  format        integer not null default 1,
   primary key (user_id, id)
 );
 
@@ -148,6 +154,7 @@ create table if not exists public.workout_sets (
   notes          text,
   updated_at     timestamptz not null default now(),
   deleted_at     timestamptz,
+  format         integer not null default 1,
   primary key (user_id, id)
 );
 
@@ -161,6 +168,7 @@ create table if not exists public.body_metrics (
   weight_kg   double precision,
   updated_at  timestamptz not null default now(),
   deleted_at  timestamptz,
+  format      integer not null default 1,
   primary key (user_id, id)
 );
 

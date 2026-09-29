@@ -1,9 +1,13 @@
+import 'dart:convert';
+
 import 'package:drift/drift.dart' hide isNotNull, isNull;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kinetic/core/database/database.dart';
 import 'package:kinetic/core/sync/sync_codec.dart';
+import 'package:kinetic/core/sync/sync_encryption.dart';
 import 'package:kinetic/core/sync/sync_engine.dart';
+import 'package:kinetic/core/sync/sync_key_service.dart';
 import 'package:kinetic/core/sync/sync_transport.dart';
 import 'package:kinetic/features/profile/body_metric_log.dart';
 import 'package:kinetic/features/routines/application/routine_repository.dart';
@@ -165,8 +169,8 @@ void main() {
       remote.tables[table] ?? const [];
 
   group('wire codec', () {
-    test('encodes camelCase keys to snake_case, drops local-only keys', () {
-      final wire = SyncCodec.encode({
+    test('encodes camelCase keys to snake_case, drops local-only keys', () async {
+      final wire = await SyncCodec.encode({
         'updatedAt': DateTime.utc(2026, 9, 25, 10),
         'syncedAt': DateTime.utc(2026, 9, 25, 10),
         'deletedAt': null,
@@ -192,8 +196,8 @@ void main() {
       expect(back.isUtc, isTrue);
     });
 
-    test('decodes wire rows back to camelCase and re-injects local uid', () {
-      final json = SyncCodec.decode({
+    test('decodes wire rows back to camelCase and re-injects local uid', () async {
+      final json = await SyncCodec.decode({
         'id': 'r1',
         'user_id': 'auth-uid',
         'updated_at': '2026-09-25T10:00:00Z',
@@ -204,6 +208,108 @@ void main() {
       expect(json['orderIndex'], 2);
       expect(json['userId'], 'local');
       expect(json.containsKey('user_id'), isFalse);
+    });
+  });
+
+  group('encryption', () {
+    test('encrypt → decrypt round-trips a row', () async {
+      final key = await SyncKeyService.deriveKey(
+        passphrase: 'test-passphrase',
+        userId: 'user-1',
+      );
+      final enc = SyncEncryption(key);
+      final row = {
+        'id': 'r1',
+        'updated_at': '2026-09-25T10:00:00Z',
+        'user_id': 'auth-uid',
+        'name': 'Bench Press',
+        'category': 'barbell',
+        'is_custom': true,
+      };
+      final filterCols = {'id', 'updated_at', 'user_id'};
+
+      final encrypted = await enc.encryptRow(row, filterCols);
+      expect(encrypted['format'], 2);
+      expect(encrypted['payload'], isNotNull);
+      expect(encrypted['name'], isNull);
+      expect(encrypted['category'], isNull);
+
+      final decrypted = await enc.decryptRow(encrypted);
+      expect(decrypted['name'], 'Bench Press');
+      expect(decrypted['category'], 'barbell');
+      expect(decrypted['is_custom'], true);
+      expect(decrypted['id'], 'r1');
+      expect(decrypted['updated_at'], '2026-09-25T10:00:00Z');
+    });
+
+    test('plaintext rows (format 1) pass through unchanged', () async {
+      final key = await SyncKeyService.deriveKey(
+        passphrase: 'test-passphrase',
+        userId: 'user-1',
+      );
+      final enc = SyncEncryption(key);
+      final row = {
+        'id': 'r1',
+        'format': 1,
+        'name': 'Bench Press',
+      };
+      final decrypted = await enc.decryptRow(row);
+      expect(decrypted['name'], 'Bench Press');
+      expect(decrypted['format'], 1);
+    });
+
+    test('different keys produce different ciphertexts', () async {
+      final key1 = await SyncKeyService.deriveKey(
+        passphrase: 'passphrase-1',
+        userId: 'user-1',
+      );
+      final key2 = await SyncKeyService.deriveKey(
+        passphrase: 'passphrase-2',
+        userId: 'user-1',
+      );
+      final enc1 = SyncEncryption(key1);
+      final enc2 = SyncEncryption(key2);
+      final row = {'id': 'r1', 'name': 'secret'};
+      final filterCols = {'id'};
+
+      final e1 = await enc1.encryptRow(row, filterCols);
+      final e2 = await enc2.encryptRow(row, filterCols);
+      expect(e1['payload'], isNot(e2['payload']));
+    });
+
+    test('same key + same row → different ciphertexts (random nonce)', () async {
+      final key = await SyncKeyService.deriveKey(
+        passphrase: 'test-passphrase',
+        userId: 'user-1',
+      );
+      final enc = SyncEncryption(key);
+      final row = {'id': 'r1', 'name': 'secret'};
+      final filterCols = {'id'};
+
+      final e1 = await enc.encryptRow(row, filterCols);
+      final e2 = await enc.encryptRow(row, filterCols);
+      expect(e1['payload'], isNot(e2['payload']));
+    });
+
+    test('tampered payload fails authentication', () async {
+      final key = await SyncKeyService.deriveKey(
+        passphrase: 'test-passphrase',
+        userId: 'user-1',
+      );
+      final enc = SyncEncryption(key);
+      final row = {'id': 'r1', 'name': 'secret'};
+      final filterCols = {'id'};
+
+      final encrypted = await enc.encryptRow(row, filterCols);
+      final blob = encrypted['payload'] as String;
+      final bytes = base64Decode(blob);
+      bytes[0] ^= 0xff; // flip first byte (nonce)
+      encrypted['payload'] = base64Encode(bytes);
+
+      expect(
+        () => enc.decryptRow(encrypted),
+        throwsA(isA<Exception>()),
+      );
     });
   });
 

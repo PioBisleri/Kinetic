@@ -1,3 +1,4 @@
+import 'package:cryptography/cryptography.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -7,6 +8,7 @@ import '../database/database.dart';
 import '../settings/settings.dart';
 import 'supabase_transport.dart';
 import 'sync_engine.dart';
+import 'sync_key_service.dart';
 import 'sync_transport.dart';
 
 /// Set by `main.dart` only after `Supabase.initialize` succeeded with a
@@ -82,3 +84,31 @@ class SyncController extends Notifier<SyncState> {
 
 final syncControllerProvider =
     NotifierProvider<SyncController, SyncState>(SyncController.new);
+
+/// Tracks whether the user has set a sync encryption passphrase.
+/// The key itself is derived on-demand and never stored.
+class SyncEncryptionNotifier extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void set(bool value) => state = value;
+  void enable() => state = true;
+  void disable() => state = false;
+}
+
+final syncEncryptionEnabledProvider =
+    NotifierProvider<SyncEncryptionNotifier, bool>(SyncEncryptionNotifier.new);
+
+/// Derives (or re-derives) the sync encryption key from the passphrase.
+/// Returns null when sync is not configured or no passphrase is set.
+final syncEncryptionKeyProvider = FutureProvider<SecretKey?>((ref) async {
+  if (!ref.watch(supabaseConfiguredProvider)) return null;
+  final enabled = ref.watch(syncEncryptionEnabledProvider);
+  if (!enabled) return null;
+  final prefs = ref.watch(sharedPreferencesProvider);
+  final passphrase = prefs.getString('sync.passphrase');
+  if (passphrase == null || passphrase.isEmpty) return null;
+  final user = Supabase.instance.client.auth.currentUser;
+  if (user == null) return null;
+  return SyncKeyService.deriveKey(passphrase: passphrase, userId: user.id);
+});
