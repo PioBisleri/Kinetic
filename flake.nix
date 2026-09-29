@@ -24,11 +24,12 @@
 
       androidSdk = (pkgs.androidenv.composeAndroidPackages {
         cmdLineToolsVersion = "latest";
-        platformVersions = [ "36" ];
-        buildToolsVersions = [ "latest" ];
+        platformVersions = [ "35" "36" ];
+        buildToolsVersions = [ "36.0.0" ];
         includeEmulator = false;
         includeNDK = true;
         ndkVersion = "28.2.13676358";
+        cmakeVersions = [ "3.22.1" ];
       }).androidsdk;
     in
     {
