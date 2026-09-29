@@ -19,7 +19,7 @@
 --  * There is no `synced_at` here: that column is local bookkeeping and
 --    never crosses the wire.
 --  * Rollup tables (muscle_volume_daily, exercise_history, muscle_grade_-
---    history), muscle_groups and the local sync_queue are intentionally not
+--    history), muscle_groups and the local rollups are intentionally not
 --    synced: rollups are rebuilt per device from synced sets, the muscle
 --    catalog is identical seed content everywhere.
 -- ---------------------------------------------------------------------------

@@ -279,21 +279,6 @@ class MuscleGradeHistory extends Table {
   Set<Column> get primaryKey => {userId, muscleId, computedAt};
 }
 
-// ------------------------------ offline outbox ----------------------------
-
-class SyncQueue extends Table {
-  IntColumn get id => integer().autoIncrement()();
-
-  /// Target drift table name. (Named [targetTable], not `tableName` —
-  /// that collides with Drift's built-in `Table.tableName` getter.)
-  TextColumn get targetTable => text()();
-  TextColumn get rowId => text()();
-  TextColumn get op => text()(); // upsert | delete
-  TextColumn get payload => text()(); // JSON
-  DateTimeColumn get createdAt => dateTime()();
-  IntColumn get retries => integer().withDefault(const Constant(0))();
-}
-
 // -------------------------------- database --------------------------------
 
 @DriftDatabase(tables: [
@@ -311,7 +296,6 @@ class SyncQueue extends Table {
   MuscleVolumeDaily,
   ExerciseHistory,
   MuscleGradeHistory,
-  SyncQueue,
 ])
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(driftDatabase(name: 'kinetic'));
@@ -319,7 +303,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 7;
+  int get schemaVersion => 8;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -395,6 +379,14 @@ class AppDatabase extends _$AppDatabase {
           // there is no backfill and no seed pass.
           if (from < 7 && to >= 7) {
             await m.createTable(volumeLandmarks);
+          }
+
+          // v8: drop the never-used sync_queue table (Round 7). The sync
+          // engine does dirty-scans on synced_at/updated_at instead of
+          // queueing rows, so this table was written by nothing and read by
+          // nothing. Dropping it is safe: no code path references it.
+          if (from < 8 && to >= 8) {
+            await customStatement('DROP TABLE IF EXISTS sync_queue');
           }
         },
         beforeOpen: (details) async {
