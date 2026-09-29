@@ -174,6 +174,57 @@ void main() {
     await endApp(tester);
   });
 
+  testWidgets('remove exercise asks for confirmation before deleting',
+      (tester) async {
+    await pumpApp(tester);
+
+    await tester.tap(find.text('Start Workout'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('add-exercise-empty')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'bench');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Barbell Bench Press'));
+    await tester.pumpAndSettle();
+
+    // Log a set so the dialog can report the count.
+    await tester.tap(find.byKey(const Key('add-set-barbell-bench-press')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+        find.byKey(const Key('set-weight-input')), '60');
+    await tester.enterText(find.byKey(const Key('set-reps-input')), '5');
+    await tester.ensureVisible(find.byKey(const Key('set-save')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('set-save')));
+    await tester.pumpAndSettle();
+
+    // Open the overflow menu and tap Remove.
+    await tester.tap(find.byIcon(Icons.more_vert).first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Remove from workout'));
+    await tester.pumpAndSettle();
+
+    // Confirmation dialog appears with the set count.
+    expect(find.text('Remove Barbell Bench Press?'), findsOneWidget);
+    expect(find.textContaining('1 set'), findsOneWidget);
+
+    // Cancel keeps the exercise.
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    expect(find.text('Barbell Bench Press'), findsWidgets);
+
+    // Confirm removes it.
+    await tester.tap(find.byIcon(Icons.more_vert).first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Remove from workout'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Remove'));
+    await tester.pumpAndSettle();
+    expect(find.text('Barbell Bench Press'), findsNothing);
+
+    await endApp(tester);
+  });
+
   testWidgets('suggestion chip offers the next weight from prior sessions',
       (tester) async {
     await pumpApp(tester);

@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/database/database_providers.dart';
 import '../../../core/search/smart_search.dart';
 import '../../../core/theme/app_theme.dart';
+
+/// Carries a pre-fill name from the add-exercise sheet to the exercise
+/// editor. Plain global — no schema, no persistence, one-time handoff.
+String? exerciseNamePrefill;
 
 /// Searchable exercise picker — returns the exercise id, or null.
 Future<String?> showAddExerciseSheet(BuildContext context) {
@@ -78,7 +83,7 @@ class _AddExerciseSheetState extends ConsumerState<AddExerciseSheet> {
                 TextField(
                   key: const Key('exercise-search'),
                   controller: _controller,
-                  autofocus: false,
+                  autofocus: true,
                   onChanged: (v) => setState(() => _search = v),
                   decoration: const InputDecoration(
                     hintText: 'Search exercises…',
@@ -97,9 +102,26 @@ class _AddExerciseSheetState extends ConsumerState<AddExerciseSheet> {
                     muscleNames: muscleNames);
                 if (ranked.isEmpty) {
                   return Center(
-                    child: Text(
-                      'No exercises match "$_search"',
-                      style: TextStyle(color: context.textSecondary),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'No exercises match "$_search"',
+                          style: TextStyle(color: context.textSecondary),
+                        ),
+                        const SizedBox(height: 12),
+                        OutlinedButton.icon(
+                          key: const Key('create-exercise'),
+                          onPressed: () {
+                            exerciseNamePrefill =
+                                _search.trim().isEmpty ? null : _search.trim();
+                            context.pop();
+                            context.push('/library/new');
+                          },
+                          icon: const Icon(Icons.add),
+                          label: Text('Create "${_search.trim()}"'),
+                        ),
+                      ],
                     ),
                   );
                 }

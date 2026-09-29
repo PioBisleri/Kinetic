@@ -134,6 +134,7 @@ class _HeightFieldState extends ConsumerState<_HeightField> {
   final _ft = TextEditingController();
   final _in = TextEditingController();
   bool _dirty = false;
+  String? _heightError;
   UnitSystem? _shownUnit;
   double? _hydratedCm;
 
@@ -169,7 +170,11 @@ class _HeightFieldState extends ConsumerState<_HeightField> {
       : cm.toStringAsFixed(1);
 
   Future<void> _save(double? cm) async {
-    if (!isValidHeightCm(cm)) return; // ignore garbage
+    if (!isValidHeightCm(cm)) {
+      setState(() => _heightError = 'Enter 100–250 cm');
+      return;
+    }
+    setState(() => _heightError = null);
     _dirty = false;
     await _writeProfile(
       ref,
@@ -187,7 +192,11 @@ class _HeightFieldState extends ConsumerState<_HeightField> {
   Future<void> _saveImperial(String _) async {
     final ft = int.tryParse(_ft.text.trim()) ?? -1;
     final inch = int.tryParse(_in.text.trim()) ?? -1;
-    if (ft < 0 || ft > 8 || inch < 0 || inch > 11) return;
+    if (ft < 0 || ft > 8 || inch < 0 || inch > 11) {
+      setState(() => _heightError = 'Enter 0–8 ft, 0–11 in');
+      return;
+    }
+    setState(() => _heightError = null);
     await _save(feetInchesToCm(ft, inch));
   }
 
@@ -215,11 +224,12 @@ class _HeightFieldState extends ConsumerState<_HeightField> {
             keyboardType: TextInputType.number,
             style: const TextStyle(fontSize: 14),
             inputFormatters: digits,
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               isDense: true,
               hintText: 'Add',
               suffixText: 'cm',
               contentPadding: contentPadding,
+              errorText: _heightError,
             ),
             onChanged: (_) => _dirty = true,
             onSubmitted: _saveMetric,
@@ -243,11 +253,12 @@ class _HeightFieldState extends ConsumerState<_HeightField> {
               keyboardType: TextInputType.number,
               style: const TextStyle(fontSize: 14),
               inputFormatters: digits,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 isDense: true,
                 hintText: '—',
                 suffixText: 'ft',
                 contentPadding: contentPadding,
+                errorText: _heightError,
               ),
               onChanged: (_) => _dirty = true,
               onSubmitted: _saveImperial,
@@ -263,11 +274,12 @@ class _HeightFieldState extends ConsumerState<_HeightField> {
               keyboardType: TextInputType.number,
               style: const TextStyle(fontSize: 14),
               inputFormatters: digits,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 isDense: true,
                 hintText: '—',
                 suffixText: 'in',
                 contentPadding: contentPadding,
+                errorText: _heightError,
               ),
               onChanged: (_) => _dirty = true,
               onSubmitted: _saveImperial,
@@ -394,6 +406,7 @@ class _BodyFatField extends ConsumerStatefulWidget {
 class _BodyFatFieldState extends ConsumerState<_BodyFatField> {
   final _controller = TextEditingController();
   bool _dirty = false;
+  String? _error;
   double? _hydrated;
 
   @override
@@ -415,7 +428,11 @@ class _BodyFatFieldState extends ConsumerState<_BodyFatField> {
 
   Future<void> _save(String text) async {
     final pct = double.tryParse(text.trim().replaceAll(',', '.'));
-    if (pct == null || pct < 2 || pct > 60) return; // ignore garbage
+    if (pct == null || pct < 2 || pct > 60) {
+      setState(() => _error = 'Enter 2–60%');
+      return;
+    }
+    setState(() => _error = null);
     _dirty = false;
     await _writeProfile(
       ref,
@@ -446,11 +463,12 @@ class _BodyFatFieldState extends ConsumerState<_BodyFatField> {
           inputFormatters: [
             FilteringTextInputFormatter.allow(RegExp(r'^\d{0,2}(\.\d?)?$')),
           ],
-          decoration: const InputDecoration(
+          decoration: InputDecoration(
             isDense: true,
             hintText: 'Add',
             suffixText: '%',
             contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+            errorText: _error,
           ),
           onChanged: (_) => _dirty = true,
           onSubmitted: _save,
@@ -531,6 +549,7 @@ class _BodyweightFieldState extends ConsumerState<_BodyweightField> {
   final _controller = TextEditingController();
   UnitSystem? _shownUnit;
   bool _dirty = false;
+  String? _error;
 
   @override
   void dispose() {
@@ -547,7 +566,11 @@ class _BodyweightFieldState extends ConsumerState<_BodyweightField> {
 
   Future<void> _save(String text, UnitSystem unit) async {
     final value = double.tryParse(text.trim().replaceAll(',', '.'));
-    if (value == null || value <= 0 || value > 400) return; // ignore garbage
+    if (value == null || value <= 0 || value > 400) {
+      setState(() => _error = 'Enter 1–400');
+      return;
+    }
+    setState(() => _error = null);
     final kg = displayToKg(value, unit);
     _dirty = false; // stream emit below writes back the canonical display
     final prev = ref.read(profileProvider).value?.bodyweightKg;
@@ -594,6 +617,7 @@ class _BodyweightFieldState extends ConsumerState<_BodyweightField> {
         suffixText: unit == UnitSystem.lbs ? 'lb' : 'kg',
         suffixStyle:
             TextStyle(fontSize: 12, color: context.textTertiary),
+        errorText: _error,
       ),
       onChanged: (_) => _dirty = true,
       onSubmitted: (text) => _save(text, unit),

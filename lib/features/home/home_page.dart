@@ -10,6 +10,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/utils/weight_units.dart';
 import '../analytics/application/analytics_providers.dart';
 import '../analytics/domain/analytics_math.dart';
+import '../routines/application/routine_providers.dart';
 import '../workout/application/workout_session_notifier.dart';
 import 'application/home_providers.dart';
 
@@ -19,6 +20,74 @@ class HomePage extends ConsumerWidget {
   Future<void> _start(BuildContext context, WidgetRef ref) async {
     await ref.read(workoutSessionProvider.notifier).startWorkout();
     if (context.mounted) context.push('/workout');
+  }
+
+  Future<void> _startRoutine(
+      BuildContext context, WidgetRef ref, String routineId) async {
+    final session = ref.read(workoutSessionProvider).value;
+    if (session != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Finish your current workout first.')),
+      );
+      return;
+    }
+    await ref
+        .read(workoutSessionProvider.notifier)
+        .startWorkout(routineId: routineId);
+    if (context.mounted) context.push('/workout');
+  }
+
+  void _openRoutinePicker(BuildContext context, WidgetRef ref) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: context.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(6)),
+      ),
+      builder: (_) => Consumer(
+        builder: (sheetContext, ref, _) {
+          final cards = ref.watch(routinesProvider);
+          final routines = cards.value ?? const <RoutineCard>[];
+          return SafeArea(
+            child: ListView(
+              shrinkWrap: true,
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              children: [
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(16, 8, 16, 4),
+                  child: Text(
+                    'Start from routine',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.1,
+                    ),
+                  ),
+                ),
+                for (final card in routines)
+                  ListTile(
+                    key: Key('home-routine-${card.routine.id}'),
+                    title: Text(card.routine.name),
+                    onTap: () {
+                      Navigator.of(sheetContext).pop();
+                      _startRoutine(context, ref, card.routine.id);
+                    },
+                  ),
+                if (routines.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(16, 8, 16, 12),
+                    child: Text(
+                      'No routines yet — create one from the Routines tab.',
+                      style: TextStyle(fontSize: 13),
+                    ),
+                  ),
+                const SizedBox(height: 8),
+              ],
+            ),
+          );
+        },
+      ),
+    );
   }
 
   @override
@@ -48,7 +117,10 @@ class HomePage extends ConsumerWidget {
               ),
             ),
             data: (session) => session == null
-                ? _StartWorkoutCard(onStart: () => _start(context, ref))
+                ? _StartWorkoutCard(
+                    onStart: () => _start(context, ref),
+                    onStartRoutine: () => _openRoutinePicker(context, ref),
+                  )
                 : _ActiveWorkoutCard(
                     session: session,
                     onResume: () => context.push('/workout'),
@@ -72,9 +144,13 @@ class HomePage extends ConsumerWidget {
 }
 
 class _StartWorkoutCard extends StatelessWidget {
-  const _StartWorkoutCard({required this.onStart});
+  const _StartWorkoutCard({
+    required this.onStart,
+    required this.onStartRoutine,
+  });
 
   final VoidCallback onStart;
+  final VoidCallback onStartRoutine;
 
   @override
   Widget build(BuildContext context) {
@@ -101,6 +177,12 @@ class _StartWorkoutCard extends StatelessWidget {
               onPressed: onStart,
               icon: const Icon(Icons.play_arrow_rounded),
               label: const Text('Start Workout'),
+            ),
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: onStartRoutine,
+              icon: const Icon(Icons.list_alt),
+              label: const Text('Start from routine…'),
             ),
           ],
         ),

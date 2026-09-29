@@ -78,13 +78,27 @@ class _RoutineEditorPageState extends ConsumerState<RoutineEditorPage> {
   final _entries = <_EntryDraft>[];
   bool _initialized = false;
   bool _saving = false;
+  bool _popping = false;
+  String _initialSnapshot = '';
 
   bool get _isNew => widget.routineId == null;
+
+  String _snapshot() {
+    final name = _name.text;
+    final entries = _entries
+        .map((e) =>
+            '${e.exerciseId}:${e.sets}:${e.reps}:${e.restSeconds}:${e.warmupSets}:${e.dropSets}:${e.failureSets}:${e.linkNext}')
+        .join(',');
+    return '$name|$entries';
+  }
+
+  bool get _hasChanges => _snapshot() != _initialSnapshot;
 
   @override
   void initState() {
     super.initState();
     _initialized = _isNew;
+    if (_isNew) _initialSnapshot = _snapshot();
   }
 
   /// Populate local drafts from the FIRST resolved detail. Runs inside
@@ -120,6 +134,7 @@ class _RoutineEditorPageState extends ConsumerState<RoutineEditorPage> {
         _entries[i].linkNext = true;
       }
     }
+    _initialSnapshot = _snapshot();
   }
 
   @override
@@ -185,7 +200,10 @@ class _RoutineEditorPageState extends ConsumerState<RoutineEditorPage> {
               ),
           ],
         );
-    if (mounted) context.pop();
+    if (mounted) {
+      _popping = true;
+      context.pop();
+    }
   }
 
   Future<void> _delete() async {
@@ -212,7 +230,37 @@ class _RoutineEditorPageState extends ConsumerState<RoutineEditorPage> {
     await ref
         .read(routineRepositoryProvider)
         .deleteRoutine(widget.routineId!);
-    if (mounted) context.pop();
+    if (mounted) {
+      _popping = true;
+      context.pop();
+    }
+  }
+
+  Future<bool> _confirmDiscard() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Discard changes?'),
+        content: const Text(
+          'Your edits to this routine will be lost.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Keep editing'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.heatHot,
+              minimumSize: const Size(0, 44),
+            ),
+            child: const Text('Discard'),
+          ),
+        ],
+      ),
+    );
+    return confirmed == true;
   }
 
   @override
@@ -242,7 +290,14 @@ class _RoutineEditorPageState extends ConsumerState<RoutineEditorPage> {
     final unit = ref.watch(settingsProvider).unit;
     final unitLabel = unit == UnitSystem.kg ? 'kg' : 'lb';
 
-    return Scaffold(
+    return PopScope(
+      canPop: !_hasChanges || _popping,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        final discard = await _confirmDiscard();
+        if (discard && mounted) context.pop();
+      },
+      child: Scaffold(
       appBar: AppBar(
         title: Text(_isNew ? 'New Routine' : 'Edit Routine'),
         actions: [
@@ -316,6 +371,7 @@ class _RoutineEditorPageState extends ConsumerState<RoutineEditorPage> {
           ),
         ],
       ),
+    ),
     );
   }
 
@@ -548,12 +604,14 @@ class _MiniStepper extends StatelessWidget {
   }
 
   Widget _btn(IconData icon, Key key, VoidCallback onTap) => SizedBox(
-        width: 34,
-        height: 34,
+        width: 44,
+        height: 44,
         child: IconButton(
           key: key,
           padding: EdgeInsets.zero,
           iconSize: 18,
+          visualDensity: VisualDensity.compact,
+          constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
           onPressed: onTap,
           icon: Icon(icon),
         ),
@@ -614,23 +672,27 @@ class _RestControl extends StatelessWidget {
             style: TextStyle(fontSize: 12, color: context.textSecondary),
           ),
           SizedBox(
-            width: 34,
-            height: 34,
+            width: 44,
+            height: 44,
             child: IconButton(
               key: Key('$id-minus'),
               padding: EdgeInsets.zero,
               iconSize: 18,
+              visualDensity: VisualDensity.compact,
+              constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
               onPressed: () => onChanged((value - 15).clamp(0, 600)),
               icon: const Icon(Icons.remove),
             ),
           ),
           SizedBox(
-            width: 34,
-            height: 34,
+            width: 44,
+            height: 44,
             child: IconButton(
               key: Key('$id-plus'),
               padding: EdgeInsets.zero,
               iconSize: 18,
+              visualDensity: VisualDensity.compact,
+              constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
               onPressed: () => onChanged((value + 15).clamp(0, 600)),
               icon: const Icon(Icons.add),
             ),

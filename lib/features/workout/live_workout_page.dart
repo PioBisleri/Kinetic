@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -109,6 +110,40 @@ class _LiveWorkoutPageState extends ConsumerState<LiveWorkoutPage> {
     if (mounted) context.pop();
   }
 
+  Future<void> _confirmRemove(
+      BuildContext context, WidgetRef ref, Exercise exercise, WorkoutSession session) async {
+    final sets = session.setsFor(exercise.id);
+    final completed = sets.where((s) => s.isCompleted).length;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Remove ${exercise.name}?'),
+        content: Text(
+          sets.isEmpty
+              ? 'This exercise has no sets yet.'
+              : '${sets.length} set${sets.length == 1 ? '' : 's'} '
+                  '($completed completed) will be deleted from this workout.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.heatHot,
+              minimumSize: const Size(0, 44),
+            ),
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    await ref.read(workoutSessionProvider.notifier).removeExercise(exercise.id);
+  }
+
   Future<void> _editNotes(WorkoutSession session) async {
     final controller = TextEditingController(
         text: session.workout.notes ?? '');
@@ -185,7 +220,7 @@ class _LiveWorkoutPageState extends ConsumerState<LiveWorkoutPage> {
 
     final notifier = ref.read(workoutSessionProvider.notifier);
     if (result.isEmptyValues) return;
-    await notifier.logSet(
+    final logged = await notifier.logSet(
       exerciseId: exercise.id,
       setType: result.setType,
       weightKg: result.weightKg,
@@ -195,6 +230,20 @@ class _LiveWorkoutPageState extends ConsumerState<LiveWorkoutPage> {
       durationSec: result.durationSec,
       heartRate: result.heartRate,
     );
+
+    HapticFeedback.mediumImpact();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Set logged'),
+          action: SnackBarAction(
+            label: 'Undo',
+            onPressed: () => notifier.deleteSet(logged.id),
+          ),
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    }
 
     final rest = await resolveRestSeconds(
       db: ref.read(databaseProvider),
@@ -359,9 +408,8 @@ class _LiveWorkoutPageState extends ConsumerState<LiveWorkoutPage> {
                   onSupersetNext: () => ref
                       .read(workoutSessionProvider.notifier)
                       .supersetWithNext(session.exercises[i].id),
-                  onRemove: () => ref
-                      .read(workoutSessionProvider.notifier)
-                      .removeExercise(session.exercises[i].id),
+                  onRemove: () => _confirmRemove(
+                      context, ref, session.exercises[i], session),
                 ),
               const SizedBox(height: 8),
               OutlinedButton.icon(

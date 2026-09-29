@@ -12,6 +12,7 @@ import '../../core/settings/settings.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/rest_format.dart';
 import '../../core/utils/weight_units.dart';
+import '../workout/widgets/add_exercise_sheet.dart';
 
 /// Display parents (see seed `groups`) — every other muscle row is a
 /// loggable leaf. `chest` is a leaf despite also being a group id, so it
@@ -70,13 +71,29 @@ class _ExerciseEditPageState extends ConsumerState<ExerciseEditPage> {
   /// default 0.4). The primary muscle is always 1.0.
   final Map<String, double> _contributions = {};
   bool _showPrimaryError = false;
+  bool _dirty = false;
 
   bool get _isEdit => widget.exerciseId != null;
 
   @override
   void initState() {
     super.initState();
-    if (_isEdit) _loadExisting();
+    if (_isEdit) {
+      _loadExisting();
+    } else {
+      final prefill = exerciseNamePrefill;
+      if (prefill != null && prefill.isNotEmpty) {
+        _nameCtrl.text = prefill;
+        _dirty = true;
+        exerciseNamePrefill = null;
+      }
+    }
+    _nameCtrl.addListener(_markDirty);
+    _equipmentCtrl.addListener(_markDirty);
+  }
+
+  void _markDirty() {
+    if (!_dirty) setState(() => _dirty = true);
   }
 
   @override
@@ -183,7 +200,10 @@ class _ExerciseEditPageState extends ConsumerState<ExerciseEditPage> {
         await _writeMuscleMap(db, widget.exerciseId!, primary, secondary);
       });
     }
-    if (mounted) context.pop();
+    if (mounted) {
+      _dirty = false;
+      context.pop();
+    }
   }
 
   Future<void> _writeMuscleMap(
@@ -217,7 +237,14 @@ class _ExerciseEditPageState extends ConsumerState<ExerciseEditPage> {
     final muscles = ref.watch(musclesProvider);
     final unit = ref.watch(settingsProvider).unit;
 
-    return Scaffold(
+    return PopScope(
+      canPop: !_dirty,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        final discard = await _confirmDiscard();
+        if (discard && mounted) context.pop();
+      },
+      child: Scaffold(
       appBar: AppBar(
         title: Text(_isEdit ? 'Edit Exercise' : 'New Exercise'),
         actions: [
@@ -256,7 +283,10 @@ class _ExerciseEditPageState extends ConsumerState<ExerciseEditPage> {
                     for (final (id, label) in _categories)
                       DropdownMenuItem(value: id, child: Text(label)),
                   ],
-                  onChanged: (v) => setState(() => _category = v ?? 'custom'),
+                  onChanged: (v) => setState(() {
+                    _category = v ?? 'custom';
+                    _dirty = true;
+                  }),
                 ),
                 const SizedBox(height: 20),
                 const _SectionLabel('Type'),
@@ -268,8 +298,10 @@ class _ExerciseEditPageState extends ConsumerState<ExerciseEditPage> {
                   ],
                   selected: {_mechanics},
                   showSelectedIcon: false,
-                  onSelectionChanged: (s) =>
-                      setState(() => _mechanics = s.first),
+                  onSelectionChanged: (s) => setState(() {
+                    _mechanics = s.first;
+                    _dirty = true;
+                  }),
                 ),
                 const SizedBox(height: 12),
                 _DropdownField<String?>(
@@ -283,7 +315,10 @@ class _ExerciseEditPageState extends ConsumerState<ExerciseEditPage> {
                         child: Text(label),
                       ),
                   ],
-                  onChanged: (v) => setState(() => _force = v),
+                  onChanged: (v) => setState(() {
+                    _force = v;
+                    _dirty = true;
+                  }),
                 ),
                 const SizedBox(height: 20),
                 const _SectionLabel('Primary muscle'),
@@ -299,6 +334,7 @@ class _ExerciseEditPageState extends ConsumerState<ExerciseEditPage> {
                   onChanged: (v) => setState(() {
                     _primaryId = v;
                     _showPrimaryError = false;
+                    _dirty = true;
                   }),
                 ),
                 if (_showPrimaryError && _primaryId == null)
@@ -335,6 +371,7 @@ class _ExerciseEditPageState extends ConsumerState<ExerciseEditPage> {
                             } else {
                               _secondary.remove(m.id);
                             }
+                            _dirty = true;
                           }),
                           selectedColor:
                               AppColors.accent.withValues(alpha: 0.18),
@@ -371,6 +408,9 @@ class _ExerciseEditPageState extends ConsumerState<ExerciseEditPage> {
                                   () => _contributions[m.id] =
                                       (v * 100).roundToDouble() / 100,
                                 ),
+                                // Slider drags fire many setState calls; mark
+                                // dirty on the first one only.
+                                onChangeStart: (_) => _markDirty(),
                               ),
                             ),
                             SizedBox(
@@ -408,8 +448,10 @@ class _ExerciseEditPageState extends ConsumerState<ExerciseEditPage> {
                   ],
                   selected: {_metric},
                   showSelectedIcon: false,
-                  onSelectionChanged: (s) =>
-                      setState(() => _metric = s.first),
+                  onSelectionChanged: (s) => setState(() {
+                    _metric = s.first;
+                    _dirty = true;
+                  }),
                 ),
                 const SizedBox(height: 20),
                 const _SectionLabel('Rest between sets'),
@@ -424,8 +466,10 @@ class _ExerciseEditPageState extends ConsumerState<ExerciseEditPage> {
                         onSelected: (useDefault) {
                           final seed = _restSec ??
                               ref.read(settingsProvider).restWorkingSec;
-                          setState(() =>
-                              _restSec = useDefault ? null : seed);
+                          setState(() {
+                            _restSec = useDefault ? null : seed;
+                            _dirty = true;
+                          });
                         },
                         selectedColor:
                             AppColors.accent.withValues(alpha: 0.18),
@@ -448,7 +492,10 @@ class _ExerciseEditPageState extends ConsumerState<ExerciseEditPage> {
                         onPressed: () {
                           final base = _restSec ??
                               ref.read(settingsProvider).restWorkingSec;
-                          setState(() => _restSec = (base - 15).clamp(0, 600));
+                          setState(() {
+                            _restSec = (base - 15).clamp(0, 600);
+                            _dirty = true;
+                          });
                         },
                       ),
                       IconButton(
@@ -457,7 +504,10 @@ class _ExerciseEditPageState extends ConsumerState<ExerciseEditPage> {
                         onPressed: () {
                           final base = _restSec ??
                               ref.read(settingsProvider).restWorkingSec;
-                          setState(() => _restSec = (base + 15).clamp(0, 600));
+                          setState(() {
+                            _restSec = (base + 15).clamp(0, 600);
+                            _dirty = true;
+                          });
                         },
                       ),
                     ],
@@ -476,8 +526,10 @@ class _ExerciseEditPageState extends ConsumerState<ExerciseEditPage> {
                           selected: _incrementKg == null,
                           onSelected: (useDefault) {
                             final seed = _incrementKg ?? stepKg(unit);
-                            setState(() =>
-                                _incrementKg = useDefault ? null : seed);
+                            setState(() {
+                              _incrementKg = useDefault ? null : seed;
+                              _dirty = true;
+                            });
                           },
                           selectedColor:
                               AppColors.accent.withValues(alpha: 0.18),
@@ -508,8 +560,10 @@ class _ExerciseEditPageState extends ConsumerState<ExerciseEditPage> {
                                 (base - (unit == UnitSystem.kg ? 0.5 : 1))
                                     .clamp(floor, 40)
                                     .toDouble();
-                            setState(() =>
-                                _incrementKg = displayToKg(next, unit));
+                            setState(() {
+                              _incrementKg = displayToKg(next, unit);
+                              _dirty = true;
+                            });
                           },
                         ),
                         IconButton(
@@ -524,8 +578,10 @@ class _ExerciseEditPageState extends ConsumerState<ExerciseEditPage> {
                                 (base + (unit == UnitSystem.kg ? 0.5 : 1))
                                     .clamp(floor, 40)
                                     .toDouble();
-                            setState(() =>
-                                _incrementKg = displayToKg(next, unit));
+                            setState(() {
+                              _incrementKg = displayToKg(next, unit);
+                              _dirty = true;
+                            });
                           },
                         ),
                       ],
@@ -538,7 +594,35 @@ class _ExerciseEditPageState extends ConsumerState<ExerciseEditPage> {
           );
         },
       ),
+    ),
     );
+  }
+
+  Future<bool> _confirmDiscard() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Discard changes?'),
+        content: const Text(
+          'Your edits to this exercise will be lost.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Keep editing'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.heatHot,
+              minimumSize: const Size(0, 44),
+            ),
+            child: const Text('Discard'),
+          ),
+        ],
+      ),
+    );
+    return confirmed == true;
   }
 }
 
