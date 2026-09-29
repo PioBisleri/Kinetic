@@ -3,7 +3,7 @@
 > Offline-first fitness tracker (Hevy-like), personal analytics only — **no social
 > features, ever**. This file exists so the project can move to another machine
 > without losing context. Last updated: **2026-09-29**, at **v0.1.4+4**,
-> schema **v7**, **276 tests green**, all CI runs **passing**.
+> schema **v8**, **278 tests green**, all CI runs **passing**.
 
 ---
 
@@ -12,8 +12,8 @@
 | Item | State |
 |---|---|
 | Version | `0.1.4+4` (`pubspec.yaml`) |
-| DB schema | **v7** (`AppDatabase.schemaVersion`) |
-| Tests | **276 passing**, 44 test files, `flutter analyze` clean |
+| DB schema | **v8** (`AppDatabase.schemaVersion`) |
+| Tests | **278 passing**, 45 test files, `flutter analyze` clean |
 | Repo | `main` @ `9e33586`, working tree clean |
 | Remote | `origin` = `git@github.com:PioBisleri/Kinetic.git` (public) |
 | Pushed | everything **through `9e33586`** (this handoff doc) |
@@ -27,9 +27,23 @@
 
 ## 2. Setting up a fresh machine
 
+**NixOS (recommended)**
+
+```bash
+cd kinetic
+direnv allow          # one-time per machine; loads flake.nix dev shell
+```
+
+The flake provides Flutter 3.47.5, Android SDK (platforms 35/36, build-tools
+36.0.0, NDK 28.2.13676358, cmake 3.22.1), JDK 17, and sqlite3. Nothing else to
+install. `direnv` must be on PATH and `~/.config/direnv/direnvrc` must source
+`hm-nix-direnv.sh` (already configured on this machine).
+
+**Non-NixOS / manual**
+
 **Prerequisites**
 
-- Flutter **3.47.5** stable (CI pins this; `pubspec.yaml` wants Dart `^3.13`)
+- Flutter **3.47.5** stable (CI pins this; `pubspec.yaml` wants Dart `^3.13.4`)
 - Android SDK + `adb` (device builds/install)
 - Nothing else — the app is fully offline; **no Supabase account is needed** to
   build or test (sync says "not configured" without dart-defines).
@@ -41,7 +55,7 @@ cd kinetic
 export PATH="$HOME/development/flutter/bin:$PATH"   # adjust to your Flutter path
 flutter --no-version-check pub get
 flutter --no-version-check analyze
-flutter --no-version-check test          # expect: 276 passing
+flutter --no-version-check test          # expect: 278 passing
 ```
 
 ⚠️ **Always pass `--no-version-check`.** The tool's periodic update check does a
@@ -145,10 +159,11 @@ supabase/schema.sql              # remote DDL — NOT applied (Phase 10 gate)
 | 5 | `exercises.progression_increment_kg` | nullable = inherit |
 | 6 | `body_metrics` table (id = local dayKey) | **backfills today's point from profile weight** (skips if none) |
 | 7 | `volume_landmarks` | **create-only, no backfill** — override rows only; absent row ⇒ curated default |
+| 8 | drop `sync_queue` | never-used table removed; `DROP TABLE IF EXISTS sync_queue` |
 
-Tables (16): `profiles, body_metrics, volume_landmarks, muscle_groups, exercises,
+Tables (15): `profiles, body_metrics, volume_landmarks, muscle_groups, exercises,
 exercise_muscle_map, routines, routine_exercises, weekly_plans, workouts,
-workout_sets, muscle_volume_daily, exercise_history, muscle_grade_history, sync_queue`.
+workout_sets, muscle_volume_daily, exercise_history, muscle_grade_history`.
 
 **Migration rules**
 
@@ -163,7 +178,7 @@ workout_sets, muscle_volume_daily, exercise_history, muscle_grade_history, sync_
 **`supabase/schema.sql`** holds only the 8 **synced** tables (profiles, exercises,
 exercise_muscle_map, routines, routine_exercises, workouts, workout_sets,
 body_metrics). **Local-only** and therefore intentionally absent: `weekly_plans`,
-`volume_landmarks` (plus rollups, sync_queue, and the seeded muscle_groups).
+`volume_landmarks` (plus rollups and the seeded muscle_groups).
 It must **not** be applied to the Supabase project before Phase 10.
 
 ---
@@ -220,6 +235,15 @@ Android 4×2 home-screen widget (volume/streak/next-up, tap boots logger).
   retired from roadmap).
 - **`134a231`** — release: bump version to 0.1.4 (6 places, see §9).
 - **`cbaf43e`** — `build-apk.sh` versioned APK naming + gitignore + README.
+
+**Round 7 — v0.1.5 (in progress):**
+- **7A** — Nix dev shell (`flake.nix` + `direnv`): Flutter 3.47.5, Android SDK
+  (platforms 35/36, build-tools 36.0.0, NDK 28.2.13676358, cmake 3.22.1), JDK 17,
+  sqlite3. Pinned to nixpkgs PR #567033 head until 3.47.5 lands in nixos-unstable.
+- **7B** — KGP warning resolved: `android.builtInKotlin=true` (both plugins already
+  gate on it). Flutter CLI warning is a false positive (static scan).
+- **7C** — schema v8: dropped never-used `sync_queue` table (16 → 15 tables).
+  Migration test added.
 
 ---
 
@@ -302,13 +326,14 @@ locally, bump CI too.
 ## 10. Sync model & Phase 10 (the next big thing)
 
 **Today (works, offline-tested):** `lib/core/sync/` contains `sync_engine`
-(pull→push, `since` cursor + overlap re-read, dirty-queue via `sync_queue`,
-per-row LWW), `sync_codec` (wire format), `supabase_transport` /
-`sync_transport` (fake in tests). Synced tables: profiles, exercises,
-exercise_muscle_map, routines, routine_exercises, workouts, workout_sets,
-body_metrics. In-progress workouts are not pushed until finished. Deeply
-tested in `test/sync_engine_test.dart` (encode/decode, tombstones, LWW both
-directions, children ride parents, cursor overlap…).
+(pull→push, `since` cursor + overlap re-read, dirty-scan on
+`synced_at IS NULL OR updated_at > synced_at`, per-row LWW), `sync_codec`
+(wire format), `supabase_transport` / `sync_transport` (fake in tests).
+Synced tables: profiles, exercises, exercise_muscle_map, routines,
+routine_exercises, workouts, workout_sets, body_metrics. In-progress workouts
+are not pushed until finished. Deeply tested in `test/sync_engine_test.dart`
+(encode/decode, tombstones, LWW both directions, children ride parents,
+cursor overlap…).
 
 **Not yet done — Phase 10: end-to-end encrypted sync.**
 
@@ -329,9 +354,13 @@ directions, children ride parents, cursor overlap…).
 
 ## 11. Watchlist / tech debt
 
-- ⚠️ **KGP warning from the v0.1.4 build:** plugins `flutter_timezone` and
-  `home_widget` apply the Kotlin Gradle Plugin; **future Flutter versions will
-  fail to build**. Upgrade both plugins soon.
+- ✅ **KGP warning resolved (Round 7):** `android/gradle.properties` now sets
+  `android.builtInKotlin=true`. Both plugins (`flutter_timezone` 5.1.0,
+  `home_widget` 0.10.0) already gate their legacy KGP apply on this flag, so
+  neither applies KGP anymore — verified by a successful release build. The
+  Flutter CLI still prints the KGP warning because its static scan doesn't
+  understand the plugins' Groovy conditionals; this is a false positive that
+  disappears when the plugins drop the legacy code path.
 - Network on the build machine has been flaky historically (git fetches
   hanging); the CLI flag and CI are the workarounds.
 - 15 packages have newer (non-breaking-constraint) versions —

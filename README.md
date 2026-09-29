@@ -3,7 +3,7 @@
 ![version](https://img.shields.io/badge/version-0.1.4-22D3A5)
 ![Flutter](https://img.shields.io/badge/Flutter-3.47-02569B?logo=flutter&logoColor=white)
 ![Dart](https://img.shields.io/badge/Dart-3.13-0175C2?logo=dart&logoColor=white)
-![tests](https://img.shields.io/badge/tests-276%20passing-22D3A5)
+![tests](https://img.shields.io/badge/tests-278%20passing-22D3A5)
 ![Android](https://img.shields.io/badge/platform-Android-3DDC84?logo=android&logoColor=white)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
@@ -92,7 +92,7 @@ Three tiers, resolved routine → exercise → app settings:
 |---|---|
 | Framework | Flutter (Dart ^3.13) |
 | State | Riverpod 3 (`Notifier` / `AsyncNotifier`) |
-| Local DB | Drift (SQLite, WAL) — source of truth, schema v4 |
+| Local DB | Drift (SQLite, WAL) — source of truth, schema v8 |
 | Cloud | Supabase (optional; RLS-locked per user) |
 | Routing | go_router — 4-tab stateful shell + pushed routes |
 | Charts | fl_chart |
@@ -143,7 +143,7 @@ term drives the body heat map.
 flutter pub get
 dart run build_runner build --delete-conflicting-outputs   # after schema edits
 flutter analyze
-flutter test          # 276 tests
+flutter test          # 278 tests
 flutter run
 ```
 
@@ -175,7 +175,7 @@ lib/
   main.dart                  boot order: DB → seed → prefs → optional Supabase
   app.dart                   router, 4-tab shell, frosted-glass drawer
   core/
-    database/                Drift schema (v3, 13 tables) + seed service
+    database/                Drift schema (v8, 15 tables) + seed service
     settings/                units, theme, plates, rest tiers (SharedPreferences)
     sync/                    pull→push engine (LWW, tombstones, fake transport)
     theme/                   dark-first design tokens, grade/heat colors
@@ -218,6 +218,9 @@ assets/seed/                 19 muscle groups, 89 exercises
   Actions CI, home-screen widget
 - **Round 6 ✅ (v0.1.4)** per-exercise progression increments (schema v5),
   bodyweight trend (schema v6), volume landmarks card (schema v7)
+- **Round 7 🔄 (v0.1.5)** Nix dev shell (Flutter 3.47.5 + Android SDK via flake),
+  KGP warning resolved (`builtInKotlin=true`), schema v8 (dropped dead
+  `sync_queue` table), UX polish round
 
 ## Roadmap
 
