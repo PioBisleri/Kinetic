@@ -2,8 +2,8 @@
 
 > Offline-first fitness tracker (Hevy-like), personal analytics only — **no social
 > features, ever**. This file exists so the project can move to another machine
-> without losing context. Last updated: **2026-09-29**, at **v0.1.4+4**,
-> schema **v8**, **278 tests green**, all CI runs **passing**.
+> without losing context. Last updated: **2026-10-17**, at **v0.1.5+5**,
+> schema **v9**, **343 tests green**, all CI runs **passing**.
 
 ---
 
@@ -11,14 +11,14 @@
 
 | Item | State |
 |---|---|
-| Version | `0.1.4+4` (`pubspec.yaml`) |
-| DB schema | **v8** (`AppDatabase.schemaVersion`) |
-| Tests | **278 passing**, 45 test files, `flutter analyze` clean |
-| Repo | `main` @ `9e33586`, working tree clean |
+| Version | `0.1.5+5` (`pubspec.yaml`) |
+| DB schema | **v9** (`AppDatabase.schemaVersion`) |
+| Tests | **343 passing**, 55 test files, `flutter analyze` clean |
+| Repo | `main` @ `9e33586`, Rounds 9 / 9.1 / 9.2 changes **uncommitted** |
 | Remote | `origin` = `git@github.com:PioBisleri/Kinetic.git` (public) |
 | Pushed | everything **through `9e33586`** (this handoff doc) |
 | CI | GitHub Actions `CI` — all runs `conclusion: success` (analyze + test on Flutter 3.47.5) |
-| Supabase | **project NOT live**, `supabase/schema.sql` **never applied** (by design, see §10) |
+| Supabase | **project NOT live**, `supabase/schema.sql` **never applied** — encryption now wired end-to-end (v0.1.5, §9A) but unverified against a real server |
 | Device | `R9ZY305521H`; release APK signed with the **debug key** (intentional) |
 
 ✅ **All commits are pushed** — a fresh clone of `origin/main` gives the full state.
@@ -133,7 +133,7 @@ lib/
     profile/                     # Profile page, Your data, weight trend, settings
     settings/ …
 assets/seed/                     # exercises.json, muscle_groups.json
-supabase/schema.sql              # remote DDL — NOT applied (Phase 10 gate)
+supabase/schema.sql              # remote DDL — NOT applied (project not live)
 .github/workflows/ci.yml         # analyze + test, Flutter 3.47.5, ubuntu + sqlite3
 ```
 
@@ -160,10 +160,12 @@ supabase/schema.sql              # remote DDL — NOT applied (Phase 10 gate)
 | 6 | `body_metrics` table (id = local dayKey) | **backfills today's point from profile weight** (skips if none) |
 | 7 | `volume_landmarks` | **create-only, no backfill** — override rows only; absent row ⇒ curated default |
 | 8 | drop `sync_queue` | never-used table removed; `DROP TABLE IF EXISTS sync_queue` |
+| 9 | daily health + nutrition: `body_metrics` gains nullable `water_ml`/`steps` (plain ALTER, no backfill); new `foods` + `food_logs` tables | create/additive only; `addColumnIfAbsent` guards the v≤5→v9 replay (the v6 branch creates the table from the *current* column set) |
 
-Tables (15): `profiles, body_metrics, volume_landmarks, muscle_groups, exercises,
+Tables (17): `profiles, body_metrics, volume_landmarks, muscle_groups, exercises,
 exercise_muscle_map, routines, routine_exercises, weekly_plans, workouts,
-workout_sets, muscle_volume_daily, exercise_history, muscle_grade_history`.
+workout_sets, muscle_volume_daily, exercise_history, muscle_grade_history,
+foods, food_logs`.
 
 **Migration rules**
 
@@ -175,11 +177,13 @@ workout_sets, muscle_volume_daily, exercise_history, muscle_grade_history`.
   not-yet-altered tables fail — use raw SQL in migration tests, or run to current.
 - **After any schema edit:** run build_runner (§3) and add a migration test.
 
-**`supabase/schema.sql`** holds only the 8 **synced** tables (profiles, exercises,
+**`supabase/schema.sql`** holds the 10 **synced** tables (profiles, exercises,
 exercise_muscle_map, routines, routine_exercises, workouts, workout_sets,
-body_metrics). **Local-only** and therefore intentionally absent: `weekly_plans`,
-`volume_landmarks` (plus rollups and the seeded muscle_groups).
-It must **not** be applied to the Supabase project before Phase 10.
+body_metrics, foods, food_logs). **Local-only** and therefore intentionally
+absent: `weekly_plans`, `volume_landmarks` (plus rollups and the seeded
+muscle_groups).
+It must **not** be applied to the Supabase project before the project
+goes live (Phase 10's encryption is already built — see §10).
 
 ---
 
@@ -236,7 +240,7 @@ Android 4×2 home-screen widget (volume/streak/next-up, tap boots logger).
 - **`134a231`** — release: bump version to 0.1.4 (6 places, see §9).
 - **`cbaf43e`** — `build-apk.sh` versioned APK naming + gitignore + README.
 
-**Round 7 — v0.1.5 (in progress):**
+**Round 7 — v0.1.5 (complete):**
 - **7A** — Nix dev shell (`flake.nix` + `direnv`): Flutter 3.47.5, Android SDK
   (platforms 35/36, build-tools 36.0.0, NDK 28.2.13676358, cmake 3.22.1), JDK 17,
   sqlite3. Pinned to nixpkgs PR #567033 head until 3.47.5 lands in nixos-unstable.
@@ -251,6 +255,209 @@ Android 4×2 home-screen widget (volume/streak/next-up, tap boots logger).
 - **7E** — Phase 10 encryption: `cryptography` package, Argon2id key derivation,
   AES-256-GCM payload encryption at `SyncCodec.encode/decode`, format column
   handling, `minSyncVersion = 24`, key setup UI in Settings. 284 tests green.
+  (Runtime wiring gap discovered later — see §10; **closed in v0.1.5**,
+  §6 Round 9 / 9A.)
+- **7F** — de-versioning pass: version display removed everywhere (drawer
+  footer, profile subtitle, README title badge); version lives only in
+  `pubspec.yaml` for the APK filename and §9.7 rewritten accordingly.
+
+**Round 8 — Health & diet (v0.1.5, folded with Round 7 into one release):**
+- **8A** — schema v9: `body_metrics` gains nullable `water_ml` + `steps`
+  (one daily row per metric day; weigh-in/water/steps writers merge, never
+  clobber); new `foods` (custom per-serving food library) + `food_logs`
+  (denormalized per-serving snapshots, tombstoned like everything else).
+- **8B** — diet feature: `/diet` route + drawer entry + Home `_TodayStrip`
+  chips (water/steps/kcal-left). Macro totals sum the day's snapshots;
+  `ManualLogSheet` stores Atwater kcal for manual entries;
+  `FoodPickerSheet` re-uses smart_search; library tile tap = log one
+  serving; delete + undo snackbar everywhere.
+- **8C** — water reminders: `WaterReminderService` (weekly-reminder mirror)
+  with one stable-id alarm per hourly slot in a start..end window
+  (`Settings → Nutrition & Health`); `end < start` degenerates to a single
+  daily alarm.
+- **8D** — steps: `pedometer` + `permission_handler` (`ACTIVITY_RECOGNITION`
+  runtime permission); `StepMath.absorb` handles day rollover (fixed order:
+  rollover wins over reboot) and device reboots; 15 s batched writes;
+  guard-never-throw like the notification services.
+- **8E** — new Settings fields with sane defaults (kcal 2500, P 150, C 250,
+  F 70, water 2500 ml, steps 8000, reminders off, window 9–22 @60 min).
+- **8F** — sync/export: foods + food_logs pulled/pushed (`SyncEngine`,
+  transport table order, `filterColumns`); export `foods`/`foodLogs` keys;
+  import accepts older backups without them; `deleteAllData` wipes them.
+  Also fixed two pre-existing wrong wire-table tags (`exercise_muscle_map`
+  ↔ `body_metrics` swapped in the push code) and restored the v3
+  `routine_exercises` set-type columns missing from `schema.sql`.
+- **8G** — AGP 9 fixes for two vendored plugins under `dependencies/`
+  (`dependency_overrides`): `pedometer` (drop kotlin-android apply, modern
+  android DSL) and `permission_handler_android` (compileSdk 36 + literal
+  stubs for the API-37 `ACCESS_LOCAL_NETWORK` constants; the local SDK
+  stops at platform 36). Each vendored build file documents how to re-apply
+  after refreshing upstream; drop the overrides when upstream fixes ship.
+- **8H** — test suite 278 → 318: migration (v8→9 + v1→9 replay), food_math,
+  StepMath, windowSlots, sync round-trips (incl. water/steps-only days),
+  export/import/delete round-trips, `/diet` widget tests; settings/pushed
+  widget suites widened (2000px viewport) for the taller Settings page and
+  extra drawer tile.
+
+**Round 9 — device-feedback round (v0.1.5):**
+- **9A — sync encryption wired (the §10 gap is closed).** `SyncCodec`
+  gained `static void apply(SecretKey?)`; the epoch-keyed
+  `syncEncryptionKeyProvider` derives the key once per passphrase
+  change (passphrase is the single source of truth, restored from
+  prefs on boot), and `SyncController.syncNow()` runs
+  `SyncCodec.apply(key)` before `engine.sync()`. The settings handlers
+  (enable / rotate / reset) bump the epoch instead of nulling the codec
+  in place. Previously the app synced plaintext even with a passphrase
+  set (enabled flag was memory-only and the key provider was never
+  assigned). `SyncCodec.decode` now `FormatException`s on a format-2
+  row when no key is active ("encrypted sync payload but no sync
+  passphrase is set") instead of silently returning null.
+  `test/sync_encryption_wiring_test.dart` — 5 tests: cipher
+  round-trip on push (format 2), second-session decrypt, decode
+  refusal, rotate-bump, plaintext fallback without passphrase.
+- **9B — live activity notification** (the "close the app, tracking
+  disappears" complaint). A `foregroundServiceType="health"`
+  `KineticLiveService` owns `TYPE_STEP_COUNTER` absorb (day-rollover
+  beats reboot; shrinking counter ⇒ sensor reboot) via its own
+  `SensorEventListener`, with everything it needs read from the
+  prefs file bridge (`live_config` JSON, targets, last
+  bodyweight, `live_enabled`). The ongoing notification (low-priority
+  `Notification.Builder` — no androidx.core dependency, channel
+  `live_activity`, id 0x2162 past the other FLT bases) shows
+  steps / burned kcal (`kg × steps × 0.762/1000 × 1.036`) /
+  today's water per the three toggles, and its UPDATE/STOP actions
+  re-notify without waking the app. `KineticLiveBootReceiver`
+  restarts it on `BOOT_COMPLETED` / `MY_PACKAGE_REPLACED` /
+  quickboot when last-on. Dart side
+  (`live_activity_service.dart`) applies config, reconciles on app
+  start and every resume (`adoptNativeSteps` mirrors `StepMath.absorb`
+  into `body_metrics`), and refreshes after every water / food /
+  weigh-in log and target change. Toggle + three checkboxes live in
+  Settings → Nutrition & Health (POST_NOTIFICATIONS gate on 13+).
+- **9C — diet page feedback fixes.** The four problems from the device
+  video, diet side: a read-only `STEPS` card (today vs `stepsTarget`
+  target with the accent progress bar) now sits above the water card;
+  the "Today's food" / "My foods" header rows lost their wide label
+  buttons for icon-only add buttons (the old full-text `FilledButton`
+  crushed the title into a vertical letter stack at large font scale —
+  regression-tested at textScale 2.0); and the food library shows a
+  spinner while loading instead of blank space. Header button keys
+  `diet-log-food` / `diet-new-food` are unchanged.
+- **9D — workout history detail page.** Home's recent-workout tiles now
+  open `/workout-history/:id`: `WorkoutDetail` (FutureProvider.family)
+  groups the workout's sets per exercise (exercises come by name,
+  un-planned rows too) with per-set type badges (W/D/F), per-row RPE
+  and dimmed uncompleted sets, plus a header with date, duration and a
+  totals container over all completed sets (count) and completed hard
+  sets (volume kg). Long-press delete is unchanged.
+
+**Round 9.1 — device-feedback fixes (same 0.1.5+5 build, rebaked):**
+- **9E — live-notification crash loop (verified on the Android 16
+  device via `logcat -b crash`).** Chain: `MainActivity.startLiveService`
+  → `startForegroundService()` → service `onCreate` → typed
+  `startForeground(id, n, TYPE_HEALTH)` threw (health type requires
+  ACTIVITY_RECOGNITION while-in-use) → the catch swallowed it and
+  `stopSelf()` ran **before the FGS contract was satisfied** → the
+  system killed the process (`ForegroundServiceDidNotStartInTimeException`);
+  since `live_enabled` is persisted before the start attempt, every
+  app open repeated this. Fixes, in three layers (defense in depth):
+  (1) `KineticLiveService.onCreate` satisfies the contract FIRST — a
+  guaranteed-buildable placeholder notification, typed `startForeground`
+  → on any Throwable falls back to the plain 2-arg call (type-NONE FGS
+  is always permitted) → only the registered sensor or display the real
+  content; failures after the contract do a legal
+  `stopForeground(REMOVE)` + `stopSelf()`, and a `failed` flag makes
+  `onStartCommand` return `START_NOT_STICKY`. (2) `MainActivity`
+  soft-fails: no `startForegroundService` at all while ACTIVITY_RECOGNITION
+  is revoked (starts permitted Q+) — the notification just never comes on.
+  (3) The settings toggle additionally requests
+  `Permission.activityRecognition` beside the notification ask.
+  Service catches log under the `KineticLive` tag.
+- **9F — undo snacks never auto-dismissed.** Flutter 3.38 changed the
+  contract: SnackBars with an action default `persist: null` = never
+  auto-dismisses (reported as "the undo option persists and just
+  doesn't go away"). Every snack in the app is a quick undo, so all
+  three construction sites set `persist: false`: the shared `showSnack`
+  helper (covers the set-logged undo), and the two inline snacks in
+  `diet_page.dart` (water +N, food-log remove). Non-action snacks were
+  unaffected. `diet_page_test` also asserts `SnackBar.persist == false`.
+- **9G — water card redesigned (user picked the segmented control
+  flavor).** One `SegmentedButton` (+100 / +250 / +500
+  segments, `emptySelectionAllowed`, `showSelectedIcon: false`) replaces
+  the three wide tonal buttons; the bar thickens 6→8 px with a droplet
+  icon and an auto-computed percent to the right (clamped 0–999). The
+  `diet-water-scale` key survived; segment taps are found by text in
+  tests.
+- **9H — live-notification quality (device logs drove every fix):**
+  * UPDATE-start crash loop, part 2: the 21:27/21:28 re-crashes on the
+    9E build proved each `startForegroundService()` call owes its own
+    (time-limited) `startForeground()` — including calls that land on an
+    *already-running* service. The Dart `update` path (reconcile, refresh)
+    start-bombed the running service without promoting. Now
+    `onStartCommand` re-runs `promote()` (idempotent) on every non-stop
+    start; `promote()` is extracted (typed specialUse → untyped →
+    `failed`, same defense as 9E).
+  * Stuck "Tracking your day" placeholder: native `getFloat/getInt` on
+    Dart-written prefs threw ClassCastException (shared_preferences
+    stores doubles as raw long bits) inside `buildNotification`'s catch —
+    real content never posted. All Dart-written values now read via
+    `prefs.all[key] as? Number` coercion (`numPref`/`intPref`);
+    verified on-device: notification renders "Steps N / target" + water.
+  * "Turns off after a while / swipable": the `health` FGS type is a
+    *while-in-use* type — `Stopping service due to app idle` after ~70 s
+    of backgrounding, leaving a marker-stripped swipeable orphan.
+    Manifest type switched to `specialUse` (+ `PROPERTY_SPECIAL_USE_FGS_SUBTYPE`
+    value + `FOREGROUND_SERVICE_SPECIAL_USE` permission). Orphans are
+    also cancelled in `onDestroy` (the system-stop path never reaches
+    `stopForeground`).
+  * OEM power-manager reality: even a specialUse service is stopped
+    "due to app idle" unless the app is exempt from battery
+    optimization (verified on the Samsung; `dumpsys deviceidle`
+    whitelist was empty). Added the exemption flow: manifest
+    `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`, MainActivity
+    `battery-exemption` / `request-battery-exemption` channel methods
+    (direct dialog → optimization-list fallback), Dart glue on
+    `LiveActivity`, and a "Run in background" status row in the Live
+    activity card (re-checks on lifecycle resume).
+  * `registerListener fail (2)` was diagnosed as Samsung noise for
+    re-registering the same listener (`dumpsys sensorservice` showed
+    `result=OK` each time); `registerSensor()` now registers exactly
+    once (`registered` flag) and falls back `SENSOR_DELAY_UI` →
+    `SENSOR_DELAY_FASTEST`.
+- **9I — Tabs redesign (user: "profile and settings look very ugly")**
+  plus conditional sync + theming:
+  * Settings restructured into icon-headed cards: Units → Appearance
+    → Sync → Reminders → Nutrition & Health → Live activity → Rest.
+  * Appearance (Round 9.2): `ThemeMode` Auto/Light/Dark
+    `SegmentedButton` ('theme-mode-segments'; `system` + `light`
+    persisted as `'theme' = system|light|dark`, dark stays shipped
+    default), **AMOLED black** stays a dark-only toggle, **accent
+    palette** — 8 curated `AppAccent` palettes ('kinetic' default) as
+    `accent-<id>` swatch keys re-seeding `ColorScheme.fromSeed`
+    app-wide, and a **Reset to default** row (confirm → dark · AMOLED
+    off · kinetic).
+  * Accent went dynamic: `AppTheme.dark/light()` take a seed
+    (`onAccent()` picks dark/white ink by luminance); all ~70
+    `AppColors.accent` call-sites migrated to `context.accent` /
+    `context.accentDim` (new `AppColorsContext` getters). Light getter
+    became `AppTheme.light()`.
+  * Sync section is now **conditional** (user decision): shown only when
+    `supabaseConfiguredProvider` is true — a build without the
+    Supabase dart-defines shows no sync UI at all.
+  * Live activity card gained the battery row above; targets live in
+    Nutrition & Health (keys `target-*` unchanged).
+  * Profile redesign (user picked "minimal header + cards"): avatar
+    disc + name/goal hero header, `YourDataCard` split into **Body**
+    (name/height/dob/sex/body-fat/goal) and **Stats**
+    (bodyweight/BMI/trend) cards, danger-zone icons on `context.danger`,
+    section icons across Data/Privacy/About. All `profile-*`,
+    `bodyweight-input`, export/import/delete keys kept.
+  * Tests: widget_test's "sync not configured" assertion flipped to
+    expectsNothing (new contract), amoled_theme test drives theme
+    segments, your_data_card scroll helper now demands hit-testability,
+    new `appearance_palette_test.dart` (swatch → ThemeData, segments,
+    reset). 343 tests, analyze clean; APK rebuilt same
+    `kinetic-v0.1.5.apk` (0.1.5+5).
 
 ---
 
@@ -269,8 +476,8 @@ Android 4×2 home-screen widget (volume/streak/next-up, tap boots logger).
   `updatedAt`, tombstones (`deletedAt`), children-ride-parents, wire codec
   (camelCase ↔ snake_case, UTC ISO-8601 DateTimes, local `uid` re-injected).
 - Round 1: `flutter.minSyncVersion = 24` was agreed as a sync-compat floor.
-  It is **not present in the Dart code today** — re-derive/confirm it in
-  Phase 10.
+  It was re-derived and confirmed in Round 7E: `minSyncVersion = 24` lives in
+  `sync_engine.dart`.
 - Grade math = `0.40·volume + 0.40·strength + 0.20·consistency`, with a
   parent-touch invariant (touching a child bumps the parent's `updatedAt`).
   Volume component is **global-kg**, which is why sets-based landmarks don't
@@ -293,7 +500,7 @@ Android 4×2 home-screen widget (volume/streak/next-up, tap boots logger).
 
 ## 9. Testing & known pitfalls
 
-**Suite:** 276 tests / 44 files. Migration tests, widget tests (pump the real
+**Suite:** 318 tests / 50 files. Migration tests, widget tests (pump the real
 shell), sync tests with a **fake transport** (never hits network), export/import
 round-trips, delete-service wipes.
 
@@ -316,11 +523,11 @@ Recurring traps, all hit the hard way:
 6. **Migration tests:** partial `onUpgrade` to an older version leaves later
    columns missing; use raw SQL or upgrade fully.
 7. **build_runner required after schema edits** (`database.g.dart`).
-8. **Version bump touches 6 places:** `pubspec.yaml`, `README.md` (title line 1
-   + version badge), `lib/app.dart` (drawer footer `'Kinetic 0.1.x ·
-   offline-first'`), `lib/features/profile/profile_page.dart` (`Version 0.1.x`),
-   `test/drawer_test.dart` (asserts the footer text). Plus the tests badge and
-   delivery-history line in README when the count/round changes. All README
+8. **Version bump touches 1 place:** `pubspec.yaml`. The version is for
+   **releases only** — it is no longer displayed anywhere (README title/badge,
+   drawer footer, profile subtitle were de-versioned), and `build-apk.sh` reads
+   it solely to name the APK (`kinetic-v<version>.apk`). Plus the tests badge
+   and delivery-history line in README when the count/round changes. All README
    badges are **static shields.io images** — edit by hand.
 
 **CI:** `.github/workflows/ci.yml` — `flutter-action@v2` pins **3.47.5**,
@@ -330,32 +537,58 @@ locally, bump CI too.
 
 ---
 
-## 10. Sync model & Phase 10 (the next big thing)
+## 10. Sync model & Phase 10 (E2E encrypted sync — wired in v0.1.5)
 
-**Today (works, offline-tested):** `lib/core/sync/` contains `sync_engine`
+**Working (offline-tested):** `lib/core/sync/` contains `sync_engine`
 (pull→push, `since` cursor + overlap re-read, dirty-scan on
 `synced_at IS NULL OR updated_at > synced_at`, per-row LWW), `sync_codec`
-(wire format), `supabase_transport` / `sync_transport` (fake in tests).
-Synced tables: profiles, exercises, exercise_muscle_map, routines,
-routine_exercises, workouts, workout_sets, body_metrics. In-progress workouts
-are not pushed until finished. Deeply tested in `test/sync_engine_test.dart`
-(encode/decode, tombstones, LWW both directions, children ride parents,
-cursor overlap…).
+(wire format), `sync_encryption` (AES-256-GCM payloads), `sync_key_service`
+(Argon2id key derivation), `supabase_transport` / `sync_transport` (fake in
+tests). Synced tables: profiles, exercises, exercise_muscle_map, routines,
+routine_exercises, workouts, workout_sets, body_metrics, foods, food_logs.
+In-progress workouts are not pushed until finished. Deeply tested in
+`test/sync_engine_test.dart` (encode/decode, tombstones, LWW both directions,
+children ride parents, cursor overlap…).
 
-**Not yet done — Phase 10: end-to-end encrypted sync.**
+**Phase 10 — built (Round 7E) + wired (Round 9A); unverified against a
+live server, §11/§12:**
 
-- Supabase project is **not live**; `schema.sql` (8 tables) has **never been
-  applied**. All migrations must remain code-side.
-- E2E encryption must land **before** the Supabase project goes live: keys are
-  derived client-side, the server only ever sees ciphertext. Design questions
-  still open: key derivation (passphrase? device-held?), key rotation,
-  what happens on lost keys, and how the wire codec changes (encrypt
-  payloads vs fields).
-- Round-1 decision to re-confirm: sync schema-compat floor
-  `minSyncVersion = 24`.
-- After Phase 10: apply `schema.sql`, then verify real-device sync E2E.
+- `sync_key_service.dart` — derives a 256-bit AES key from the user's
+  passphrase via **Argon2id** (peppered with the user id). The passphrase
+  never leaves the device; re-derivation on a new device works with the
+  same passphrase (no key storage, no server-side key material).
+- `sync_encryption.dart` — **AES-256-GCM** row encryption (96-bit nonces):
+  non-filter columns collapse into a base64 `payload` (nonce + ct + tag),
+  `filterColumns` (id/updated_at/deleted_at/…, plus `format` set to 2)
+  stay queryable for the LWW/cursor queries.
+- Wire format: every synced table carries a `format` column
+  (`supabase/schema.sql`: 1 = plaintext, 2 = encrypted payload);
+  `SyncCodec.encode/decode` is encryption-aware (decode of a format-2 row
+  with no active key throws, never returns plaintext).
+- Schema-compat floor: `minSyncVersion = 24` (`sync_engine.dart`).
+- Passphrase set/import + rotate + reset UI in **Settings → Sync**
+  (`settings/sync_section.dart`: `sync-passphrase`, `sync-enable-encryption`,
+  `sync-rotate-passphrase`, `sync-reset-encryption`; ≥8 char rule).
+- **WIRING (v0.1.5, closed):** `SyncCodec.apply(SecretKey?)`; the epoch-keyed
+  `syncEncryptionKeyProvider` re-derives on passphrase changes and restores
+  from prefs at boot, and `syncNow()` applies the key before each push.
+  Regression-tested in `test/sync_encryption_wiring_test.dart`.
 
-**Roadmap (only Phase 10 remains).**
+**Remaining for live sync:**
+
+1. ~~Close the wiring gap~~ **done (v0.1.5 §9A)** — a real controller with
+   `sync.passphrase` set pushes `format = 2` ciphertext (wiring tests) and
+   a decoder without the key refuses it.
+2. Deploy the Supabase project and apply `supabase/schema.sql` (10 tables,
+   `format` columns included — it has never been applied).
+3. Run one real-device E2E sync (two devices or wipe/restore) against the
+   live project — first real-world validation of the encryption path.
+4. Confirm lost-key recovery UX: passphrase lost ⇒ server data unreadable
+   (ciphertext-only); re-derive on the new device with the same passphrase,
+   else re-encrypt from local data (fresh passphrase = format bump, older
+   server rows below `minSyncVersion` stay ignored).
+
+**Roadmap:** live deployment + on-device sync verification.
 
 ---
 
@@ -368,12 +601,16 @@ cursor overlap…).
   Flutter CLI still prints the KGP warning because its static scan doesn't
   understand the plugins' Groovy conditionals; this is a false positive that
   disappears when the plugins drop the legacy code path.
+- **Two vendored plugin overrides (Round 8):** `pedometer` and
+  `permission_handler_android` under `dependencies/` carry AGP 9
+  compatibility patches (see `pubspec.yaml` comment). Upstream has no AGP-9
+  fix yet (pedometer 4.2.0 is the latest release; permission_handler 13.x
+  forces the 14.x android subpackage). Drop the overrides when upstream
+  ships fixed versions, and re-run `./build-apk.sh` to confirm.
 - Network on the build machine has been flaky historically (git fetches
   hanging); the CLI flag and CI are the workarounds.
 - 15 packages have newer (non-breaking-constraint) versions —
   `flutter pub outdated` when convenient; none urgent.
-- CI is verified green through `124aad7`; the final 3 commits will run CI on
-  push.
 - On-device UI checks always fall to human eyes — install and click through
   after each round.
 
@@ -382,7 +619,8 @@ cursor overlap…).
 ## 12. Release checklist (as done for v0.1.4)
 
 1. All phases of the round committed; full suite green (276+), analyze clean.
-2. Bump version in the **6 places** (§9.7), tag delivery-history line in README.
+2. Bump version in `pubspec.yaml` (§9.7 — single place, release-only), tag
+   delivery-history line in README.
 3. Update README tests badge (`N%20passing`) + the `flutter test # N tests` line.
 4. Commit `release: bump version to 0.1.x`.
 5. `./build-apk.sh` → `kinetic-v0.1.x.apk` → `adb install -r`.
