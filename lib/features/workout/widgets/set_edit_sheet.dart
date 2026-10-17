@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/widgets/app_dialog.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -54,13 +55,9 @@ Future<Object?> showSetEditSheet(
   SetDraft? initial,
   int? setNumber,
 }) {
-  return showModalBottomSheet<SetDraft>(
+  return showAppSheet<SetDraft>(
     context: context,
     isScrollControlled: true,
-    backgroundColor: context.surface,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(6)),
-    ),
     builder: (_) => Padding(
       // Keep fields above the keyboard.
       padding: EdgeInsets.only(
@@ -297,16 +294,16 @@ class _SetEditSheetState extends ConsumerState<SetEditSheet> {
                     onSelected: (_) =>
                         setState(() => _draft.setType = id),
                     showCheckmark: false,
-                    selectedColor: AppColors.accent.withValues(alpha: 0.18),
+                    selectedColor: context.accent.withValues(alpha: 0.18),
                     labelStyle: TextStyle(
                       color: _draft.setType == id
-                          ? AppColors.accent
+                          ? context.accent
                           : context.textSecondary,
                       fontWeight: FontWeight.w600,
                     ),
                     side: BorderSide(
                       color: _draft.setType == id
-                          ? AppColors.accent
+                          ? context.accent
                           : context.border,
                     ),
                   ),
@@ -449,15 +446,15 @@ class _SuggestionChip extends ConsumerWidget {
           padding:
               const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
           decoration: BoxDecoration(
-            color: AppColors.accent.withValues(alpha: 0.12),
+            color: context.accent.withValues(alpha: 0.12),
             borderRadius: BorderRadius.circular(6),
             border: Border.all(
-                color: AppColors.accent.withValues(alpha: 0.4)),
+                color: context.accent.withValues(alpha: 0.4)),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 14, color: AppColors.accent),
+              Icon(icon, size: 14, color: context.accent),
               const SizedBox(width: 6),
               Flexible(
                 child: Text(
@@ -465,8 +462,8 @@ class _SuggestionChip extends ConsumerWidget {
                   ' · ${suggestion.reason}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: AppColors.accent,
+                  style: TextStyle(
+                    color: context.accent,
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
                   ),
@@ -487,7 +484,7 @@ class _SuggestionChip extends ConsumerWidget {
                   child: Icon(
                     Icons.info_outline,
                     size: 14,
-                    color: AppColors.accent,
+                    color: context.accent,
                   ),
                 ),
               ),

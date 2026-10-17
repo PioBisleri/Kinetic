@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/widgets/app_dialog.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/settings/settings.dart';
@@ -21,12 +22,8 @@ Future<void> showGradeBreakdownSheet(
   required double hoursSinceTrained,
   required UnitSystem unit,
 }) =>
-    showModalBottomSheet<void>(
+    showAppSheet<void>(
       context: context,
-      backgroundColor: context.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(6)),
-      ),
       builder: (_) => _GradeBreakdownSheet(
         muscleName: muscleName,
         result: result,
@@ -42,12 +39,8 @@ Future<void> showGradeBreakdownSheet(
 
 /// Info button on the Muscle Grades card → how the whole thing works.
 Future<void> showHowGradesWorkSheet(BuildContext context) =>
-    showModalBottomSheet<void>(
+    showAppSheet<void>(
       context: context,
-      backgroundColor: context.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(6)),
-      ),
       builder: (_) => const _HowGradesWorkSheet(),
     );
 
@@ -204,7 +197,7 @@ class _GradeBreakdownSheet extends StatelessWidget {
             Row(
               children: [
                 Icon(Icons.schedule_rounded,
-                    size: 15, color: AppColors.accent),
+                    size: 15, color: context.accent),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -212,7 +205,7 @@ class _GradeBreakdownSheet extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
-                      color: AppColors.accent,
+                      color: context.accent,
                     ),
                   ),
                 ),

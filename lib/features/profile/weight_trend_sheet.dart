@@ -1,5 +1,6 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import '../../core/widgets/app_dialog.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/database/database_providers.dart';
@@ -12,12 +13,8 @@ import 'weight_trend.dart';
 /// change over the window, then the raw series with its trailing
 /// 7-day average drawn through it.
 Future<void> showWeightTrendSheet(BuildContext context) =>
-    showModalBottomSheet<void>(
+    showAppSheet<void>(
       context: context,
-      backgroundColor: context.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(6)),
-      ),
       builder: (_) => const WeightTrendSheet(),
     );
 
@@ -106,7 +103,7 @@ class WeightTrendSheet extends ConsumerWidget {
               const SizedBox(height: 12),
               Row(
                 children: [
-                  _LegendSwatch(color: AppColors.accent, label: 'Weigh-in'),
+                  _LegendSwatch(color: context.accent, label: 'Weigh-in'),
                   const SizedBox(width: 12),
                   _LegendSwatch(
                     color: context.textTertiary,
@@ -248,7 +245,7 @@ class _TrendChart extends StatelessWidget {
             spots: raw,
             isCurved: false,
             barWidth: 2,
-            color: AppColors.accent,
+            color: context.accent,
             dotData: const FlDotData(show: true),
             belowBarData: BarAreaData(
               show: true,
@@ -256,8 +253,8 @@ class _TrendChart extends StatelessWidget {
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  AppColors.accent.withValues(alpha: 0.18),
-                  AppColors.accent.withValues(alpha: 0.0),
+                  context.accent.withValues(alpha: 0.18),
+                  context.accent.withValues(alpha: 0.0),
                 ],
               ),
             ),

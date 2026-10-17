@@ -83,7 +83,7 @@ class VolumeLandmarksCard extends ConsumerWidget {
 Color zoneColor(BuildContext context, LandmarkZone zone, {required bool bright}) =>
     switch (zone) {
       LandmarkZone.belowMev => bright ? context.textSecondary : context.border,
-      LandmarkZone.productive => bright ? AppColors.accent : AppColors.accentDim,
+      LandmarkZone.productive => bright ? context.accent : context.accentDim,
       LandmarkZone.aboveMav =>
         bright ? AppColors.heatWarm : AppColors.heatWarm.withValues(alpha: 0.45),
       LandmarkZone.aboveMrv =>
@@ -134,7 +134,7 @@ class _LandmarkRow extends StatelessWidget {
                   const SizedBox(width: 6),
                   Text(
                     'edited',
-                    style: TextStyle(fontSize: 10, color: AppColors.accent),
+                    style: TextStyle(fontSize: 10, color: context.accent),
                   ),
                 ],
                 const Spacer(),

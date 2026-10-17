@@ -15,7 +15,7 @@ class RestTimerBar extends ConsumerWidget {
     if (!rest.running && !rest.finished) return const SizedBox.shrink();
 
     final finished = rest.finished;
-    final accent = finished ? AppColors.gradeA : AppColors.accent;
+    final accent = finished ? AppColors.gradeA : context.accent;
 
     return Material(
       color: context.surfaceElevated,
@@ -48,8 +48,8 @@ class RestTimerBar extends ConsumerWidget {
                           ref.read(restTimerProvider.notifier).reset(),
                     ),
                   ] else ...[
-                    const Icon(Icons.timer_outlined,
-                        color: AppColors.accent, size: 20),
+                    Icon(Icons.timer_outlined,
+                        color: context.accent, size: 20),
                     const SizedBox(width: 8),
                     Text(
                       rest.label,

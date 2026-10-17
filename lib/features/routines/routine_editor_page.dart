@@ -8,6 +8,7 @@ import '../../core/settings/settings.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/rest_format.dart';
 import '../../core/utils/weight_units.dart';
+import '../../core/widgets/app_dialog.dart';
 import '../workout/widgets/add_exercise_sheet.dart';
 import 'application/routine_providers.dart';
 import 'application/routine_repository.dart';
@@ -176,9 +177,7 @@ class _RoutineEditorPageState extends ConsumerState<RoutineEditorPage> {
   Future<void> _save() async {
     final name = _name.text.trim();
     if (name.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Give your routine a name.')),
-      );
+      showSnack(context, 'Give your routine a name.');
       return;
     }
     setState(() => _saving = true);
@@ -207,24 +206,13 @@ class _RoutineEditorPageState extends ConsumerState<RoutineEditorPage> {
   }
 
   Future<void> _delete() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete routine?'),
-        content: Text('"${_name.text.trim()}" will be removed.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Keep'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: FilledButton.styleFrom(
-                foregroundColor: AppColors.heatHot),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
+    final confirmed = await confirmAction(
+      context,
+      title: 'Delete routine?',
+      message: '"${_name.text.trim()}" will be removed.',
+      confirmLabel: 'Delete',
+      cancelLabel: 'Keep',
+      danger: true,
     );
     if (confirmed != true || !mounted) return;
     await ref
@@ -237,28 +225,13 @@ class _RoutineEditorPageState extends ConsumerState<RoutineEditorPage> {
   }
 
   Future<bool> _confirmDiscard() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Discard changes?'),
-        content: const Text(
-          'Your edits to this routine will be lost.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Keep editing'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.heatHot,
-              minimumSize: const Size(0, 44),
-            ),
-            child: const Text('Discard'),
-          ),
-        ],
-      ),
+    final confirmed = await confirmAction(
+      context,
+      title: 'Discard changes?',
+      message: 'Your edits to this routine will be lost.',
+      confirmLabel: 'Discard',
+      cancelLabel: 'Keep editing',
+      danger: true,
     );
     return confirmed == true;
   }
@@ -527,17 +500,17 @@ class _RoutineEditorPageState extends ConsumerState<RoutineEditorPage> {
                       showCheckmark: false,
                       onSelected: (v) => setState(() => e.linkNext = v),
                       selectedColor:
-                          AppColors.accent.withValues(alpha: 0.18),
+                          context.accent.withValues(alpha: 0.18),
                       labelStyle: TextStyle(
                         color: e.linkNext
-                            ? AppColors.accent
+                            ? context.accent
                             : context.textSecondary,
                         fontWeight: FontWeight.w600,
                         fontSize: 12,
                       ),
                       side: BorderSide(
                         color: e.linkNext
-                            ? AppColors.accent
+                            ? context.accent
                             : context.border,
                       ),
                     ),
@@ -654,15 +627,15 @@ class _RestControl extends StatelessWidget {
               onChanged(defaultSeconds.clamp(0, 600));
             }
           },
-          selectedColor: AppColors.accent.withValues(alpha: 0.18),
+          selectedColor: context.accent.withValues(alpha: 0.18),
           labelStyle: TextStyle(
             color:
-                _isDefault ? AppColors.accent : context.textSecondary,
+                _isDefault ? context.accent : context.textSecondary,
             fontWeight: FontWeight.w600,
             fontSize: 12,
           ),
           side: BorderSide(
-            color: _isDefault ? AppColors.accent : context.border,
+            color: _isDefault ? context.accent : context.border,
           ),
         ),
         if (!_isDefault) ...[

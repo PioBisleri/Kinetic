@@ -1,5 +1,37 @@
 import 'package:flutter/material.dart';
 
+/// User-selectable accent palettes (Round 9.2). The accent drives
+/// button/nav/chart colors through [ColorScheme.fromSeed]; `kinetic` is the
+/// shipped default and what "Reset to default" restores.
+class AppAccent {
+  AppAccent._(this.id, this.label, this.color);
+
+  final String id;
+  final String label;
+  final Color color;
+
+  static final List<AppAccent> all = [
+    AppAccent._('kinetic', 'Kinetic', const Color(0xFF22D3A5)),
+    AppAccent._('ember', 'Ember', const Color(0xFFFF6D4D)),
+    AppAccent._('rose', 'Rose', const Color(0xFFF472B6)),
+    AppAccent._('violet', 'Violet', const Color(0xFFA78BFA)),
+    AppAccent._('ocean', 'Ocean', const Color(0xFF38BDF8)),
+    AppAccent._('lime', 'Lime', const Color(0xFFB5E848)),
+    AppAccent._('amber', 'Amber', const Color(0xFFFBBF24)),
+    AppAccent._('steel', 'Steel', const Color(0xFF64748B)),
+  ];
+
+  static const defaultId = 'kinetic';
+
+  static AppAccent byId(String id) =>
+      all.firstWhere((a) => a.id == id, orElse: () => all.first);
+}
+
+/// Ink that stays readable on top of an accent fill (dark ink on bright
+/// accents, white ink on the dark ones).
+Color onAccent(Color accent) =>
+    accent.computeLuminance() > 0.45 ? const Color(0xFF04211A) : Colors.white;
+
 /// Kinetic design tokens — minimalist, dark by default.
 abstract final class AppColors {
   // Surfaces
@@ -27,6 +59,11 @@ abstract final class AppColors {
   static const heatWarm = Color(0xFFEF8354);
   static const heatRest = Color(0xFF4A4A4A); // recovering
   static const heatCold = Color(0xFF4A4A4A); // untrained
+
+  /// Destructive-action tint (Round 9): one token for discard/danger
+  /// confirmations — replaces the ad-hoc `Colors.redAccent` usages that
+  /// previously split into two different reds.
+  static const danger = Color(0xFFE53935);
 
   // Grades
   static const gradeS = Color(0xFFFFC94D);
@@ -105,10 +142,26 @@ extension AppColorsContext on BuildContext {
       : _isDark
           ? AppColors.border
           : const Color(0xFFE1E4EA);
+
+  /// App-wide danger tint; light mode darkens for contrast.
+  Color get danger =>
+      _isDark ? AppColors.danger : const Color(0xFFB71C1C);
+
+  /// The user-selected accent (Round 9.2) — resolved from the seeded
+  /// color scheme so every widget follows the Appearance palette.
+  Color get accent => Theme.of(this).colorScheme.primary;
+
+  /// Dimmed accent for backgrounds/segments that need a quieter accent.
+  Color get accentDim => accent.withValues(alpha: 0.45);
 }
 
 abstract final class AppTheme {
-  static ThemeData dark({bool amoled = false}) => _base(
+  static ThemeData dark({
+    Color accent = AppColors.accent,
+    bool amoled = false,
+  }) =>
+      _base(
+        accent: accent,
         brightness: Brightness.dark,
         scaffold: amoled ? AppColors.amoledBackground : AppColors.background,
         surface: amoled ? AppColors.amoledSurface : AppColors.surface,
@@ -116,7 +169,8 @@ abstract final class AppTheme {
         amoled: amoled,
       );
 
-  static ThemeData get light => _base(
+  static ThemeData light({Color accent = AppColors.accent}) => _base(
+        accent: accent,
         brightness: Brightness.light,
         scaffold: const Color(0xFFF6F7F9),
         surface: Colors.white,
@@ -124,6 +178,7 @@ abstract final class AppTheme {
       );
 
   static ThemeData _base({
+    required Color accent,
     required Brightness brightness,
     required Color scaffold,
     required Color surface,
@@ -131,27 +186,46 @@ abstract final class AppTheme {
     bool amoled = false,
   }) {
     final isDark = brightness == Brightness.dark;
+    final ink = onAccent(accent);
     // Dark-branch surfaces — swapped for the AMOLED variants when active;
     // light values are spelled out per-site below to keep exact parity.
     final darkElev =
         amoled ? AppColors.amoledElevated : AppColors.surfaceElevated;
     final darkBorder = amoled ? AppColors.amoledBorder : AppColors.border;
     final scheme = ColorScheme.fromSeed(
-      seedColor: AppColors.accent,
+      seedColor: accent,
       brightness: brightness,
     ).copyWith(
       surface: surface,
       onSurface: onSurface,
       surfaceContainer: isDark ? darkElev : const Color(0xFFF0F1F4),
       outline: isDark ? darkBorder : const Color(0xFFE1E4EA),
-      primary: AppColors.accent,
-      onPrimary: const Color(0xFF04211A),
+      primary: accent,
+      onPrimary: ink,
     );
 
     return ThemeData(
       useMaterial3: true,
       brightness: brightness,
       colorScheme: scheme,
+      // Partial text theme: only the styles the app's own idioms target.
+      // Unfilled entries stay Material's M3 defaults so ListTiles, buttons
+      // etc. keep the look they shipped with.
+      textTheme: const TextTheme(
+        // Stat values (Home strip, workout totals): the 24 px display idiom.
+        displaySmall: TextStyle(
+          fontSize: 24,
+          fontWeight: FontWeight.w800,
+          height: 1.15,
+          letterSpacing: -0.5,
+        ),
+        // Uppercase captions (SectionCard headers, 'STEPS', 'WATER', …).
+        labelSmall: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 1.1,
+        ),
+      ),
       scaffoldBackgroundColor: scaffold,
       extensions: [AmoledTokens(enabled: amoled)],
       fontFamily: 'Roboto',
@@ -180,8 +254,8 @@ abstract final class AppTheme {
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: surface,
         surfaceTintColor: Colors.transparent,
-        indicatorColor: AppColors.accent.withValues(
-            alpha: isDark ? 0.16 : 0.12),
+        indicatorColor:
+            accent.withValues(alpha: isDark ? 0.16 : 0.12),
         height: 68,
         labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
       ),
@@ -197,8 +271,8 @@ abstract final class AppTheme {
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
-          backgroundColor: AppColors.accent,
-          foregroundColor: const Color(0xFF04211A),
+          backgroundColor: accent,
+          foregroundColor: ink,
           minimumSize: const Size.fromHeight(56),
           textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
           shape: RoundedRectangleBorder(
@@ -266,4 +340,22 @@ class InstantPageTransitions extends PageTransitionsBuilder {
     Widget child,
   ) =>
       child;
+}
+
+/// Shared text idioms used in several places (Round 9 polish). Applied
+/// explicitly so Material's own defaults — ListTiles, buttons — are
+/// untouched. Colorless: compose with `color: context.…`.
+abstract final class AppStyles {
+  /// Section/inline titles ('Today's food', sheet titles, card headlines).
+  static const title = TextStyle(
+    fontSize: 17,
+    fontWeight: FontWeight.w700,
+    height: 1.3,
+  );
+
+  /// Ordinary body copy inside cards (notes, empty-state lines).
+  static const body = TextStyle(
+    fontSize: 14.5,
+    height: 1.35,
+  );
 }

@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/database/database.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/app_dialog.dart';
 import 'widgets/exercise_progress_card.dart';
 
 /// One exercise row, watched live.
@@ -185,10 +186,10 @@ class ExerciseDetailPage extends ConsumerWidget {
                                         ),
                                         Text(
                                           '${(row.contribution * 100).round()}%',
-                                          style: const TextStyle(
+                                          style: TextStyle(
                                             fontSize: 12,
                                             fontWeight: FontWeight.w700,
-                                            color: AppColors.accent,
+                                            color: context.accent,
                                           ),
                                         ),
                                       ],
@@ -203,7 +204,7 @@ class ExerciseDetailPage extends ConsumerWidget {
                                             .clamp(0.0, 1.0)
                                             .toDouble(),
                                         minHeight: 6,
-                                        color: AppColors.accent,
+                                        color: context.accent,
                                         backgroundColor:
                                             context.surfaceElevated,
                                       ),
@@ -243,29 +244,17 @@ class ExerciseDetailPage extends ConsumerWidget {
     final usage = await ref.read(exerciseUsageProvider(exerciseId).future);
     if (!context.mounted) return;
 
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text('Delete ${exercise.name}?'),
-        content: Text(
-          usage > 0
-              ? 'Logged in $usage ${usage == 1 ? 'workout' : 'workouts'} — '
-                  'past sets stay in your analytics, but the exercise '
-                  'leaves your library.'
-              : 'It leaves your library. This can’t be undone.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            key: const Key('confirm-delete'),
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
+    final confirmed = await confirmAction(
+      context,
+      title: 'Delete ${exercise.name}?',
+      message: usage > 0
+          ? 'Logged in $usage ${usage == 1 ? 'workout' : 'workouts'} — '
+              'past sets stay in your analytics, but the exercise '
+              'leaves your library.'
+          : 'It leaves your library. This can’t be undone.',
+      confirmLabel: 'Delete',
+      danger: true,
+      confirmKey: const Key('confirm-delete'),
     );
     if (confirmed != true || !context.mounted) return;
 
@@ -287,16 +276,16 @@ class _CustomBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: AppColors.accent.withValues(alpha: 0.14),
+        color: context.accent.withValues(alpha: 0.14),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: AppColors.accent.withValues(alpha: 0.5)),
+        border: Border.all(color: context.accent.withValues(alpha: 0.5)),
       ),
-      child: const Text(
+      child: Text(
         'Custom exercise',
         style: TextStyle(
           fontSize: 11,
           fontWeight: FontWeight.w700,
-          color: AppColors.accent,
+          color: context.accent,
         ),
       ),
     );

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/widgets/app_dialog.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -12,12 +13,8 @@ import 'landmarks_card.dart' show zoneColor;
 /// (Round 6): the three definitions, how sets are counted, and a zone
 /// legend, so every number on the card is accounted for.
 Future<void> showLandmarksInfoSheet(BuildContext context) =>
-    showModalBottomSheet<void>(
+    showAppSheet<void>(
       context: context,
-      backgroundColor: context.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(6)),
-      ),
       builder: (_) => const _LandmarksInfoSheet(),
     );
 
@@ -70,10 +67,10 @@ class _LandmarksInfoSheet extends StatelessWidget {
                 children: [
                   Text(
                     code,
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w800,
-                        color: AppColors.accent),
+                        color: context.accent),
                   ),
                   const SizedBox(width: 8),
                   Text(
@@ -158,13 +155,9 @@ Future<void> showLandmarkEditSheet(
   required Landmark landmark,
   required bool edited,
 }) {
-  return showModalBottomSheet<void>(
+  return showAppSheet<void>(
     context: context,
     isScrollControlled: true,
-    backgroundColor: context.surface,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(6)),
-    ),
     builder: (_) => Padding(
       // Keep the fields above the keyboard.
       padding: EdgeInsets.only(
@@ -276,7 +269,7 @@ class _LandmarkEditSheetState extends ConsumerState<_LandmarkEditSheet> {
               if (widget.edited)
                 Text(
                   'edited',
-                  style: TextStyle(fontSize: 12, color: AppColors.accent),
+                  style: TextStyle(fontSize: 12, color: context.accent),
                 ),
             ],
           ),

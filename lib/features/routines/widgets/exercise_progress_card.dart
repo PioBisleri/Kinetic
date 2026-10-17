@@ -172,12 +172,12 @@ class _SeriesChip extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
           color: selected
-              ? AppColors.accent.withValues(alpha: 0.16)
+              ? context.accent.withValues(alpha: 0.16)
               : context.surfaceElevated,
           borderRadius: BorderRadius.circular(999),
           border: Border.all(
             color: selected
-                ? AppColors.accent.withValues(alpha: 0.6)
+                ? context.accent.withValues(alpha: 0.6)
                 : context.border,
           ),
         ),
@@ -186,7 +186,7 @@ class _SeriesChip extends StatelessWidget {
           style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w700,
-            color: selected ? AppColors.accent : context.textSecondary,
+            color: selected ? context.accent : context.textSecondary,
           ),
         ),
       ),
@@ -259,13 +259,14 @@ class _RecordTile extends StatelessWidget {
             value,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 17,
               fontWeight: FontWeight.w800,
-              color: AppColors.accent,
+              color: context.accent,
             ),
           ),
           const SizedBox(height: 2),
+
           Text(
             '$label · $date',
             maxLines: 1,

@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
+import '../../core/widgets/app_dialog.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/settings/settings.dart';
-import '../../core/sync/sync_codec.dart';
 import '../../core/sync/sync_providers.dart';
 import '../../core/theme/app_theme.dart';
 
@@ -220,12 +220,8 @@ class _SyncSectionState extends ConsumerState<SyncSection> {
 
   void _showEncryptionSheet(BuildContext context) {
     final enabled = ref.read(syncEncryptionEnabledProvider);
-    showModalBottomSheet<void>(
+    showAppSheet<void>(
       context: context,
-      backgroundColor: context.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(6)),
-      ),
       builder: (_) => Consumer(
         builder: (sheetContext, ref, _) {
           return SafeArea(
@@ -237,10 +233,7 @@ class _SyncSectionState extends ConsumerState<SyncSection> {
                 children: [
                   Text(
                     enabled ? 'Encryption is on' : 'Set sync passphrase',
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                    ),
+                    style: AppStyles.title,
                   ),
                   const SizedBox(height: 8),
                   Text(
@@ -284,7 +277,7 @@ class _SyncSectionState extends ConsumerState<SyncSection> {
                         final prefs = ref.read(sharedPreferencesProvider);
                         await prefs.setString('sync.passphrase', passphrase);
                         ref.read(syncEncryptionEnabledProvider.notifier).enable();
-                        SyncCodec.encryption = null; // will be re-derived
+                        ref.read(syncEncryptionEpochProvider.notifier).bump();
                         if (sheetContext.mounted) {
                           Navigator.of(sheetContext).pop();
                         }
@@ -330,12 +323,8 @@ class _SyncSectionState extends ConsumerState<SyncSection> {
   }
 
   void _showRotatePassphraseSheet(BuildContext context) {
-    showModalBottomSheet<void>(
+    showAppSheet<void>(
       context: context,
-      backgroundColor: context.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(6)),
-      ),
       builder: (_) => Consumer(
         builder: (sheetContext, ref, _) {
           return SafeArea(
@@ -347,7 +336,7 @@ class _SyncSectionState extends ConsumerState<SyncSection> {
                 children: [
                   const Text(
                     'Rotate passphrase',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                    style: AppStyles.title,
                   ),
                   const SizedBox(height: 8),
                   Text(
@@ -384,7 +373,7 @@ class _SyncSectionState extends ConsumerState<SyncSection> {
                       }
                       final prefs = ref.read(sharedPreferencesProvider);
                       await prefs.setString('sync.passphrase', newPassphrase);
-                      SyncCodec.encryption = null; // will be re-derived
+                      ref.read(syncEncryptionEpochProvider.notifier).bump();
                       if (sheetContext.mounted) {
                         Navigator.of(sheetContext).pop();
                       }
@@ -421,7 +410,7 @@ class _SyncSectionState extends ConsumerState<SyncSection> {
               final prefs = ref.read(sharedPreferencesProvider);
               await prefs.remove('sync.passphrase');
               ref.read(syncEncryptionEnabledProvider.notifier).disable();
-              SyncCodec.encryption = null;
+              ref.read(syncEncryptionEpochProvider.notifier).bump();
               if (dialogContext.mounted) {
                 Navigator.of(dialogContext).pop();
               }

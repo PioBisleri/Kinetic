@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/widgets/app_dialog.dart';
 
 import '../../../core/settings/settings.dart';
 import '../../../core/theme/app_theme.dart';
@@ -13,12 +14,8 @@ Future<void> showSuggestionWhySheet(
   required UnitSystem unit,
   double? incrementKg,
 }) =>
-    showModalBottomSheet<void>(
+    showAppSheet<void>(
       context: context,
-      backgroundColor: context.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(6)),
-      ),
       builder: (_) => _SuggestionWhySheet(
         suggestion: suggestion,
         unit: unit,
@@ -105,7 +102,7 @@ class _SuggestionWhySheet extends StatelessWidget {
             Row(
               children: [
                 Icon(Icons.lightbulb_outline_rounded,
-                    size: 16, color: AppColors.accent),
+                    size: 16, color: context.accent),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -114,7 +111,7 @@ class _SuggestionWhySheet extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
-                      color: AppColors.accent,
+                      color: context.accent,
                     ),
                   ),
                 ),
@@ -137,7 +134,7 @@ class _SuggestionWhySheet extends StatelessWidget {
                       icon,
                       size: 16,
                       color: action == suggestion.action
-                          ? AppColors.accent
+                          ? context.accent
                           : context.textTertiary,
                     ),
                     const SizedBox(width: 10),
@@ -151,7 +148,7 @@ class _SuggestionWhySheet extends StatelessWidget {
                               fontSize: 13,
                               fontWeight: FontWeight.w700,
                               color: action == suggestion.action
-                                  ? AppColors.accent
+                                  ? context.accent
                                   : context.textSecondary,
                             ),
                           ),

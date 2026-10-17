@@ -28,6 +28,11 @@ void main() {
   tearDown(() => db.close());
 
   Future<void> pumpApp(WidgetTester tester) async {
+    // Settings grew a Nutrition & Health section (Round 8) — taller than
+    // the default 600 px test viewport, so widen it to reach everything.
+    tester.view.devicePixelRatio = 1.0;
+    tester.view.physicalSize = const Size(800, 2000);
+    addTearDown(tester.view.reset);
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -507,7 +512,17 @@ void main() {
     await pumpApp(tester);
 
     // Units moved to Settings (Round 2) — reach it through the drawer.
+    // The Diet tile (Round 8) pushed the Settings tile below the default
+    // test viewport; drag the drawer list until it is built and visible.
     await tester.tap(find.byTooltip('Menu'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Settings'),
+      60,
+      scrollable: find
+          .descendant(of: find.byType(Drawer), matching: find.byType(Scrollable))
+          .first,
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.text('Settings'));
     await tester.pumpAndSettle();
@@ -543,12 +558,22 @@ void main() {
     // Sync moved to Settings (Round 2).
     await tester.tap(find.byTooltip('Menu'));
     await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Settings'),
+      60,
+      scrollable: find
+          .descendant(of: find.byType(Drawer), matching: find.byType(Scrollable))
+          .first,
+    );
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Settings'));
     await tester.pumpAndSettle();
 
-    // No dart-defines in tests → the sync section degrades to a status tile
-    // and must never touch `Supabase.instance` (it asserts uninitialized).
-    expect(find.text('Cloud sync not configured'), findsOneWidget);
+    // No dart-defines in tests → the Sync section is absent entirely
+    // (Round 9.2): with sync not built in, Settings shows nothing about
+    // it — no header, no degraded status tile.
+    expect(find.text('Cloud sync not configured'), findsNothing);
+    expect(find.text('SYNC'), findsNothing);
 
     await tester.pageBack();
     await tester.pumpAndSettle();

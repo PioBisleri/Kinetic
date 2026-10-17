@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/navigation/shell_navigation.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/app_dialog.dart';
 import '../workout/application/workout_session_notifier.dart';
 import 'application/routine_providers.dart';
 
@@ -74,8 +75,8 @@ class RoutinesPage extends ConsumerWidget {
                         key: Key('start-routine-${card.routine.id}'),
                         tooltip: 'Start workout',
                         iconSize: 30,
-                        icon: const Icon(Icons.play_circle_fill_rounded,
-                            color: AppColors.accent),
+                        icon: Icon(Icons.play_circle_fill_rounded,
+                            color: context.accent),
                         onPressed: () =>
                             _startRoutine(context, ref, card.routine.id),
                       ),
@@ -98,9 +99,7 @@ class RoutinesPage extends ConsumerWidget {
       BuildContext context, WidgetRef ref, String routineId) async {
     final session = ref.read(workoutSessionProvider).value;
     if (session != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Finish your current workout first.')),
-      );
+      showSnack(context, 'Finish your current workout first.');
       return;
     }
     await ref

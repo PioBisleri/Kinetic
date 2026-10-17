@@ -139,15 +139,15 @@ class _ExerciseLibraryPageState extends ConsumerState<ExerciseLibraryPage> {
                             .read(categoryFilterProvider.notifier)
                             .set(id == 'all' ? null : id),
                         selectedColor:
-                            AppColors.accent.withValues(alpha: 0.18),
+                            context.accent.withValues(alpha: 0.18),
                         labelStyle: TextStyle(
                           color: selected
-                              ? AppColors.accent
+                              ? context.accent
                               : context.textSecondary,
                           fontWeight: FontWeight.w600,
                         ),
                         side: BorderSide(
-                          color: selected ? AppColors.accent : context.border,
+                          color: selected ? context.accent : context.border,
                         ),
                         showCheckmark: false,
                       );

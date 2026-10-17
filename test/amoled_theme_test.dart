@@ -28,6 +28,11 @@ void main() {
   tearDown(() => db.close());
 
   Future<void> pumpApp(WidgetTester tester) async {
+    // Settings grew a Nutrition & Health section (Round 8) — taller than
+    // the default 600 px test viewport, so widen it to reach everything.
+    tester.view.devicePixelRatio = 1.0;
+    tester.view.physicalSize = const Size(800, 2000);
+    addTearDown(tester.view.reset);
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -50,6 +55,16 @@ void main() {
   Future<void> openSettings(WidgetTester tester) async {
     await tester.tap(find.byTooltip('Menu'));
     await tester.pumpAndSettle();
+    // The Diet tile (Round 8) pushed the Settings tile below the default
+    // test viewport — drag the drawer list until it is built and visible.
+    await tester.scrollUntilVisible(
+      find.text('Settings'),
+      60,
+      scrollable: find
+          .descendant(of: find.byType(Drawer), matching: find.byType(Scrollable))
+          .first,
+    );
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Settings'));
     await tester.pumpAndSettle();
   }
@@ -67,6 +82,18 @@ void main() {
       await tester.drag(list, const Offset(0, -300));
       await tester.pumpAndSettle();
     }
+  }
+
+  /// The theme row is a SegmentedButton (Round 9.2) — tap the segment
+  /// matching [mode].
+  Future<void> tapThemeSegment(WidgetTester tester, ThemeMode mode) async {
+    final labels = {
+      ThemeMode.system: 'Auto',
+      ThemeMode.light: 'Light',
+      ThemeMode.dark: 'Dark',
+    };
+    await scrollSettingsTo(tester, find.byKey(const Key('theme-mode-segments')));
+    await tester.tap(find.text(labels[mode]!));
   }
 
   testWidgets('AMOLED black toggle swaps dark tokens and persists',
@@ -124,16 +151,16 @@ void main() {
     await pumpApp(tester);
     await openSettings(tester);
 
-    await scrollSettingsTo(tester, find.byKey(const Key('dark-mode-toggle')));
+    await scrollSettingsTo(tester, find.byKey(const Key('theme-mode-segments')));
     expect(find.byKey(const Key('amoled-black-toggle')), findsOneWidget);
 
     // Flip to light — the AMOLED option (a dark-only concept) disappears.
-    await tester.tap(find.byKey(const Key('dark-mode-toggle')));
+    await tapThemeSegment(tester, ThemeMode.light);
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('amoled-black-toggle')), findsNothing);
 
     // Back to dark it returns, off by default.
-    await tester.tap(find.byKey(const Key('dark-mode-toggle')));
+    await tapThemeSegment(tester, ThemeMode.dark);
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('amoled-black-toggle')), findsOneWidget);
     final switchWidget = tester.widget<SwitchListTile>(

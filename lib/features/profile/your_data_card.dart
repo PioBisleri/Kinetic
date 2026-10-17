@@ -12,13 +12,15 @@ import '../../core/utils/bmi.dart';
 import '../../core/utils/height_units.dart';
 import '../../core/utils/weight_units.dart';
 import '../../core/widgets/section_card.dart';
+import '../health/live_activity_service.dart';
 import 'body_metric_log.dart';
 import 'weight_trend.dart';
 import 'weight_trend_sheet.dart';
 
-/// "Your data" — every personal input in one card (Round 5): name,
-/// height, date of birth, sex, body fat %, training goal, bodyweight,
-/// and the derived BMI row.
+/// "Your data" (Round 9.2) — split into two grouped cards: **Body** holds
+/// the personal inputs (name, height, date of birth, sex, body fat %,
+/// training goal), **Stats** the measured/derived rows (bodyweight, the
+/// derived BMI row and the weight-trend summary).
 ///
 /// All fields hydrate from the synced `local` profile row and save
 /// independently (partial upsert — each row only touches its own
@@ -29,18 +31,30 @@ class YourDataCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SectionCard(
-      title: 'Your data',
-      children: const [
-        _NameField(),
-        _HeightField(),
-        _DobRow(),
-        _SexRow(),
-        _BodyFatField(),
-        _GoalRow(),
-        _BodyweightRow(),
-        _BmiRow(),
-        _WeightTrendRow(),
+    return Column(
+      children: [
+        SectionCard(
+          title: 'Body',
+          icon: Icons.accessibility_new_rounded,
+          children: const [
+            _NameField(),
+            _HeightField(),
+            _DobRow(),
+            _SexRow(),
+            _BodyFatField(),
+            _GoalRow(),
+          ],
+        ),
+        const SizedBox(height: 16),
+        SectionCard(
+          title: 'Stats',
+          icon: Icons.query_stats_rounded,
+          children: const [
+            _BodyweightRow(),
+            _BmiRow(),
+            _WeightTrendRow(),
+          ],
+        ),
       ],
     );
   }
@@ -587,6 +601,9 @@ class _BodyweightFieldState extends ConsumerState<_BodyweightField> {
     if (prev == null || (prev - kg).abs() > 0.005) {
       await logBodyWeight(ref.read(databaseProvider), kg);
     }
+    // The live notification's burned-kcal line uses the latest bodyweight —
+    // push a fresh snapshot (never throws).
+    ref.read(liveActivityControllerProvider).refresh();
   }
 
   @override

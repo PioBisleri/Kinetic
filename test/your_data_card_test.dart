@@ -54,7 +54,8 @@ void main() {
   }
 
   /// ListView children below the fold aren't built — drag until [target]
-  /// exists (same trick as widget_test's scrollProfileUntil).
+  /// exists AND is hit-testable (same trick as amoled_theme's
+  /// scrollSettingsTo; the Round 9.2 layout adds a header to the page).
   Future<void> scrollUntilBuilt(
     WidgetTester tester,
     Finder target, {
@@ -64,7 +65,9 @@ void main() {
       of: find.byType(ProfilePage),
       matching: find.byType(ListView),
     );
-    for (var i = 0; i < maxDrags && target.evaluate().isEmpty; i++) {
+    for (var i = 0;
+        i < maxDrags && target.hitTestable().evaluate().isEmpty;
+        i++) {
       await tester.drag(list, const Offset(0, -300));
       await tester.pumpAndSettle();
     }

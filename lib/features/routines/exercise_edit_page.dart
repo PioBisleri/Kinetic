@@ -12,6 +12,7 @@ import '../../core/settings/settings.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/rest_format.dart';
 import '../../core/utils/weight_units.dart';
+import '../../core/widgets/app_dialog.dart';
 import '../workout/widgets/add_exercise_sheet.dart';
 
 /// Display parents (see seed `groups`) — every other muscle row is a
@@ -375,8 +376,8 @@ class _ExerciseEditPageState extends ConsumerState<ExerciseEditPage> {
                             _dirty = true;
                           }),
                           selectedColor:
-                              AppColors.accent.withValues(alpha: 0.18),
-                          checkmarkColor: AppColors.accent,
+                              context.accent.withValues(alpha: 0.18),
+                          checkmarkColor: context.accent,
                         ),
                   ],
                 ),
@@ -419,10 +420,10 @@ class _ExerciseEditPageState extends ConsumerState<ExerciseEditPage> {
                               child: Text(
                                 '${((_contributions[m.id] ?? 0.4) * 100).round()}%',
                                 textAlign: TextAlign.right,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w700,
-                                  color: AppColors.accent,
+                                  color: context.accent,
                                 ),
                               ),
                             ),
@@ -473,8 +474,8 @@ class _ExerciseEditPageState extends ConsumerState<ExerciseEditPage> {
                           });
                         },
                         selectedColor:
-                            AppColors.accent.withValues(alpha: 0.18),
-                        checkmarkColor: AppColors.accent,
+                            context.accent.withValues(alpha: 0.18),
+                        checkmarkColor: context.accent,
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -533,8 +534,8 @@ class _ExerciseEditPageState extends ConsumerState<ExerciseEditPage> {
                             });
                           },
                           selectedColor:
-                              AppColors.accent.withValues(alpha: 0.18),
-                          checkmarkColor: AppColors.accent,
+                              context.accent.withValues(alpha: 0.18),
+                          checkmarkColor: context.accent,
                         ),
                         const SizedBox(width: 12),
                         Expanded(
@@ -600,28 +601,13 @@ class _ExerciseEditPageState extends ConsumerState<ExerciseEditPage> {
   }
 
   Future<bool> _confirmDiscard() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Discard changes?'),
-        content: const Text(
-          'Your edits to this exercise will be lost.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Keep editing'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.heatHot,
-              minimumSize: const Size(0, 44),
-            ),
-            child: const Text('Discard'),
-          ),
-        ],
-      ),
+    final confirmed = await confirmAction(
+      context,
+      title: 'Discard changes?',
+      message: 'Your edits to this exercise will be lost.',
+      confirmLabel: 'Discard',
+      cancelLabel: 'Keep editing',
+      danger: true,
     );
     return confirmed == true;
   }

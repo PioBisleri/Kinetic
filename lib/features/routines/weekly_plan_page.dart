@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart';
 import 'package:flutter/material.dart';
+import '../../core/widgets/app_dialog.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/database/database.dart';
@@ -29,12 +30,8 @@ class WeeklyPlanPage extends ConsumerWidget {
 
   void _openPicker(
       BuildContext context, WidgetRef ref, int day, String? currentId) {
-    showModalBottomSheet<void>(
+    showAppSheet<void>(
       context: context,
-      backgroundColor: context.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(6)),
-      ),
       builder: (_) => Consumer(
         builder: (sheetContext, ref, _) {
           final cards = ref.watch(routinesProvider);

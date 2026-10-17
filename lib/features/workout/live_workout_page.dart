@@ -9,6 +9,7 @@ import '../../core/database/database.dart';
 import '../../core/settings/settings.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/weight_units.dart';
+import '../../core/widgets/app_dialog.dart';
 import 'application/rest_resolver.dart';
 import 'application/workout_session_notifier.dart';
 import 'widgets/add_exercise_sheet.dart';
@@ -48,29 +49,16 @@ class _LiveWorkoutPageState extends ConsumerState<LiveWorkoutPage> {
         ? ''
         : '\n\n⚠️ $pending planned set${pending == 1 ? '' : 's'} not '
             'checked — they will NOT be saved to your history.';
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Finish workout?'),
-        content: Text(
-          '${session.exercises.length} exercises · '
+    final confirmed = await confirmAction(
+      context,
+      title: 'Finish workout?',
+      message: '${session.exercises.length} exercises · '
           '${session.completedSetCount} sets · '
           '${formatElapsed(session.elapsed)}\n'
           'Volume: ${session.volumeKg.toStringAsFixed(0)} kg'
           '$warning',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Keep going'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: FilledButton.styleFrom(minimumSize: const Size(0, 44)),
-            child: Text(pending > 0 ? 'Finish anyway' : 'Finish'),
-          ),
-        ],
-      ),
+      confirmLabel: pending > 0 ? 'Finish anyway' : 'Finish',
+      cancelLabel: 'Keep going',
     );
     if (confirmed != true || !mounted) return;
     await ref.read(workoutSessionProvider.notifier).finishWorkout();
@@ -79,31 +67,16 @@ class _LiveWorkoutPageState extends ConsumerState<LiveWorkoutPage> {
 
   Future<void> _discard(WorkoutSession? session) async {
     if (session == null) return;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Discard workout?'),
-        content: Text(
-          '${session.exercises.length} exercises · '
+    final confirmed = await confirmAction(
+      context,
+      title: 'Discard workout?',
+      message: '${session.exercises.length} exercises · '
           '${session.completedSetCount} sets · '
           'Volume: ${session.volumeKg.toStringAsFixed(0)} kg\n\n'
           'Nothing will be saved to your history. This cannot be undone.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Keep workout'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: FilledButton.styleFrom(
-              backgroundColor: Colors.redAccent,
-              minimumSize: const Size(0, 44),
-            ),
-            child: const Text('Discard'),
-          ),
-        ],
-      ),
+      confirmLabel: 'Discard',
+      cancelLabel: 'Keep workout',
+      danger: true,
     );
     if (confirmed != true || !mounted) return;
     await ref.read(workoutSessionProvider.notifier).discardWorkout();
@@ -114,31 +87,15 @@ class _LiveWorkoutPageState extends ConsumerState<LiveWorkoutPage> {
       BuildContext context, WidgetRef ref, Exercise exercise, WorkoutSession session) async {
     final sets = session.setsFor(exercise.id);
     final completed = sets.where((s) => s.isCompleted).length;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Remove ${exercise.name}?'),
-        content: Text(
-          sets.isEmpty
-              ? 'This exercise has no sets yet.'
-              : '${sets.length} set${sets.length == 1 ? '' : 's'} '
-                  '($completed completed) will be deleted from this workout.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.heatHot,
-              minimumSize: const Size(0, 44),
-            ),
-            child: const Text('Remove'),
-          ),
-        ],
-      ),
+    final confirmed = await confirmAction(
+      context,
+      title: 'Remove ${exercise.name}?',
+      message: sets.isEmpty
+          ? 'This exercise has no sets yet.'
+          : '${sets.length} set${sets.length == 1 ? '' : 's'} '
+              '($completed completed) will be deleted from this workout.',
+      confirmLabel: 'Remove',
+      danger: true,
     );
     if (confirmed != true || !mounted) return;
     await ref.read(workoutSessionProvider.notifier).removeExercise(exercise.id);
@@ -147,13 +104,9 @@ class _LiveWorkoutPageState extends ConsumerState<LiveWorkoutPage> {
   Future<void> _editNotes(WorkoutSession session) async {
     final controller = TextEditingController(
         text: session.workout.notes ?? '');
-    final result = await showModalBottomSheet<String>(
+    final result = await showAppSheet<String>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: context.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(6)),
-      ),
       builder: (context) => Padding(
         padding: EdgeInsets.only(
             bottom: MediaQuery.of(context).viewInsets.bottom),
@@ -233,14 +186,12 @@ class _LiveWorkoutPageState extends ConsumerState<LiveWorkoutPage> {
 
     HapticFeedback.mediumImpact();
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Set logged'),
-          action: SnackBarAction(
-            label: 'Undo',
-            onPressed: () => notifier.deleteSet(logged.id),
-          ),
-          duration: const Duration(seconds: 4),
+      showSnack(
+        context,
+        'Set logged',
+        action: SnackBarAction(
+          label: 'Undo',
+          onPressed: () => notifier.deleteSet(logged.id),
         ),
       );
     }
@@ -474,15 +425,15 @@ class _ExerciseCard extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(
                         horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
-                      color: AppColors.accent.withValues(alpha: 0.16),
+                      color: context.accent.withValues(alpha: 0.16),
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
                       'SS$group',
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w800,
-                          color: AppColors.accent),
+                          color: context.accent),
                     ),
                   ),
                 PopupMenuButton<String>(
@@ -626,7 +577,7 @@ class _SetRow extends StatelessWidget {
                   : Icons.radio_button_unchecked,
               size: 18,
               color:
-                  set.isCompleted ? AppColors.accent : context.textTertiary,
+                  set.isCompleted ? context.accent : context.textTertiary,
             ),
           ],
         ),

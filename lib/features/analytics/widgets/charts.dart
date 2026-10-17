@@ -231,7 +231,7 @@ class WeeklyVolumeChart extends StatelessWidget {
                 BarChartRodData(
                   toY: display[i],
                   width: rodWidth,
-                  color: AppColors.accent,
+                  color: context.accent,
                   borderRadius: BorderRadius.circular(3),
                 ),
               ]),
@@ -368,7 +368,7 @@ class ExerciseTrendChart extends StatelessWidget {
               spots: spots,
               isCurved: true,
               barWidth: 2.5,
-              color: AppColors.accent,
+              color: context.accent,
               dotData: const FlDotData(show: true),
               belowBarData: BarAreaData(
                 show: true,
@@ -376,8 +376,8 @@ class ExerciseTrendChart extends StatelessWidget {
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    AppColors.accent.withValues(alpha: 0.28),
-                    AppColors.accent.withValues(alpha: 0.0),
+                    context.accent.withValues(alpha: 0.28),
+                    context.accent.withValues(alpha: 0.0),
                   ],
                 ),
               ),
@@ -512,7 +512,7 @@ class ConsistencyCalendar extends StatelessWidget {
         const SizedBox(height: 4),
         Row(
           children: [
-            _LegendDot(color: AppColors.accent, label: 'Trained'),
+            _LegendDot(color: context.accent, label: 'Trained'),
             SizedBox(width: 12),
             _LegendDot(color: context.surfaceElevated, label: 'Rest'),
           ],
@@ -539,7 +539,7 @@ class _CalendarCell extends StatelessWidget {
     final color = future
         ? context.background
         : trained
-            ? AppColors.accent
+            ? context.accent
             : context.surfaceElevated;
     return Expanded(
       child: Padding(

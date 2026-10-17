@@ -8,8 +8,12 @@ import '../../core/navigation/shell_navigation.dart';
 import '../../core/settings/settings.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/weight_units.dart';
+import '../../core/widgets/app_dialog.dart';
+import '../../core/widgets/app_empty.dart';
 import '../analytics/application/analytics_providers.dart';
 import '../analytics/domain/analytics_math.dart';
+import '../health/health_providers.dart';
+import '../nutrition/application/nutrition_providers.dart';
 import '../routines/application/routine_providers.dart';
 import '../workout/application/workout_session_notifier.dart';
 import 'application/home_providers.dart';
@@ -26,9 +30,7 @@ class HomePage extends ConsumerWidget {
       BuildContext context, WidgetRef ref, String routineId) async {
     final session = ref.read(workoutSessionProvider).value;
     if (session != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Finish your current workout first.')),
-      );
+      showSnack(context, 'Finish your current workout first.');
       return;
     }
     await ref
@@ -38,12 +40,8 @@ class HomePage extends ConsumerWidget {
   }
 
   void _openRoutinePicker(BuildContext context, WidgetRef ref) {
-    showModalBottomSheet<void>(
+    showAppSheet<void>(
       context: context,
-      backgroundColor: context.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(6)),
-      ),
       builder: (_) => Consumer(
         builder: (sheetContext, ref, _) {
           final cards = ref.watch(routinesProvider);
@@ -126,6 +124,8 @@ class HomePage extends ConsumerWidget {
                     onResume: () => context.push('/workout'),
                   ),
           ),
+          const SizedBox(height: 16),
+          const _TodayStrip(),
           const SizedBox(height: 16),
           _HomeStats(unit: unit),
           const SizedBox(height: 16),
@@ -218,12 +218,7 @@ class _ActiveWorkoutCard extends StatelessWidget {
                 const SizedBox(width: 8),
                 Text(
                   'WORKOUT IN PROGRESS',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 1.1,
-                    color: context.textSecondary,
-                  ),
+                  style: Theme.of(context).textTheme.labelSmall!.copyWith(color: context.textSecondary),
                 ),
                 const Spacer(),
                 Text(
@@ -280,10 +275,7 @@ class _StatRow extends StatelessWidget {
                     Text.rich(
                       TextSpan(
                         text: value,
-                        style: const TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: -0.5),
+                        style: Theme.of(context).textTheme.displaySmall,
                         children: [
                           TextSpan(
                             text: ' $unit',
@@ -303,6 +295,141 @@ class _StatRow extends StatelessWidget {
           if (label != stats.last.$1) const SizedBox(width: 8),
         ],
       ],
+    );
+  }
+}
+
+/// One-tap glance at today's hydration, steps and calories — each tile
+/// jumps into the /diet page (single surface for all three). Values come
+/// from the same providers /diet uses, so chips never disagree.
+class _TodayStrip extends ConsumerWidget {
+  const _TodayStrip();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final day = ref.watch(todayKeyProvider);
+    final metric = ref.watch(dayMetricProvider(day)).value;
+    final totals = ref.watch(macroTotalsProvider(day));
+    final settings = ref.watch(settingsProvider);
+
+    final kcalLeft =
+        (settings.kcalTarget - totals.kcal.round()).clamp(0, 99999);
+
+    return Row(
+      children: [
+        Expanded(
+          child: _TodayTile(
+            key: const Key('home-today-water'),
+            icon: Icons.water_drop_outlined,
+            label: 'Water',
+            value: metric?.waterMl == null
+                ? '–'
+                : '${metric!.waterMl!}',
+            unit: 'ml',
+            onTap: () => context.push('/diet'),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _TodayTile(
+            key: const Key('home-today-steps'),
+            icon: Icons.directions_walk_outlined,
+            label: 'Steps',
+            value: metric?.steps == null
+                ? '–'
+                : compactNumber(metric!.steps!.toDouble()).toString(),
+            unit: '',
+            onTap: () => context.push('/diet'),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _TodayTile(
+            key: const Key('home-today-kcal'),
+            icon: Icons.local_fire_department_outlined,
+            label: 'Kcal left',
+            value: '$kcalLeft',
+            unit: '',
+            onTap: () => context.push('/diet'),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _TodayTile extends StatelessWidget {
+  const _TodayTile({
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.unit,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final String unit;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: EdgeInsets.zero,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(icon,
+                      size: 15, color: context.textSecondary),
+                  const SizedBox(width: 4),
+                  Flexible(
+                    child: Text(
+                      label,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: context.textSecondary,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text.rich(
+                TextSpan(
+                  text: value,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.5,
+                  ),
+                  children: [
+                    if (unit.isNotEmpty)
+                      TextSpan(
+                        text: ' $unit',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                          color: context.textSecondary,
+                        ),
+                      ),
+                  ],
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -356,31 +483,15 @@ class _RecentWorkouts extends ConsumerWidget {
 
   Future<void> _confirmDelete(
       BuildContext context, WidgetRef ref, RecentWorkout row) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete workout?'),
-        content: Text(
-          '${row.title} · '
+    final confirmed = await confirmAction(
+      context,
+      title: 'Delete workout?',
+      message: '${row.title} · '
           '${DateFormat('EEE, MMM d').format(row.workout.startedAt)}\n\n'
           'This removes the workout and its sets from your history. '
           'Charts and totals recompute immediately.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.heatHot,
-              minimumSize: const Size(0, 44),
-            ),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
+      confirmLabel: 'Delete',
+      danger: true,
     );
     if (confirmed != true || !context.mounted) return;
     await deleteCompletedWorkout(ref.read(databaseProvider), row.workout.id);
@@ -412,17 +523,8 @@ class _RecentWorkouts extends ConsumerWidget {
       ),
       data: (rows) {
         if (rows.isEmpty) {
-          return Card(
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Center(
-                child: Text(
-                  'No workouts yet — your history will appear here.',
-                  style: TextStyle(color: context.textSecondary),
-                  textAlign: TextAlign.center,
-                ),
-              ),
-            ),
+          return const EmptyState(
+            message: 'No workouts yet — your history will appear here.',
           );
         }
         return Column(
@@ -444,8 +546,8 @@ class _RecentWorkouts extends ConsumerWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'Long-press a workout to delete it',
-              style: TextStyle(fontSize: 11.5, color: context.textSecondary),
+              'Tap a workout to review it · long-press to delete',
+              style: TextStyle(fontSize: 11.5, color: context.textTertiary),
             ),
           ],
         );
@@ -474,6 +576,11 @@ class _RecentTile extends StatelessWidget {
 
     return ListTile(
       dense: true,
+      onTap: () {
+        // Open the finished workout for review (Round 9). Delete stays on
+        // the long-press so a single tap can never destroy data.
+        context.push('/workout-history/${w.id}');
+      },
       title: Text(
         row.title,
         style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14.5),

@@ -102,7 +102,7 @@ class _BalanceRow extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 6),
-        _Bar(label: 'A', value: a, max: max, color: AppColors.accent),
+        _Bar(label: 'A', value: a, max: max, color: context.accent),
         const SizedBox(height: 4),
         _Bar(label: 'B', value: b, max: max, color: AppColors.gradeB),
         const SizedBox(height: 6),

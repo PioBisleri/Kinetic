@@ -9,6 +9,7 @@ import 'package:quick_actions/quick_actions.dart';
 
 import 'core/database/database.dart';
 import 'core/notifications/weekly_reminder_service.dart';
+import 'core/notifications/water_reminder_service.dart';
 import 'core/navigation/shell_navigation.dart';
 import 'core/settings/settings.dart';
 import 'core/sync/sync_providers.dart';
@@ -16,7 +17,9 @@ import 'core/theme/app_theme.dart';
 import 'features/analytics/analytics_page.dart';
 import 'features/home/home_page.dart';
 import 'features/home/home_screen_widget.dart';
+import 'features/health/live_activity_service.dart';
 import 'features/profile/profile_page.dart';
+import 'features/nutrition/diet_page.dart';
 import 'features/routines/exercise_detail_page.dart';
 import 'features/routines/exercise_edit_page.dart';
 import 'features/routines/exercise_library_page.dart';
@@ -26,6 +29,7 @@ import 'features/routines/weekly_plan_page.dart';
 import 'features/settings/settings_page.dart';
 import 'features/workout/application/workout_session_notifier.dart';
 import 'features/workout/live_workout_page.dart';
+import 'features/workout/workout_detail_page.dart';
 
 final _routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
@@ -35,6 +39,13 @@ final _routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/workout',
         builder: (context, state) => const LiveWorkoutPage(),
+      ),
+      // Read-only history viewer for a finished workout (Round 9).
+      GoRoute(
+        path: '/workout-history/:id',
+        builder: (context, state) => WorkoutDetailPage(
+          workoutId: state.pathParameters['id']!,
+        ),
       ),
       // Exercise catalog browser — also full-screen.
       GoRoute(
@@ -67,6 +78,11 @@ final _routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/schedule',
         builder: (context, state) => const WeeklyPlanPage(),
+      ),
+      // Diet: daily macros, water, food library.
+      GoRoute(
+        path: '/diet',
+        builder: (context, state) => const DietPage(),
       ),
       // Routine builder routes ('new' must precede ':id' to match first).
       GoRoute(
@@ -130,6 +146,16 @@ class _KineticAppState extends ConsumerState<KineticApp>
     _initHomeWidget();
     _updateHomeWidget();
     _rearmReminder();
+    _rearmWaterReminder();
+    // Live activity (Round 9): re-arm + adopt the service's step count on
+    // every launch — same idempotent, never-throw contract as above.
+    unawaited(_refLiveReconcile());
+  }
+
+  Future<void> _refLiveReconcile() async {
+    try {
+      await ref.read(liveActivityControllerProvider).reconcile();
+    } catch (_) {}
   }
 
   /// Re-arm the weekly reminder on every launch. The plugin's boot receiver
@@ -143,6 +169,20 @@ class _KineticAppState extends ConsumerState<KineticApp>
             weekday: s.reminderWeekday,
             hour: s.reminderHour,
             minute: s.reminderMinute,
+          );
+    } catch (_) {}
+  }
+
+  /// Re-arm the water reminder on every launch, same contract as
+  /// [_rearmReminder]: idempotent, driven by settings, never throws.
+  Future<void> _rearmWaterReminder() async {
+    try {
+      final s = ref.read(settingsProvider);
+      if (!s.waterReminderEnabled) return;
+      await ref.read(waterReminderProvider).schedule(
+            startHour: s.waterStartHour,
+            endHour: s.waterEndHour,
+            intervalMin: s.waterIntervalMin,
           );
     } catch (_) {}
   }
@@ -221,6 +261,9 @@ class _KineticAppState extends ConsumerState<KineticApp>
       ref.read(syncControllerProvider.notifier).syncNow();
       // Time may have moved on (a new week, a streak at risk) — catch up.
       _updateHomeWidget();
+      // Backgrounded time may have accrued steps / water settings — adopt
+      // and re-apply the live notification snapshot. Never throws.
+      _refLiveReconcile();
     } else if (state == AppLifecycleState.paused) {
       // Push whatever just changed (finish, edits) while we're in the
       // foreground — the launcher redraws before the user sees it again.
@@ -236,8 +279,11 @@ class _KineticAppState extends ConsumerState<KineticApp>
     return MaterialApp.router(
       title: 'Kinetic',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.light,
-      darkTheme: AppTheme.dark(amoled: settings.amoledBlack),
+      theme: AppTheme.light(accent: AppAccent.byId(settings.accent).color),
+      darkTheme: AppTheme.dark(
+        accent: AppAccent.byId(settings.accent).color,
+        amoled: settings.amoledBlack,
+      ),
       themeMode: settings.themeMode,
       routerConfig: router,
     );
@@ -360,6 +406,12 @@ class KineticDrawer extends ConsumerWidget {
                   ),
                   _routeTile(
                     context,
+                    icon: Icons.restaurant_outlined,
+                    title: 'Diet',
+                    path: '/diet',
+                  ),
+                  _routeTile(
+                    context,
                     icon: Icons.calendar_view_week_outlined,
                     title: 'Schedule',
                     path: '/schedule',
@@ -432,12 +484,10 @@ class KineticDrawer extends ConsumerWidget {
         padding: const EdgeInsets.fromLTRB(20, 14, 20, 6),
         child: Text(
           title.toUpperCase(),
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 1.1,
-            color: context.textTertiary,
-          ),
+          style: Theme.of(context)
+              .textTheme
+              .labelSmall!
+              .copyWith(color: context.textTertiary),
         ),
       );
 
@@ -450,7 +500,7 @@ class KineticDrawer extends ConsumerWidget {
       leading: Icon(
         active ? selectedIcon : icon,
         size: 22,
-        color: active ? AppColors.accent : context.textSecondary,
+        color: active ? context.accent : context.textSecondary,
       ),
       title: Text(
         label,
@@ -493,7 +543,7 @@ class KineticDrawer extends ConsumerWidget {
   Widget _versionFooter(BuildContext context) => Padding(
         padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
         child: Text(
-          'Kinetic 0.1.4 · offline-first',
+          'Kinetic · offline-first',
           style: TextStyle(fontSize: 12, color: context.textTertiary),
         ),
       );

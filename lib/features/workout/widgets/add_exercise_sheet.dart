@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/widgets/app_dialog.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -12,13 +13,9 @@ String? exerciseNamePrefill;
 
 /// Searchable exercise picker — returns the exercise id, or null.
 Future<String?> showAddExerciseSheet(BuildContext context) {
-  return showModalBottomSheet<String>(
+  return showAppSheet<String>(
     context: context,
     isScrollControlled: true,
-    backgroundColor: context.surface,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(6)),
-    ),
     builder: (_) => const AddExerciseSheet(),
   );
 }
