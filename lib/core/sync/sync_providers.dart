@@ -7,6 +7,7 @@ import '../../features/analytics/domain/analytics_math.dart' show dayOf;
 import '../database/database.dart';
 import '../settings/settings.dart';
 import 'supabase_transport.dart';
+import 'sync_codec.dart';
 import 'sync_engine.dart';
 import 'sync_key_service.dart';
 import 'sync_transport.dart';
@@ -73,6 +74,11 @@ class SyncController extends Notifier<SyncState> {
     final cursorKey = 'sync.cursor.${user.id}';
     final since = DateTime.tryParse(prefs.getString(cursorKey) ?? '');
     try {
+      // Wire the codec before the cycle: a stored passphrase encrypts pushes
+      // (format 2); none means plaintext rows (mixed server history is OK).
+      // Argon2id is slow — the provider memoizes until the epoch bumps.
+      final key = await ref.read(syncEncryptionKeyProvider.future);
+      SyncCodec.apply(key);
       final result = await engine.sync(since: since);
       await prefs.setString(cursorKey, result.startedAt.toIso8601String());
       state = SyncState(lastSyncAt: result.startedAt);
@@ -85,11 +91,15 @@ class SyncController extends Notifier<SyncState> {
 final syncControllerProvider =
     NotifierProvider<SyncController, SyncState>(SyncController.new);
 
-/// Tracks whether the user has set a sync encryption passphrase.
+/// Tracks whether the user has set a sync encryption passphrase (restored
+/// from prefs at boot, so the passphrase survives process restarts).
 /// The key itself is derived on-demand and never stored.
 class SyncEncryptionNotifier extends Notifier<bool> {
   @override
-  bool build() => false;
+  bool build() =>
+      (ref.watch(sharedPreferencesProvider).getString('sync.passphrase') ??
+              '')
+          .isNotEmpty;
 
   void set(bool value) => state = value;
   void enable() => state = true;
@@ -99,12 +109,29 @@ class SyncEncryptionNotifier extends Notifier<bool> {
 final syncEncryptionEnabledProvider =
     NotifierProvider<SyncEncryptionNotifier, bool>(SyncEncryptionNotifier.new);
 
+/// Bumped by the passphrase handlers (set / rotate / reset) so the next sync
+/// cycle re-derives — and re-applies — the codec key.
+class SyncEncryptionEpoch extends Notifier<int> {
+  @override
+  int build() => 0;
+
+  void bump() => state = state + 1;
+}
+
+final syncEncryptionEpochProvider =
+    NotifierProvider<SyncEncryptionEpoch, int>(SyncEncryptionEpoch.new);
+
 /// Derives (or re-derives) the sync encryption key from the passphrase.
-/// Returns null when sync is not configured or no passphrase is set.
+/// Returns null when sync is not configured, signed out, or no passphrase
+/// is stored — every push/pull cycle then runs plaintext.
+///
+/// The passphrase (not the in-memory flag) is the single source of truth so
+/// a stored passphrase keeps encrypting after a process restart. Argon2id is
+/// expensive (~seconds), so the future is memoized until [SyncEncryptionEpoch]
+/// runs its bell.
 final syncEncryptionKeyProvider = FutureProvider<SecretKey?>((ref) async {
+  ref.watch(syncEncryptionEpochProvider);
   if (!ref.watch(supabaseConfiguredProvider)) return null;
-  final enabled = ref.watch(syncEncryptionEnabledProvider);
-  if (!enabled) return null;
   final prefs = ref.watch(sharedPreferencesProvider);
   final passphrase = prefs.getString('sync.passphrase');
   if (passphrase == null || passphrase.isEmpty) return null;

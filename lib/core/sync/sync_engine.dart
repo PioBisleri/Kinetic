@@ -77,12 +77,16 @@ class SyncEngine {
     pulled += await _pullRoutines(cut);
     pulled += await _pullWorkouts(cut);
     pulled += await _pullBodyMetrics(cut);
+    pulled += await _pullFoods(cut);
+    pulled += await _pullFoodLogs(cut);
 
     pushed += await _pushProfiles();
     pushed += await _pushExercises();
     pushed += await _pushRoutines();
     pushed += await _pushWorkouts();
     pushed += await _pushBodyMetrics();
+    pushed += await _pushFoods();
+    pushed += await _pushFoodLogs();
 
     return SyncResult(startedAt: startedAt, pulled: pulled, pushed: pushed);
   }
@@ -215,6 +219,48 @@ class SyncEngine {
         continue;
       }
       await db.bodyMetrics.insertOnConflictUpdate(
+          incoming.copyWith(syncedAt: Value(incoming.updatedAt)).toCompanion(false));
+      applied++;
+    }
+    return applied;
+  }
+
+  /// Food library rows (Round 8) — flat LWW with tombstones.
+  Future<int> _pullFoods(DateTime cut) async {
+    final rows = await transport.fetchChanged('foods', since: cut);
+    var applied = 0;
+    for (final raw in rows) {
+      final incoming = Food.fromJson(
+        await SyncCodec.decode(raw, table: 'foods'),
+        serializer: SyncCodec.serializer,
+      );
+      final local = await _food(incoming.id);
+      if (!_accepts(incoming.updatedAt, local?.updatedAt,
+          hasLocal: local != null, tombstone: incoming.deletedAt != null)) {
+        continue;
+      }
+      await db.foods.insertOnConflictUpdate(
+          incoming.copyWith(syncedAt: Value(incoming.updatedAt)).toCompanion(false));
+      applied++;
+    }
+    return applied;
+  }
+
+  /// Food log entries (Round 8) — same shape as body-metric pulls.
+  Future<int> _pullFoodLogs(DateTime cut) async {
+    final rows = await transport.fetchChanged('food_logs', since: cut);
+    var applied = 0;
+    for (final raw in rows) {
+      final incoming = FoodLog.fromJson(
+        await SyncCodec.decode(raw, table: 'food_logs'),
+        serializer: SyncCodec.serializer,
+      );
+      final local = await _foodLog(incoming.id);
+      if (!_accepts(incoming.updatedAt, local?.updatedAt,
+          hasLocal: local != null, tombstone: incoming.deletedAt != null)) {
+        continue;
+      }
+      await db.foodLogs.insertOnConflictUpdate(
           incoming.copyWith(syncedAt: Value(incoming.updatedAt)).toCompanion(false));
       applied++;
     }
@@ -379,7 +425,7 @@ class SyncEngine {
         ids,
         [
           for (final m in mapRows)
-        await SyncCodec.encode(m.toJson(serializer: SyncCodec.serializer), table: 'body_metrics'),
+            await SyncCodec.encode(m.toJson(serializer: SyncCodec.serializer), table: 'exercise_muscle_map'),
         ],
       );
     } catch (_) {
@@ -506,12 +552,48 @@ class SyncEngine {
     if (dirty.isEmpty) return 0;
     await transport.upsert('body_metrics', [
       for (final m in dirty)
-        await SyncCodec.encode(m.toJson(serializer: SyncCodec.serializer), table: 'exercise_muscle_map'),
+        await SyncCodec.encode(m.toJson(serializer: SyncCodec.serializer), table: 'body_metrics'),
     ]);
     for (final m in dirty) {
       await (db.update(db.bodyMetrics)
             ..where((t) => t.id.equals(m.id) & t.updatedAt.equals(m.updatedAt)))
           .write(BodyMetricsCompanion(syncedAt: Value(m.updatedAt)));
+    }
+    return dirty.length;
+  }
+
+  Future<int> _pushFoods() async {
+    final dirty = await (db.foods.select()
+          ..where((f) =>
+              f.syncedAt.isNull() | f.updatedAt.isBiggerThan(f.syncedAt)))
+        .get();
+    if (dirty.isEmpty) return 0;
+    await transport.upsert('foods', [
+      for (final f in dirty)
+        await SyncCodec.encode(f.toJson(serializer: SyncCodec.serializer), table: 'foods'),
+    ]);
+    for (final f in dirty) {
+      await (db.update(db.foods)
+            ..where((t) => t.id.equals(f.id) & t.updatedAt.equals(f.updatedAt)))
+          .write(FoodsCompanion(syncedAt: Value(f.updatedAt)));
+    }
+    return dirty.length;
+  }
+
+  Future<int> _pushFoodLogs() async {
+    final dirty = await (db.foodLogs.select()
+          ..where((l) =>
+              l.syncedAt.isNull() | l.updatedAt.isBiggerThan(l.syncedAt)))
+        .get();
+    if (dirty.isEmpty) return 0;
+    await transport.upsert('food_logs', [
+      for (final l in dirty)
+        await SyncCodec.encode(l.toJson(serializer: SyncCodec.serializer), table: 'food_logs'),
+    ]);
+    for (final l in dirty) {
+      await (db.update(db.foodLogs)
+            ..where((t) => t.id.equals(l.id) & t.updatedAt.equals(l.updatedAt)))
+          .write(FoodLogsCompanion(syncedAt: Value(l.updatedAt)));
     }
     return dirty.length;
   }
@@ -557,5 +639,12 @@ class SyncEngine {
 
   Future<BodyMetric?> _bodyMetric(String id) =>
       (db.bodyMetrics.select()..where((m) => m.id.equals(id)))
+          .getSingleOrNull();
+
+  Future<Food?> _food(String id) =>
+      (db.foods.select()..where((f) => f.id.equals(id))).getSingleOrNull();
+
+  Future<FoodLog?> _foodLog(String id) =>
+      (db.foodLogs.select()..where((l) => l.id.equals(id)))
           .getSingleOrNull();
 }

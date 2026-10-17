@@ -29,6 +29,8 @@ class DeleteService {
       await _db.delete(_db.muscleGradeHistory).go();
       await _db.delete(_db.bodyMetrics).go();
       await _db.delete(_db.volumeLandmarks).go();
+      await _db.delete(_db.foodLogs).go();
+      await _db.delete(_db.foods).go();
       await _db.delete(_db.exerciseMuscleMap).go();
       await _db.delete(_db.exercises).go();
       await _db.delete(_db.profiles).go();

@@ -1,3 +1,4 @@
+import 'package:cryptography/cryptography.dart' show SecretKey;
 import 'package:drift/drift.dart' show ValueSerializer;
 
 import 'sync_encryption.dart';
@@ -47,9 +48,17 @@ class SyncCodec {
 
   static const ValueSerializer serializer = syncValueSerializer;
 
-  /// Set once at app startup when sync encryption is enabled. When null,
-  /// encode/decode behave as plaintext (Phase 7 behavior).
+  /// Set each sync cycle from the derived passphrase key (see
+  /// `syncEncryptionKeyProvider`). When null, encode/decode behave as
+  /// plaintext (Phase 7 behavior).
   static SyncEncryption? encryption;
+
+  /// Wire [SyncCodec.encryption] up from a derived key — the single
+  /// place an instance is created outside of tests. A null [key] clears
+  /// the codec back to plaintext.
+  static void apply(SecretKey? key) {
+    encryption = key == null ? null : SyncEncryption(key);
+  }
 
   /// Local `DataClass.toJson` map → wire row (snake_case, no local-only keys).
   ///
@@ -77,13 +86,28 @@ class SyncCodec {
   /// local placeholder for tables whose data class requires a non-null uid.
   ///
   /// When [encryption] is set, the `payload` column is decrypted first.
+  ///
+  /// A `format = 2` row arriving while no key is usable is *refused*, not
+  /// passed through: it would otherwise feed `fromJson` a columnless row and
+  /// stall the pull cursor forever. The controller surfaces the throw as
+  /// `lastError`.
   static Future<Map<String, dynamic>> decode(
     Map<String, dynamic> row, {
     String? userId,
     String? table,
   }) async {
-    final decrypted =
-        encryption == null ? row : await encryption!.decryptRow(row);
+    final Map<String, dynamic> decrypted;
+    if (encryption == null) {
+      final format = row['format'];
+      if (format is num && format.toInt() == SyncEncryption.formatEncrypted) {
+        throw const FormatException(
+          'encrypted sync payload but no sync passphrase is set',
+        );
+      }
+      decrypted = row;
+    } else {
+      decrypted = await encryption!.decryptRow(row);
+    }
     final out = <String, dynamic>{};
     decrypted.forEach((key, value) {
       if (key == 'user_id') return;

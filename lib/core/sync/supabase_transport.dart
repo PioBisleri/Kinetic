@@ -23,6 +23,8 @@ class SupabaseSyncTransport implements SyncTransport {
     'routines': 'id',
     'workouts': 'id',
     'body_metrics': 'id',
+    'foods': 'id',
+    'food_logs': 'id',
   };
 
   /// Deterministic order for child pages. `exercise_muscle_map` has no `id`

@@ -645,6 +645,133 @@ void main() {
     });
   });
 
+  group('nutrition and health (Round 8)', () {
+    test('foods and food logs round-trip A → B', () async {
+      final t = stamp();
+      await dbA.foods.insertOnConflictUpdate(FoodsCompanion.insert(
+        id: 'food-1',
+        name: 'Whey',
+        brand: const Value('MyProtein'),
+        kcal: const Value(120),
+        proteinG: const Value(25),
+        carbsG: const Value(3),
+        fatG: const Value(1.5),
+        updatedAt: t,
+      ));
+      await dbA.foodLogs.insertOnConflictUpdate(FoodLogsCompanion.insert(
+        id: 'log-1',
+        dayKey: '2026-10-17',
+        foodId: const Value('food-1'),
+        name: 'Whey',
+        servings: const Value(1.5),
+        kcal: 180,
+        proteinG: 37.5,
+        carbsG: 4.5,
+        fatG: 2.25,
+        loggedAt: t,
+        updatedAt: t,
+      ));
+
+      await engine(dbA, recomputedA).sync();
+      await engine(dbB, recomputedB).sync();
+
+      final food = await (dbB.foods.select()
+            ..where((f) => f.id.equals('food-1')))
+          .getSingle();
+      expect(food.name, 'Whey');
+      expect(food.brand, 'MyProtein');
+      expect(food.kcal, 120);
+      expect(food.proteinG, 25);
+      expect(food.syncedAt, food.updatedAt);
+
+      final log = await (dbB.foodLogs.select()
+            ..where((l) => l.id.equals('log-1')))
+          .getSingle();
+      expect(log.dayKey, '2026-10-17');
+      expect(log.servings, 1.5);
+      expect(log.kcal, 180); // snapshot macros travel intact
+      // One second tolerance — drift stores local DateTimes at whole
+      // second precision, so sub-second parts fall away in SQLite.
+      expect(log.loggedAt.difference(t).abs().inSeconds, lessThanOrEqualTo(1));
+
+      // And the wire rows carry the right table tags.
+      expect(remoteRows('foods').single['name'], 'Whey');
+      expect(remoteRows('food_logs').single['day_key'], '2026-10-17');
+    });
+
+    test('remote food tombstone propagates and hides the library row',
+        () async {
+      final t = stamp();
+      await dbA.foods.insertOnConflictUpdate(FoodsCompanion.insert(
+        id: 'food-2',
+        name: 'Toast',
+        updatedAt: t,
+      ));
+      await engine(dbA, recomputedA).sync();
+      await engine(dbB, recomputedB).sync();
+      expect(
+        (await dbB.foods.select().get()).map((f) => f.id),
+        contains('food-2'),
+      );
+
+      final tombstoneAt = stamp(60);
+      await (dbA.foods.update()..where((f) => f.id.equals('food-2')))
+          .write(FoodsCompanion(
+              deletedAt: Value(tombstoneAt), updatedAt: Value(tombstoneAt)));
+      await engine(dbA, recomputedA).sync();
+      await engine(dbB, recomputedB).sync();
+
+      final onB = await (dbB.foods.select()
+            ..where((f) => f.id.equals('food-2')))
+          .getSingle();
+      expect(onB.deletedAt, isNotNull);
+      final live = await (dbB.foods.select()
+            ..where((f) => f.deletedAt.isNull()))
+          .get();
+      expect(live.map((f) => f.id), isNot(contains('food-2')));
+    });
+
+    test('water and steps ride body_metrics across devices', () async {
+      final t = stamp();
+      await dbA.bodyMetrics.insertOnConflictUpdate(BodyMetricsCompanion.insert(
+        id: '2026-10-17',
+        updatedAt: t,
+        weightKg: const Value(90),
+        waterMl: Value(750),
+        steps: Value(4200),
+      ));
+
+      await engine(dbA, recomputedA).sync();
+      await engine(dbB, recomputedB).sync();
+
+      final row = await (dbB.bodyMetrics.select()
+            ..where((b) => b.id.equals('2026-10-17')))
+          .getSingle();
+      expect(row.weightKg, 90);
+      expect(row.waterMl, 750);
+      expect(row.steps, 4200);
+    });
+
+    test('a day that only has water (no weigh-in) still syncs', () async {
+      final t = stamp();
+      await dbA.bodyMetrics.insertOnConflictUpdate(BodyMetricsCompanion.insert(
+        id: '2026-10-16',
+        updatedAt: t,
+        waterMl: const Value(250),
+      ));
+
+      await engine(dbA, recomputedA).sync();
+      await engine(dbB, recomputedB).sync();
+
+      final row = await (dbB.bodyMetrics.select()
+            ..where((b) => b.id.equals('2026-10-16')))
+          .getSingle();
+      expect(row.weightKg, isNull);
+      expect(row.waterMl, 250);
+      expect(row.steps, isNull);
+    });
+  });
+
   group('cursor', () {
     test('since + overlap re-reads only the tail', () async {
       final t = stamp();

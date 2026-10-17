@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:async' show unawaited;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -8,9 +9,11 @@ import 'core/database/database.dart';
 import 'core/database/seed_service.dart';
 import 'core/notifications/rest_notification_service.dart';
 import 'core/notifications/weekly_reminder_service.dart';
+import 'core/notifications/water_reminder_service.dart';
 import 'core/settings/settings.dart';
 import 'core/sync/sync_providers.dart';
 import 'features/analytics/application/rollup_service.dart';
+import 'features/health/step_tracker.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -48,6 +51,19 @@ Future<void> main() async {
   // is driven by settings (and re-armed at startup, see KineticApp).
   final reminder = WeeklyReminderService(enabled: true);
 
+  // Water-reminder channel — same contract, hourly window slots; arming
+  // is driven by settings (re-armed at startup, see KineticApp).
+  final waterReminder = WaterReminderService(enabled: true);
+
+  // Step tracker — listens to the step-counter sensor and merges today's
+  // count into the daily body-metrics row. Starting is a no-op when the
+  // permission is denied or the platform lacks the channel.
+  final stepTracker = StepTrackerService(
+    prefs: prefs,
+    onDaySteps: (dayKey, steps) => setDaySteps(db, dayKey, steps),
+  );
+  unawaited(stepTracker.start());
+
   runApp(
     ProviderScope(
       overrides: [
@@ -55,6 +71,8 @@ Future<void> main() async {
         sharedPreferencesProvider.overrideWithValue(prefs),
         restNotificationProvider.overrideWithValue(notifications),
         weeklyReminderProvider.overrideWithValue(reminder),
+        waterReminderProvider.overrideWithValue(waterReminder),
+        stepTrackerProvider.overrideWithValue(stepTracker),
         // Only true when the dart-defines were present AND initialize above
         // succeeded — providers below use this to avoid touching
         // `Supabase.instance`, which asserts when uninitialized.

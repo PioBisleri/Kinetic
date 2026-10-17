@@ -27,6 +27,11 @@ void main() {
   tearDown(() => db.close());
 
   Future<void> pumpApp(WidgetTester tester) async {
+    // Settings grew a Nutrition & Health section (Round 8) — taller than
+    // the default 600 px test viewport, so widen it to reach everything.
+    tester.view.devicePixelRatio = 1.0;
+    tester.view.physicalSize = const Size(800, 2000);
+    addTearDown(tester.view.reset);
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -48,6 +53,16 @@ void main() {
   /// through the shell drawer.
   Future<void> openSettings(WidgetTester tester) async {
     await tester.tap(find.byTooltip('Menu'));
+    await tester.pumpAndSettle();
+    // The Diet tile (Round 8) pushed the Settings tile below the default
+    // test viewport — drag the drawer list until it is built and visible.
+    await tester.scrollUntilVisible(
+      find.text('Settings'),
+      60,
+      scrollable: find
+          .descendant(of: find.byType(Drawer), matching: find.byType(Scrollable))
+          .first,
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.text('Settings'));
     await tester.pumpAndSettle();

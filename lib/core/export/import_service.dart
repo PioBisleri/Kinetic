@@ -207,6 +207,22 @@ class ImportService {
               serializer: backupSerializer,
             ),
         ]);
+    // Additive keys (Round 8): older backups simply carry no foods —
+    // the library starts empty and nothing is invented.
+    final foods = _decode(() => [
+          for (final j in doc['foods'] as List? ?? const [])
+            Food.fromJson(
+              j as Map<String, dynamic>,
+              serializer: backupSerializer,
+            ),
+        ]);
+    final foodLogs = _decode(() => [
+          for (final j in doc['foodLogs'] as List? ?? const [])
+            FoodLog.fromJson(
+              j as Map<String, dynamic>,
+              serializer: backupSerializer,
+            ),
+        ]);
 
     // ---- replace-all, parents before children (no FK constraints exist)
     await _db.transaction(() async {
@@ -219,6 +235,8 @@ class ImportService {
       await _db.delete(_db.muscleGradeHistory).go();
       await _db.delete(_db.bodyMetrics).go();
       await _db.delete(_db.volumeLandmarks).go();
+      await _db.delete(_db.foodLogs).go();
+      await _db.delete(_db.foods).go();
       await _db.delete(_db.exerciseMuscleMap).go();
       await _db.delete(_db.exercises).go();
 
@@ -258,6 +276,14 @@ class ImportService {
         await _db
             .into(_db.volumeLandmarks)
             .insertOnConflictUpdate(v.toCompanion(false));
+      }
+      for (final f in foods) {
+        await _db.into(_db.foods).insertOnConflictUpdate(f.toCompanion(false));
+      }
+      for (final l in foodLogs) {
+        await _db
+            .into(_db.foodLogs)
+            .insertOnConflictUpdate(l.toCompanion(false));
       }
     });
 

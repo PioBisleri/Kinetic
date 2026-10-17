@@ -89,9 +89,21 @@ void main() {
     }
     expect(find.text('APP'), findsOneWidget);
     expect(find.byKey(const Key('drawer-library')), findsOneWidget);
+    expect(find.byKey(const Key('drawer-diet')), findsOneWidget);
     expect(find.byKey(const Key('drawer-schedule')), findsOneWidget);
     expect(find.byKey(const Key('drawer-settings')), findsOneWidget);
-    expect(find.text('Kinetic 0.1.4 · offline-first'), findsOneWidget);
+    // One tile more than the viewport holds: scroll the (lazily built)
+    // tail into view.
+    final drawerScrollable = find
+        .descendant(of: find.byType(Drawer), matching: find.byType(Scrollable))
+        .first;
+    await tester.scrollUntilVisible(
+      find.text('Kinetic · offline-first'),
+      60,
+      scrollable: drawerScrollable,
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Kinetic · offline-first'), findsOneWidget);
 
     await endApp(tester);
   });
@@ -152,6 +164,17 @@ void main() {
     await tester.pumpAndSettle();
 
     await openDrawer(tester);
+    // The Diet tile pushed Settings below the fold (lazily built) in the
+    // test viewport; drag until it exists, then tap.
+    final drawerScrollable = find
+        .descendant(of: find.byType(Drawer), matching: find.byType(Scrollable))
+        .first;
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('drawer-settings')),
+      60,
+      scrollable: drawerScrollable,
+    );
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('drawer-settings')));
     await tester.pumpAndSettle();
     expect(find.widgetWithText(AppBar, 'Settings'), findsOneWidget);

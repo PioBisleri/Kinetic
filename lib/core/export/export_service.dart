@@ -26,6 +26,8 @@ String buildBackupJson({
   required List<WorkoutSet> sets,
   List<BodyMetric> bodyMetrics = const [],
   List<VolumeLandmark> volumeLandmarks = const [],
+  List<Food> foods = const [],
+  List<FoodLog> foodLogs = const [],
 }) {
   final mapByExercise = <String, List<ExerciseMuscleMapData>>{};
   for (final m in muscleMap) {
@@ -81,6 +83,12 @@ String buildBackupJson({
     ],
     'volumeLandmarks': [
       for (final v in volumeLandmarks) v.toJson(serializer: backupSerializer),
+    ],
+    'foods': [
+      for (final f in foods) f.toJson(serializer: backupSerializer),
+    ],
+    'foodLogs': [
+      for (final l in foodLogs) l.toJson(serializer: backupSerializer),
     ],
   };
   return const JsonEncoder.withIndent('  ').convert(doc);
@@ -164,6 +172,12 @@ class ExportService {
     final workouts = await _db.workouts.select().get();
     final bodyMetrics = await _db.bodyMetrics.select().get();
     final volumeLandmarks = await _db.volumeLandmarks.select().get();
+    final foods = await (_db.foods.select()
+          ..where((f) => f.deletedAt.isNull()))
+        .get();
+    final foodLogs = await (_db.foodLogs.select()
+          ..where((l) => l.deletedAt.isNull()))
+        .get();
 
     final routineIds = {for (final r in routines) r.id};
     final workoutIds = {for (final w in workouts) w.id};
@@ -184,6 +198,8 @@ class ExportService {
       sets: [for (final s in allSets) if (workoutIds.contains(s.workoutId)) s],
       bodyMetrics: bodyMetrics,
       volumeLandmarks: volumeLandmarks,
+      foods: foods,
+      foodLogs: foodLogs,
     );
   }
 

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:drift/drift.dart' hide isNotNull, isNull;
 import 'package:drift/native.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -557,6 +559,8 @@ void main() {
       expect(await db.select(db.muscleVolumeDaily).get(), isEmpty);
       expect(await db.select(db.bodyMetrics).get(), isEmpty);
       expect(await db.select(db.volumeLandmarks).get(), isEmpty);
+      expect(await db.select(db.foods).get(), isEmpty);
+      expect(await db.select(db.foodLogs).get(), isEmpty);
       expect(await db.select(db.profiles).get(), isEmpty);
 
       // …while the bundled catalogs come back, without custom rows.
@@ -565,6 +569,137 @@ void main() {
       expect(exercises.map((e) => e.id), contains('barbell-bench-press'));
       expect(exercises.where((e) => e.isCustom), isEmpty);
       expect(await db.select(db.muscleGroups).get(), isNotEmpty);
+    });
+
+    test('deleteAllData also wipes the nutrition data and logs', () async {
+      await db.foods.insertOnConflictUpdate(FoodsCompanion.insert(
+        id: 'food-keep-1',
+        name: 'Oats',
+        updatedAt: DateTime(2026, 9, 20),
+      ));
+      await db.foodLogs.insertOnConflictUpdate(FoodLogsCompanion.insert(
+        id: 'log-1',
+        dayKey: '2026-09-20',
+        name: 'Oats',
+        kcal: 300,
+        proteinG: 10,
+        carbsG: 60,
+        fatG: 5,
+        loggedAt: DateTime(2026, 9, 20, 10),
+        updatedAt: DateTime(2026, 9, 20),
+      ));
+      // A weigh-in/water row is a body-metric, wiped alongside them.
+      await logBodyWeight(db, 82.5, now: DateTime(2026, 9, 20));
+
+      await DeleteService(db).deleteAllData();
+
+      expect(await db.select(db.foods).get(), isEmpty);
+      expect(await db.select(db.foodLogs).get(), isEmpty);
+      expect(await db.select(db.bodyMetrics).get(), isEmpty);
+    });
+  });
+
+  group('nutrition backup (Round 8)', () {
+    test('export includes foods and foodLogs; import restores them verbatim',
+        () async {
+      final day = DateTime(2026, 9, 20, 10);
+      await db.foods.insertOnConflictUpdate(FoodsCompanion.insert(
+        id: 'food-1',
+        name: 'Whey',
+        brand: const Value('TestBrand'),
+        servingSize: const Value(30),
+        servingUnit: const Value('g'),
+        kcal: const Value(120),
+        proteinG: const Value(25),
+        carbsG: const Value(3),
+        fatG: const Value(1.5),
+        updatedAt: day,
+      ));
+      await db.foods.insertOnConflictUpdate(FoodsCompanion.insert(
+        id: 'food-dead',
+        name: 'Deleted Foods Are Not Exported',
+        updatedAt: day,
+        deletedAt: Value(day),
+      ));
+      await db.foodLogs.insertOnConflictUpdate(FoodLogsCompanion.insert(
+        id: 'log-1',
+        dayKey: '2026-09-20',
+        foodId: const Value('food-1'),
+        name: 'Whey',
+        servings: const Value(2),
+        kcal: 240,
+        proteinG: 50,
+        carbsG: 6,
+        fatG: 3,
+        loggedAt: day,
+        updatedAt: day,
+      ));
+
+      final json = await ExportService(db).buildJson();
+
+      // Tombstoned food rows are excluded from the export.
+      final foods = jsonDecode(json)['foods'] as List;
+      expect(foods.single['name'], 'Whey');
+      expect(foods.single['brand'], 'TestBrand');
+      expect(foods.single['servingSize'], 30.0);
+      expect(foods.single['servingUnit'], 'g');
+      final logs = jsonDecode(json)['foodLogs'] as List;
+      expect(logs.single['name'], 'Whey');
+      expect(logs.single['servings'], 2.0);
+      expect(logs.single['kcal'], 240.0);
+
+      // Simulate data loss, then restore.
+      await db.delete(db.foods).go();
+      await db.delete(db.foodLogs).go();
+      await ImportService(db).importJson(json);
+
+      final restoredFood =
+          await (db.foods.select()..where((f) => f.id.equals('food-1')))
+              .getSingle();
+      expect(restoredFood.kcal, 120);
+      expect(restoredFood.servingSize, 30);
+      expect(restoredFood.deletedAt, isNull);
+      final restoredLog =
+          await (db.foodLogs.select()..where((l) => l.id.equals('log-1')))
+              .getSingle();
+      expect(restoredLog.servings, 2);
+      expect(restoredLog.kcal, 240);
+      expect(restoredLog.foodId, 'food-1');
+
+      // Tombstones stay dead after an import, too.
+      expect(await (db.foods.select()..where((f) => f.id.equals('food-dead')))
+          .get(), isEmpty);
+    });
+
+    test('a backup written without foods/foodLogs imports as empty keys',
+        () async {
+      final day = DateTime(2026, 9, 20, 10);
+      final doc = <String, dynamic>{
+        'app': 'kinetic',
+        'format': 1,
+        'exportedAt': day.toIso8601String(),
+        'exercises': [
+          {
+            'id': 'barbell-bench-press',
+            'name': 'Barbell Bench Press',
+            'mechanics': 'compound',
+            'category': 'barbell',
+            'primaryMuscleId': 'chest',
+            'equipment': '[]',
+            'defaultMetric': 'weight_reps',
+            'animationKind': 'none',
+            'isCustom': false,
+            'updatedAt': day.toIso8601String(),
+          }
+        ],
+        'routines': <dynamic>[],
+        'workouts': <dynamic>[],
+      };
+      final summary =
+          await ImportService(db).importJson(jsonEncode(doc));
+      expect(summary.exercises, 1);
+      expect(await db.select(db.foods).get(), isEmpty);
+      expect(await db.select(db.foodLogs).get(), isEmpty);
     });
   });
 }

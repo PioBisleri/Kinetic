@@ -11,7 +11,9 @@ import 'package:cryptography/cryptography.dart';
 class SyncEncryption {
   static const _nonceLength = 12; // 96 bits for GCM
   static const _formatPlaintext = 1;
-  static const _formatEncrypted = 2;
+
+  /// The `format` marker an encrypted wire row carries.
+  static const formatEncrypted = 2;
 
   final SecretKey _key;
   final AesGcm _algorithm;
@@ -44,7 +46,7 @@ class SyncEncryption {
     final out = <String, dynamic>{
       ...row,
       'payload': base64Encode(blob),
-      'format': _formatEncrypted,
+      'format': formatEncrypted,
     };
     // Remove the encrypted columns from the top level — they live in payload.
     for (final key in payload.keys) {
@@ -62,7 +64,7 @@ class SyncEncryption {
   ) async {
     final format = row['format'];
     if (format == _formatPlaintext) return row;
-    if (format != _formatEncrypted) return row;
+    if (format != formatEncrypted) return row;
 
     final blob = base64Decode(row['payload'] as String);
     final nonce = blob.sublist(0, _nonceLength);
@@ -106,5 +108,7 @@ class SyncEncryption {
       'user_id',
     },
     'body_metrics': {'id', 'updated_at', 'synced_at', 'deleted_at', 'user_id'},
+    'foods': {'id', 'updated_at', 'synced_at', 'deleted_at', 'user_id'},
+    'food_logs': {'id', 'day_key', 'updated_at', 'synced_at', 'deleted_at', 'user_id'},
   };
 }

@@ -52,9 +52,63 @@ class Profiles extends Table with SyncColumns {
 /// One weigh-in per local calendar day (Round 6 / v6): the trend's data
 /// points. Keyed by `dayKey` ('2026-09-27'), so re-weighing today
 /// updates the row in place — locally and, via LWW, remotely.
+///
+/// v9 widened this into the daily health log: the same row also carries
+/// the day's water intake and step count (both nullable — a row exists
+/// only once a metric is first written, so partial days stay truthful).
 class BodyMetrics extends Table with SyncColumns {
   TextColumn get id => text()(); // local day key
   RealColumn get weightKg => real().nullable()();
+
+  // v9: hydration + steps (Round 8). Nullable, added by plain
+  // `ALTER TABLE` — no rebuild, no backfill.
+  IntColumn get waterMl => integer().nullable()();
+  IntColumn get steps => integer().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+// ------------------------------- nutrition ---------------------------------
+
+/// A reusable food in the user's own library (Round 8 / v9). Macros are
+/// **per serving**, where a serving is [servingSize] × [servingUnit]
+/// (g, ml, or piece). User-owned and synced like custom exercises;
+/// seeded/global rows have null `ownerId`.
+class Foods extends Table with SyncColumns {
+  TextColumn get id => text()(); // uuid, client-generated
+  TextColumn get name => text()();
+  TextColumn get brand => text().nullable()();
+  RealColumn get servingSize => real().withDefault(const Constant(100))();
+  TextColumn get servingUnit =>
+      text().withDefault(const Constant('g'))(); // g | ml | piece
+  RealColumn get kcal => real().withDefault(const Constant(0))();
+  RealColumn get proteinG => real().withDefault(const Constant(0))();
+  RealColumn get carbsG => real().withDefault(const Constant(0))();
+  RealColumn get fatG => real().withDefault(const Constant(0))();
+  BoolColumn get isCustom => boolean().withDefault(const Constant(true))();
+  TextColumn get ownerId => text().nullable()(); // null = shared/global row
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// One logged food serving per row (Round 8 / v9). Daily totals are
+/// summed on the fly — no rollup table. Macro values are a **snapshot**
+/// taken at log time, so later edits to the [Foods] row never rewrite
+/// history; `foodId` is nullable for ad-hoc entries without a library
+/// row, and `name` is snapshotted for the same reason.
+class FoodLogs extends Table with SyncColumns {
+  TextColumn get id => text()(); // uuid, client-generated
+  TextColumn get dayKey => text()(); // '2026-10-17'
+  TextColumn get foodId => text().nullable()();
+  TextColumn get name => text()(); // snapshot at log time
+  RealColumn get servings => real().withDefault(const Constant(1))();
+  RealColumn get kcal => real()();
+  RealColumn get proteinG => real()();
+  RealColumn get carbsG => real()();
+  RealColumn get fatG => real()();
+  DateTimeColumn get loggedAt => dateTime()();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -296,6 +350,8 @@ class MuscleGradeHistory extends Table {
   MuscleVolumeDaily,
   ExerciseHistory,
   MuscleGradeHistory,
+  Foods,
+  FoodLogs,
 ])
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(driftDatabase(name: 'kinetic'));
@@ -303,7 +359,19 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 8;
+  int get schemaVersion => 9;
+
+  /// `ALTER TABLE ADD COLUMN`, but only when the column is genuinely
+  /// missing — guard for the case where an earlier branch created the
+  /// table from the current (newest) schema, which would make a duplicate
+  /// add abort the whole upgrade.
+  Future<void> addColumnIfAbsent(TableInfo table, GeneratedColumn column) async {
+    final rows = await customSelect(
+      'PRAGMA table_info(${table.actualTableName})',
+    ).get();
+    if (rows.any((r) => r.data['name'] == column.name)) return;
+    await Migrator(this).addColumn(table, column);
+  }
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -388,6 +456,20 @@ class AppDatabase extends _$AppDatabase {
           if (from < 8 && to >= 8) {
             await customStatement('DROP TABLE IF EXISTS sync_queue');
           }
+
+          // v9: daily health log + nutrition (Round 8). Two nullable
+          // columns on body_metrics (water/steps — no backfill, absent
+          // until first written) plus two fresh tables. Create-only, so
+          // nothing is invented for history.
+          if (from < 9 && to >= 9) {
+            // The v6 branch above creates body_metrics from the CURRENT
+            // schema, so on a v≤5 → v9 replay the columns already exist
+            // when this branch runs — add only what is actually missing.
+            await addColumnIfAbsent(bodyMetrics, bodyMetrics.waterMl);
+            await addColumnIfAbsent(bodyMetrics, bodyMetrics.steps);
+            await m.createTable(foods);
+            await m.createTable(foodLogs);
+          }
         },
         beforeOpen: (details) async {
           await customStatement('PRAGMA foreign_keys = ON');
@@ -441,6 +523,29 @@ class AppDatabase extends _$AppDatabase {
       ..where((s) => s.workoutId.equals(workoutId))
       ..orderBy([(s) => OrderingTerm.asc(s.orderIndex)]);
     return query.get();
+  }
+
+  /// The day-metric row for [dayKey], null when nothing was logged yet.
+  Future<BodyMetric?> bodyMetricOnce(String dayKey) =>
+      (select(bodyMetrics)..where((b) => b.id.equals(dayKey)))
+          .getSingleOrNull();
+
+  /// Watch the user's food library. Ranking/typo-tolerant search is a
+  /// client-side concern handled via core/search/smart_search.dart, same
+  /// as the exercise catalog.
+  Stream<List<Food>> watchFoods() {
+    final query = select(foods)
+      ..where((f) => f.deletedAt.isNull())
+      ..orderBy([(f) => OrderingTerm.asc(f.name)]);
+    return query.watch();
+  }
+
+  /// Every food logged on [dayKey], newest first.
+  Stream<List<FoodLog>> watchFoodLogs(String dayKey) {
+    final query = select(foodLogs)
+      ..where((l) => l.dayKey.equals(dayKey) & l.deletedAt.isNull())
+      ..orderBy([(l) => OrderingTerm.desc(l.loggedAt)]);
+    return query.watch();
   }
 }
 

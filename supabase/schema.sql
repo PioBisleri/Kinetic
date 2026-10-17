@@ -109,7 +109,12 @@ create table if not exists public.routine_exercises (
   target_rpe     double precision,
   target_weight  double precision,
   rest_seconds   integer not null default 90,
-  is_warmup      boolean not null default false,
+  -- Per-type set counts (Round 3 / local schema v3). target_sets stays the
+  -- TOTAL; working = targetSets − warmup − drop − failure.
+  warmup_sets    integer not null default 0,
+  drop_sets      integer not null default 0,
+  failure_sets   integer not null default 0,
+  is_warmup      boolean not null default false, -- legacy v1/v2 wire flag
   notes          text,
   updated_at     timestamptz not null default now(),
   deleted_at     timestamptz,
@@ -166,6 +171,50 @@ create table if not exists public.body_metrics (
   user_id     uuid not null default auth.uid(),
   id          text not null, -- local day key 'YYYY-MM-DD'
   weight_kg   double precision,
+  -- Round 8 / local schema v9: daily health log widened (nullable).
+  water_ml    integer,
+  steps       integer,
+  updated_at  timestamptz not null default now(),
+  deleted_at  timestamptz,
+  format      integer not null default 1,
+  primary key (user_id, id)
+);
+
+-- ------------------------------- nutrition ---------------------------------
+-- Food library + daily log (Round 8 / local schema v9). Both sync flat,
+-- LWW with tombstones like everything else.
+
+create table if not exists public.foods (
+  user_id      uuid not null default auth.uid(),
+  id           text not null,
+  name         text not null,
+  brand        text,
+  serving_size double precision not null default 100,
+  serving_unit text not null default 'g', -- g | ml | piece
+  kcal         double precision not null default 0,
+  protein_g    double precision not null default 0,
+  carbs_g      double precision not null default 0,
+  fat_g        double precision not null default 0,
+  is_custom    boolean not null default true,
+  owner_id     text, -- 'local' for custom rows
+  updated_at   timestamptz not null default now(),
+  deleted_at   timestamptz,
+  format       integer not null default 1,
+  primary key (user_id, id)
+);
+
+create table if not exists public.food_logs (
+  user_id     uuid not null default auth.uid(),
+  id          text not null,
+  day_key     text not null, -- 'YYYY-MM-DD'
+  food_id     text,          -- null for ad-hoc entries
+  name        text not null, -- snapshot at log time
+  servings    double precision not null default 1,
+  kcal        double precision not null,
+  protein_g   double precision not null,
+  carbs_g     double precision not null,
+  fat_g       double precision not null,
+  logged_at   timestamptz not null,
   updated_at  timestamptz not null default now(),
   deleted_at  timestamptz,
   format      integer not null default 1,
@@ -180,6 +229,9 @@ create index if not exists exercises_updated_at_idx    on public.exercises      
 create index if not exists routines_updated_at_idx     on public.routines            (user_id, updated_at);
 create index if not exists workouts_updated_at_idx     on public.workouts            (user_id, updated_at);
 create index if not exists body_metrics_updated_at_idx on public.body_metrics        (user_id, updated_at);
+create index if not exists foods_updated_at_idx        on public.foods               (user_id, updated_at);
+create index if not exists food_logs_updated_at_idx    on public.food_logs           (user_id, updated_at);
+create index if not exists food_logs_day_idx           on public.food_logs           (user_id, day_key);
 create index if not exists exercise_map_exercise_idx   on public.exercise_muscle_map (user_id, exercise_id);
 create index if not exists routine_exercises_routine_idx on public.routine_exercises (user_id, routine_id);
 create index if not exists workout_sets_workout_idx    on public.workout_sets        (user_id, workout_id);
@@ -194,6 +246,8 @@ alter table public.routine_exercises   enable row level security;
 alter table public.workouts            enable row level security;
 alter table public.workout_sets        enable row level security;
 alter table public.body_metrics        enable row level security;
+alter table public.foods               enable row level security;
+alter table public.food_logs           enable row level security;
 
 do $$
 declare t text;
@@ -201,7 +255,7 @@ begin
   foreach t in array array[
     'profiles', 'exercises', 'exercise_muscle_map',
     'routines', 'routine_exercises', 'workouts', 'workout_sets',
-    'body_metrics'
+    'body_metrics', 'foods', 'food_logs'
   ] loop
     execute format(
       'drop policy if exists "own rows" on public.%I;' ||

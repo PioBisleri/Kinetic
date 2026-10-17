@@ -4,6 +4,26 @@
          the service falls back to inexact otherwise). -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
+    <!-- Step tracking (Round 8): the pedometer's step-counter sensor is
+         gated behind the activity-recognition permission; the app requests
+         it at runtime on first use. -->
+    <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION"/>
+    <!-- Live activity notification (Round 9): a persistent, low-importance
+         notification with today's steps / burned kcal / hydration, driven by
+         .KineticLiveService. The service type is `specialUse` — a health-type
+         foreground service is a *while-in-use* type, so Android stops it
+         once the app goes idle (~1 min in the background); specialUse has no
+         such limit and is the sanctioned kind for an all-day pedometer
+         notification (Play-review justification below; the app is
+         sideloaded, not listed). The FOREGROUND_SERVICE permissions are
+         only enforced from API 34; older builds ignore the type. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE"/>
+    <!-- Lets the app ask (via a system dialog) not to be power-throttled:
+         Samsung/others stop even a foreground service when the app is idle
+         unless it is exempt from battery optimization. -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/>
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <application
         android:label="Kinetic"
         android:name="${applicationName}"
@@ -42,6 +62,31 @@
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/kinetic_widget_info" />
+        </receiver>
+
+        <!-- Live activity notification (Round 9): ongoing steps/kcal/water
+             summary, updated from the step sensor while the app is closed.
+             Config, targets and the day's steps travel through
+             SharedPreferences; Dart merges the service's step count back
+             into body_metrics on resume. -->
+        <service
+            android:name=".KineticLiveService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Pedometer live activity: a persistent notification counts the user's steps via the step-counter sensor all day and shows steps / walking energy / hydration."/>
+        </service>
+        <!-- Re-arm the live notification after reboot / app update when the
+             user left it enabled (guarded by the activity-recognition
+             permission; fails silently otherwise). -->
+        <receiver android:name=".KineticLiveBootReceiver" android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED"/>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>
+                <action android:name="android.intent.action.QUICKBOOT_POWERON"/>
+                <action android:name="com.htc.intent.action.QUICKBOOT_POWERON"/>
+            </intent-filter>
         </receiver>
 
         <!-- Don't delete the meta-data below.
