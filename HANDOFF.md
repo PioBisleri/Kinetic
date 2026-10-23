@@ -2,8 +2,8 @@
 
 > Offline-first fitness tracker (Hevy-like), personal analytics only — **no social
 > features, ever**. This file exists so the project can move to another machine
-> without losing context. Last updated: **2026-10-17**, at **v0.1.5+5**,
-> schema **v9**, **343 tests green**, all CI runs **passing**.
+> without losing context. Last updated: **2026-10-23**, at **v0.1.6+7**,
+> schema **v9**, **356 tests green**, all CI runs **passing**.
 
 ---
 
@@ -11,12 +11,12 @@
 
 | Item | State |
 |---|---|
-| Version | `0.1.5+5` (`pubspec.yaml`) |
+| Version | `0.1.6+7` (`pubspec.yaml`) |
 | DB schema | **v9** (`AppDatabase.schemaVersion`) |
-| Tests | **343 passing**, 55 test files, `flutter analyze` clean |
-| Repo | `main` @ `9e33586`, Rounds 9 / 9.1 / 9.2 changes **uncommitted** |
+| Tests | **356 passing**, 57 test files, `flutter analyze` clean |
+| Repo | `main` @ `4a5c0a1` (Rounds 9 / 9.1 / 9.2 pushed); Round 10 **uncommitted** |
 | Remote | `origin` = `git@github.com:PioBisleri/Kinetic.git` (public) |
-| Pushed | everything **through `9e33586`** (this handoff doc) |
+| Pushed | everything **through `4a5c0a1`** (this handoff doc) |
 | CI | GitHub Actions `CI` — all runs `conclusion: success` (analyze + test on Flutter 3.47.5) |
 | Supabase | **project NOT live**, `supabase/schema.sql` **never applied** — encryption now wired end-to-end (v0.1.5, §9A) but unverified against a real server |
 | Device | `R9ZY305521H`; release APK signed with the **debug key** (intentional) |
@@ -458,6 +458,50 @@ Android 4×2 home-screen widget (volume/streak/next-up, tap boots logger).
     new `appearance_palette_test.dart` (swatch → ThemeData, segments,
     reset). 343 tests, analyze clean; APK rebuilt same
     `kinetic-v0.1.5.apk` (0.1.5+5).
+
+**Round 10 — History page (v0.1.6+7):**
+- New 5th bottom-nav tab **History** (`/history` shell branch + drawer
+  tile, tabs now Home · Routines · Analytics · History · Profile): a
+  day browser with a date bar (‹/› arrows, scrollable day-chip strip
+  `history-date-<key>`, calendar picker, "Today" jump) over six
+  sub-tabs `history-tab-all|workouts|steps|food|water|burned`. Read-only
+  — logging stays on Diet / the workout logger; today's row stays live.
+- Data layer `lib/features/history/`:
+  * `domain/day_history.dart` — pure math + record: `walkingKcal`
+    (constants **lockstep with `KineticLiveService.kt`**: 0.762 m/step,
+    1.036 kcal/kg/km), `workoutBurnKcal` (MET 4.5 × bodyweight ×
+    hours), `DayHistory` (metric row, food logs + totals, finished
+    sessions with set counts/cardio sec/burn, weigh-in delta chain).
+  * `history_providers.dart` — `dayHistoryProvider` (one fetch; invalidated
+    via `dayMetricProvider` + `foodLogsProvider` + `workoutSessionProvider`),
+    `weekBodyMetricsProvider` (7-day sparkline rows), shared
+    `weighInBefore()` helper.
+- Burn semantics (user decisions): **walking kcal only** (no BMR line),
+  workout burn at **MET 4.5**, steps/water are **daily totals** (no
+  per-session walk events — the sensor stores one tally per day).
+  Missing inputs render '—'; nothing is ever fabricated.
+- **Kotlin stride bug found & fixed while building this:** `STEP_M =
+  0.000762` held *km-per-step* while labeled "meters", and line 366
+  divided by 1000 again → the live-notification burned-kcal figure was
+  under-reported **1000×** (10k steps ≈ 0.6 kcal instead of ≈ 632).
+  Now `0.762` (m/step), matching `day_history.dart` — **both sides must
+  change together**.
+- Workout detail page (`workout_detail_page.dart`) gained an
+  "≈ N kcal estimated burn" line + MET footnote via `workoutBurnProvider`
+  (own-day weigh-in, else `weighInBefore`).
+- Gotchas hit: workout-strip card needs `SizedBox(height: 136)` (104
+  overflowed 7 px with a 2-line subtitle); adding a drawer/nav tile
+  pushes lower drawer entries out of the lazy `ListView` build window —
+  `drawer_test` and `weekly_plan_test` now `scrollUntilVisible` before
+  asserting/tapping the lower tiles; golden kcal values in tests are
+  631.5 (10k steps @80 kg) and 168.75 (1800 s @75 kg).
+- Tests: `history_providers_test.dart` (7: math goldens, empty day,
+  aggregation, midnight-spanning session buckets to start day, weigh-in
+  fallback, week window) + `history_page_test.dart` (6: header/tabs/empty
+  state, All composite, date arrows keep sub-tab, burned breakdown,
+  food list, date picker). **356 tests, analyze clean**; APK rebuilt as
+  `kinetic-v0.1.6.apk` (0.1.6+7 — build 7 upgrades over the device's
+  stray 0.1.6+6 install without a downgrade flag).
 
 ---
 

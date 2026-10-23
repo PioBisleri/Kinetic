@@ -2,7 +2,7 @@
 
 ![Flutter](https://img.shields.io/badge/Flutter-3.47-02569B?logo=flutter&logoColor=white)
 ![Dart](https://img.shields.io/badge/Dart-3.13-0175C2?logo=dart&logoColor=white)
-![tests](https://img.shields.io/badge/tests-343%20passing-22D3A5)
+![tests](https://img.shields.io/badge/tests-356%20passing-22D3A5)
 ![Android](https://img.shields.io/badge/platform-Android-3DDC84?logo=android&logoColor=white)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
@@ -279,6 +279,12 @@ assets/seed/                 19 muscle groups, 89 exercises
   icon-headed sections), a theme system (**Auto/Light/Dark** + **accent
   palette** swatches + reset-to-default), and Sync settings only shown
   when sync is built in
+- **Round 10 ✅ (v0.1.6)** History tab — a day browser for everything
+  the app records (workouts, steps, food, water, calories burned) with
+  a date picker, six sub-tabs and 7-day sparklines, walking/workout
+  calorie estimates (MET 4.5, no fabrication without a weigh-in), an
+  estimated-burn line on workout details, and a 1000× stride-math fix
+  in the live notification
 
 ## Roadmap
 
