@@ -84,16 +84,11 @@ void main() {
     expect(find.text('Offline-first training log'), findsOneWidget);
     expect(find.byKey(const Key('drawer-start-workout')), findsOneWidget);
     expect(find.text('NAVIGATE'), findsOneWidget);
-    for (var i = 0; i < 4; i++) {
+    for (var i = 0; i < 5; i++) {
       expect(find.byKey(Key('drawer-tab-$i')), findsOneWidget);
     }
-    expect(find.text('APP'), findsOneWidget);
-    expect(find.byKey(const Key('drawer-library')), findsOneWidget);
-    expect(find.byKey(const Key('drawer-diet')), findsOneWidget);
-    expect(find.byKey(const Key('drawer-schedule')), findsOneWidget);
-    expect(find.byKey(const Key('drawer-settings')), findsOneWidget);
-    // One tile more than the viewport holds: scroll the (lazily built)
-    // tail into view.
+    // The app destinations sit below the fold once the drawer carries
+    // five nav tiles — scroll the (lazily built) tail into view first.
     final drawerScrollable = find
         .descendant(of: find.byType(Drawer), matching: find.byType(Scrollable))
         .first;
@@ -103,6 +98,11 @@ void main() {
       scrollable: drawerScrollable,
     );
     await tester.pumpAndSettle();
+    expect(find.text('APP'), findsOneWidget);
+    expect(find.byKey(const Key('drawer-library')), findsOneWidget);
+    expect(find.byKey(const Key('drawer-diet')), findsOneWidget);
+    expect(find.byKey(const Key('drawer-schedule')), findsOneWidget);
+    expect(find.byKey(const Key('drawer-settings')), findsOneWidget);
     expect(find.text('Kinetic · offline-first'), findsOneWidget);
 
     await endApp(tester);

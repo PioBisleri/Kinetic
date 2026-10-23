@@ -50,6 +50,17 @@ void main() {
   Future<void> openSchedule(WidgetTester tester) async {
     await tester.tap(find.byTooltip('Menu'));
     await tester.pumpAndSettle();
+    // Five nav tiles push Schedule below the fold — the drawer's ListView
+    // is lazy, so scroll the tile into view before tapping it.
+    final drawerScrollable = find
+        .descendant(of: find.byType(Drawer), matching: find.byType(Scrollable))
+        .first;
+    await tester.scrollUntilVisible(
+      find.text('Schedule'),
+      60,
+      scrollable: drawerScrollable,
+    );
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Schedule'));
     await tester.pumpAndSettle();
   }

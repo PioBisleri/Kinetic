@@ -22,6 +22,7 @@ class WorkoutDetailPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final detail = ref.watch(workoutDetailProvider(workoutId));
+    final burn = ref.watch(workoutBurnProvider(workoutId)).value;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Workout history')),
@@ -45,6 +46,7 @@ class WorkoutDetailPage extends ConsumerWidget {
           return _Detail(
             detail: detail,
             unit: ref.watch(settingsProvider).unit,
+            burnKcal: burn,
           );
         },
       ),
@@ -53,10 +55,15 @@ class WorkoutDetailPage extends ConsumerWidget {
 }
 
 class _Detail extends StatelessWidget {
-  const _Detail({required this.detail, required this.unit});
+  const _Detail({
+    required this.detail,
+    required this.unit,
+    this.burnKcal,
+  });
 
   final WorkoutDetail detail;
   final UnitSystem unit;
+  final double? burnKcal;
 
   @override
   Widget build(BuildContext context) {
@@ -93,10 +100,33 @@ class _Detail extends StatelessWidget {
             borderRadius: BorderRadius.circular(6),
             border: Border.all(color: context.border),
           ),
-          child: Text(
-            '${detail.setCount} sets · '
-            '${compactNumber(kgToDisplay(detail.volumeKg, unit))} ${unitLabel(unit)} volume',
-            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '${detail.setCount} sets · '
+                '${compactNumber(kgToDisplay(detail.volumeKg, unit))} ${unitLabel(unit)} volume',
+                style: const TextStyle(
+                    fontWeight: FontWeight.w700, fontSize: 13.5),
+              ),
+              if (burnKcal != null) ...[
+                const SizedBox(height: 4),
+                Text(
+                  '≈ ${burnKcal!.round()} kcal estimated burn',
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w700,
+                    color: context.accent,
+                  ),
+                ),
+                Text(
+                  'MET 4.5 × bodyweight × $duration — estimate, '
+                  'rest included',
+                  style:
+                      TextStyle(fontSize: 11, color: context.textTertiary),
+                ),
+              ],
+            ],
           ),
         ),
         const SizedBox(height: 16),

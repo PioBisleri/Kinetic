@@ -2,7 +2,10 @@ import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/database/database.dart';
+import '../../../core/utils/day_key.dart';
 import '../../analytics/domain/analytics_math.dart';
+import '../../history/domain/day_history.dart';
+import '../../history/history_providers.dart';
 
 /// One exercise's block in the workout history detail page: the exercise's
 /// name plus every set row, in the order the session logged them.
@@ -105,4 +108,27 @@ final workoutDetailProvider =
     setCount: setCount,
     volumeKg: volumeKg,
   );
+});
+
+/// Estimated burn for the detail page's footer line: bodyweight on the
+/// session's start day (this day's weigh-in, else the nearest prior one)
+/// × MET × session hours. Null when no bodyweight is known anywhere —
+/// the page then shows no estimate at all rather than a guess.
+final workoutBurnProvider =
+    FutureProvider.family<double?, String>((ref, workoutId) async {
+  final db = ref.watch(databaseProvider);
+  final workout = await (db.workouts.select()
+        ..where((w) => w.id.equals(workoutId)))
+      .getSingleOrNull();
+  if (workout == null) return null;
+
+  final key = dayKey(workout.startedAt);
+  final own = await db.bodyMetricOnce(key);
+  final weight = own?.weightKg ?? (await weighInBefore(db, key))?.weightKg;
+  if (weight == null) return null;
+
+  final sec = workout.durationSec ??
+      workout.endedAt?.difference(workout.startedAt).inSeconds ??
+      0;
+  return workoutBurnKcal(sec, weight);
 });

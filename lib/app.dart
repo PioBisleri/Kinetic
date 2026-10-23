@@ -18,6 +18,7 @@ import 'features/analytics/analytics_page.dart';
 import 'features/home/home_page.dart';
 import 'features/home/home_screen_widget.dart';
 import 'features/health/live_activity_service.dart';
+import 'features/history/history_page.dart';
 import 'features/profile/profile_page.dart';
 import 'features/nutrition/diet_page.dart';
 import 'features/routines/exercise_detail_page.dart';
@@ -109,6 +110,11 @@ final _routerProvider = Provider<GoRouter>((ref) {
             GoRoute(
                 path: '/analytics',
                 builder: (context, state) => const AnalyticsPage()),
+          ]),
+          StatefulShellBranch(routes: [
+            GoRoute(
+                path: '/history',
+                builder: (context, state) => const HistoryPage()),
           ]),
           StatefulShellBranch(routes: [
             GoRoute(
@@ -331,6 +337,11 @@ class _AppShell extends ConsumerWidget {
             label: 'Analytics',
           ),
           NavigationDestination(
+            icon: Icon(Icons.history_outlined),
+            selectedIcon: Icon(Icons.history_rounded),
+            label: 'History',
+          ),
+          NavigationDestination(
             icon: Icon(Icons.person_outline_rounded),
             selectedIcon: Icon(Icons.person_rounded),
             label: 'Profile',
@@ -369,6 +380,7 @@ class KineticDrawer extends ConsumerWidget {
     (Icons.list_alt_rounded, Icons.playlist_add_check_circle_rounded,
         'Routines'),
     (Icons.insights_rounded, Icons.insights, 'Analytics'),
+    (Icons.history_outlined, Icons.history_rounded, 'History'),
     (Icons.person_outline_rounded, Icons.person_rounded, 'Profile'),
   ];
 

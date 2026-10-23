@@ -67,7 +67,7 @@ class KineticLiveService : Service(), SensorEventListener {
         const val KEY_ENABLED = "flutter.live_enabled"
 
         private const val TAG = "KineticLive"
-        private const val STEP_M = 0.000762 // meters per step, average stride
+        private const val STEP_M = 0.762 // meters per step, average stride (Round 10: was 0.000762 — a double km/m conversion that under-reported burn 1000×; lockstep with day_history.dart)
         private const val KCAL_PER_KG_KM = 1.036 // walking energy, kcal per kg per km
         private const val NOTIFY_MIN_INTERVAL_MS = 5000L
     }
