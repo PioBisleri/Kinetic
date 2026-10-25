@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+
 import '../../../core/widgets/app_dialog.dart';
+
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/database/database.dart';
+import '../../../core/ledger/ledger.dart';
 import '../../../core/settings/settings.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/weight_units.dart';
@@ -117,9 +120,7 @@ class _SetEditSheetState extends ConsumerState<SetEditSheet> {
     _weight = TextEditingController(
       text: i?.weightKg != null ? formatWeight(i!.weightKg!, unit) : '',
     );
-    _reps = TextEditingController(
-      text: i?.reps?.toString() ?? '',
-    );
+    _reps = TextEditingController(text: i?.reps?.toString() ?? '');
     _distance = TextEditingController(
       text: i?.distanceM != null ? i!.distanceM!.round().toString() : '',
     );
@@ -128,14 +129,11 @@ class _SetEditSheetState extends ConsumerState<SetEditSheet> {
           ? (i!.durationSec! / 60).toStringAsFixed(1)
           : '',
     );
-    _rpe = TextEditingController(
-      text: i?.rpe != null ? _fmtRpe(i!.rpe!) : '',
-    );
+    _rpe = TextEditingController(text: i?.rpe != null ? _fmtRpe(i!.rpe!) : '');
   }
 
-  static String _fmtRpe(double r) => r == r.roundToDouble()
-      ? r.toStringAsFixed(0)
-      : r.toStringAsFixed(1);
+  static String _fmtRpe(double r) =>
+      r == r.roundToDouble() ? r.toStringAsFixed(0) : r.toStringAsFixed(1);
 
   @override
   void dispose() {
@@ -150,8 +148,7 @@ class _SetEditSheetState extends ConsumerState<SetEditSheet> {
   void _bumpWeight(double direction) {
     final unit = ref.read(settingsProvider).unit;
     // Follow this exercise's progression override when set.
-    final increment =
-        widget.exercise.progressionIncrementKg ?? stepKg(unit);
+    final increment = widget.exercise.progressionIncrementKg ?? stepKg(unit);
     final current = _parseWeight();
     final next = (current ?? 0) + direction * increment;
     final clamped = next < 0 ? 0.0 : next;
@@ -172,8 +169,7 @@ class _SetEditSheetState extends ConsumerState<SetEditSheet> {
 
   /// RPE steps 0.5 on the 1–10 scale (empty field floors at 1).
   void _bumpRpe(double direction) {
-    final current =
-        double.tryParse(_rpe.text.trim().replaceAll(',', '.')) ?? 0;
+    final current = double.tryParse(_rpe.text.trim().replaceAll(',', '.')) ?? 0;
     final next = (current + direction * 0.5).clamp(1.0, 10.0).toDouble();
     setState(() {
       _draft.rpe = next;
@@ -221,9 +217,7 @@ class _SetEditSheetState extends ConsumerState<SetEditSheet> {
           ? null
           : double.tryParse(_rpe.text.trim().replaceAll(',', '.')),
       setType: _draft.setType,
-      distanceM: _isCardio
-          ? double.tryParse(_distance.text.trim())
-          : null,
+      distanceM: _isCardio ? double.tryParse(_distance.text.trim()) : null,
       durationSec: _isCardio
           ? ((double.tryParse(_durationMin.text.trim()) ?? 0) * 60).round()
           : null,
@@ -246,32 +240,56 @@ class _SetEditSheetState extends ConsumerState<SetEditSheet> {
         : 'New set';
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpace.x5,
+        AppSpace.x3,
+        AppSpace.x5,
+        AppSpace.x6,
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Center(
-            child: Container(
-              width: 36,
-              height: 4,
-              decoration: BoxDecoration(
-                color: context.border,
-                borderRadius: BorderRadius.circular(2),
+          Center(child: Container(width: 36, height: 3, color: context.border)),
+          const SizedBox(height: AppSpace.x4),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: AppType.h1.copyWith(
+                        color: context.textPrimary,
+                        fontSize: 28,
+                        height: 1,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      widget.exercise.name.toUpperCase(),
+                      style: AppType.metaSm.copyWith(
+                        color: context.textTertiary,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
               ),
-            ),
+              Text(
+                widget.setNumber != null
+                    ? widget.setNumber!.toString().padLeft(2, '0')
+                    : 'NEW',
+                style: AppType.meta.copyWith(color: context.accent),
+              ),
+            ],
           ),
-          const SizedBox(height: 16),
-          Text(
-            title,
-            style: const TextStyle(
-                fontSize: 20, fontWeight: FontWeight.w800, letterSpacing: -0.4),
-          ),
-          Text(
-            widget.exercise.name,
-            style: TextStyle(color: context.textSecondary),
-          ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpace.x3),
+          Rule(),
+          const SizedBox(height: AppSpace.x4),
           if (!_isCardio && widget.setNumber == null) ...[
             _SuggestionChip(
               exerciseId: widget.exercise.id,
@@ -285,39 +303,43 @@ class _SetEditSheetState extends ConsumerState<SetEditSheet> {
 
           if (!_isCardio) ...[
             Wrap(
-              spacing: 8,
+              spacing: 6,
+              runSpacing: 6,
               children: [
                 for (final (id, label) in _setTypes)
                   ChoiceChip(
-                    label: Text(label),
+                    label: Text(label.toUpperCase()),
                     selected: _draft.setType == id,
-                    onSelected: (_) =>
-                        setState(() => _draft.setType = id),
+                    onSelected: (_) => setState(() => _draft.setType = id),
                     showCheckmark: false,
-                    selectedColor: context.accent.withValues(alpha: 0.18),
-                    labelStyle: TextStyle(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppRadius.data),
+                      side: BorderSide(
+                        color: _draft.setType == id
+                            ? context.accent
+                            : context.border,
+                      ),
+                    ),
+                    selectedColor: context.accent.withValues(alpha: 0.10),
+                    backgroundColor: Colors.transparent,
+                    labelStyle: AppType.metaSm.copyWith(
                       color: _draft.setType == id
                           ? context.accent
                           : context.textSecondary,
-                      fontWeight: FontWeight.w600,
-                    ),
-                    side: BorderSide(
-                      color: _draft.setType == id
-                          ? context.accent
-                          : context.border,
                     ),
                   ),
               ],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpace.x4),
 
             _StepperRow(
               label: 'Weight',
               unit: weightLabel,
               controller: _weight,
               fieldKey: const Key('set-weight-input'),
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
               onMinus: () => _bumpWeight(-1),
               onPlus: () => _bumpWeight(1),
               onChanged: () => setState(() => _draft.weightKg = _parseWeight()),
@@ -338,20 +360,19 @@ class _SetEditSheetState extends ConsumerState<SetEditSheet> {
               hint: 'optional',
               controller: _rpe,
               fieldKey: const Key('set-rpe-input'),
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
               onMinus: () => _bumpRpe(-1),
               onPlus: () => _bumpRpe(1),
               onChanged: () => setState(
-                () => _draft.rpe =
-                    double.tryParse(_rpe.text.trim().replaceAll(',', '.')),
+                () => _draft.rpe = double.tryParse(
+                  _rpe.text.trim().replaceAll(',', '.'),
+                ),
               ),
             ),
             const SizedBox(height: 12),
-            PlateBar(
-              totalKg: _draft.weightKg ?? 0,
-              metric: plateMetric,
-            ),
+            PlateBar(totalKg: _draft.weightKg ?? 0, metric: plateMetric),
           ] else ...[
             _StepperRow(
               label: 'Distance',
@@ -362,8 +383,7 @@ class _SetEditSheetState extends ConsumerState<SetEditSheet> {
               onMinus: () => _bumpDistance(-1),
               onPlus: () => _bumpDistance(1),
               onChanged: () => setState(
-                () => _draft.distanceM =
-                    double.tryParse(_distance.text.trim()),
+                () => _draft.distanceM = double.tryParse(_distance.text.trim()),
               ),
             ),
             const SizedBox(height: 12),
@@ -372,37 +392,49 @@ class _SetEditSheetState extends ConsumerState<SetEditSheet> {
               unit: 'min',
               controller: _durationMin,
               fieldKey: const Key('set-duration-input'),
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
               onMinus: () => _bumpDuration(-1),
               onPlus: () => _bumpDuration(1),
               onChanged: () {
                 final v = double.tryParse(
-                    _durationMin.text.trim().replaceAll(',', '.'));
+                  _durationMin.text.trim().replaceAll(',', '.'),
+                );
                 setState(
-                  () => _draft.durationSec =
-                      v == null ? null : (v * 60).round(),
+                  () =>
+                      _draft.durationSec = v == null ? null : (v * 60).round(),
                 );
               },
             ),
           ],
 
-          const SizedBox(height: 24),
+          const SizedBox(height: AppSpace.x5),
           Row(
             children: [
               if (_hasExisting)
                 TextButton(
                   onPressed: () => Navigator.of(context).pop('delete'),
                   style: TextButton.styleFrom(
-                      foregroundColor: AppColors.heatHot),
-                  child: const Text('Delete'),
+                    foregroundColor: AppColors.heatHot,
+                    textStyle: AppType.meta.copyWith(letterSpacing: 1),
+                  ),
+                  child: const Text('DELETE'),
                 ),
               const Spacer(),
-              Expanded(
-                child: FilledButton(
+              SizedBox(
+                width: 190,
+                child: PushKey(
                   key: const Key('set-save'),
+                  label: 'Save Set',
+                  height: 48,
                   onPressed: _save,
-                  child: const Text('Save'),
+                  icon: LedgerGlyph(
+                    LedgerGlyphType.check,
+                    size: 14,
+                    strokeWidth: 2,
+                    color: onAccent(context.accent),
+                  ),
                 ),
               ),
             ],
@@ -424,8 +456,7 @@ class _SuggestionChip extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final unit = ref.watch(settingsProvider).unit;
-    final suggestion =
-        ref.watch(exerciseSuggestionProvider(exerciseId)).value;
+    final suggestion = ref.watch(exerciseSuggestionProvider(exerciseId)).value;
     if (suggestion == null) return const SizedBox.shrink();
 
     final icon = switch (suggestion.action) {
@@ -443,13 +474,11 @@ class _SuggestionChip extends ConsumerWidget {
         borderRadius: BorderRadius.circular(6),
         onTap: () => onApply(suggestion.weightKg),
         child: Container(
-          padding:
-              const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
           decoration: BoxDecoration(
             color: context.accent.withValues(alpha: 0.12),
             borderRadius: BorderRadius.circular(6),
-            border: Border.all(
-                color: context.accent.withValues(alpha: 0.4)),
+            border: Border.all(color: context.accent.withValues(alpha: 0.4)),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -528,19 +557,31 @@ class _StepperRow extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          '$label${hint != null ? ' · $hint' : ''}',
-          style: TextStyle(
-              fontSize: 12,
-              color: context.textSecondary,
-              fontWeight: FontWeight.w600),
-        ),
-        const SizedBox(height: 6),
         Row(
           children: [
-            _roundButton(
-                context, Icons.remove, onMinus, ValueKey('stepper-minus-$id')),
-            const SizedBox(width: 10),
+            Text(
+              label.toUpperCase(),
+              style: AppType.meta.copyWith(color: context.textSecondary),
+            ),
+            if (hint != null) ...[
+              const SizedBox(width: 6),
+              Text(
+                hint!.toUpperCase(),
+                style: AppType.metaSm.copyWith(color: context.textTertiary),
+              ),
+            ],
+          ],
+        ),
+        const SizedBox(height: 5),
+        Row(
+          children: [
+            _stepButton(
+              context,
+              Icons.remove,
+              onMinus,
+              ValueKey('stepper-minus-$id'),
+            ),
+            const SizedBox(width: AppSpace.x2),
             Expanded(
               child: TextField(
                 key: fieldKey,
@@ -551,40 +592,73 @@ class _StepperRow extends StatelessWidget {
                 inputFormatters: [
                   FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
                 ],
-                style: const TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.5,
-                    fontFeatures: [FontFeature.tabularFigures()]),
+                style: AppType.dataLg.copyWith(
+                  color: context.textPrimary,
+                  fontWeight: FontWeight.w700,
+                ),
                 decoration: InputDecoration(
                   hintText: '—',
+                  hintStyle: AppType.dataLg.copyWith(
+                    color: context.textTertiary,
+                  ),
                   suffixText: unit,
-                  suffixStyle:
-                      TextStyle(fontSize: 14, color: context.textSecondary),
+                  suffixStyle: AppType.metaSm.copyWith(
+                    color: context.textTertiary,
+                  ),
+                  filled: true,
+                  fillColor: context.surface,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 10,
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(AppRadius.input),
+                    borderSide: BorderSide(color: context.border),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(AppRadius.input),
+                    borderSide: BorderSide(color: context.border),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(AppRadius.input),
+                    borderSide: BorderSide(color: context.accent),
+                  ),
                 ),
               ),
             ),
-            const SizedBox(width: 10),
-            _roundButton(context, Icons.add, onPlus, ValueKey('stepper-plus-$id')),
+            const SizedBox(width: AppSpace.x2),
+            _stepButton(
+              context,
+              Icons.add,
+              onPlus,
+              ValueKey('stepper-plus-$id'),
+            ),
           ],
         ),
       ],
     );
   }
 
-  Widget _roundButton(BuildContext context, IconData icon, VoidCallback onTap,
-          [Key? key]) =>
-      IconButton(
-        key: key,
-        onPressed: onTap,
-        style: IconButton.styleFrom(
-          backgroundColor: context.surfaceElevated,
-          foregroundColor: context.textPrimary,
-          minimumSize: const Size(56, 56),
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(6),
-              side: BorderSide(color: context.border)),
+  Widget _stepButton(
+    BuildContext context,
+    IconData icon,
+    VoidCallback onTap, [
+    Key? key,
+  ]) => SizedBox(
+    width: 46,
+    height: 46,
+    child: IconButton(
+      key: key,
+      onPressed: onTap,
+      style: IconButton.styleFrom(
+        backgroundColor: context.surfaceElevated,
+        foregroundColor: context.textPrimary,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadius.data),
+          side: BorderSide(color: context.border),
         ),
-        icon: Icon(icon, size: 26),
-      );
+      ),
+      icon: Icon(icon, size: 21),
+    ),
+  );
 }

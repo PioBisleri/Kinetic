@@ -15,11 +15,10 @@ class LandmarkStore {
   /// where the user edited, the curated default everywhere else.
   static Map<String, Landmark> effective(
     Map<String, VolumeLandmark> overrides,
-  ) =>
-      {
-        for (final e in landmarkDefaults.entries)
-          e.key: _fromRow(overrides[e.key]) ?? e.value,
-      };
+  ) => {
+    for (final e in landmarkDefaults.entries)
+      e.key: _fromRow(overrides[e.key]) ?? e.value,
+  };
 
   static Landmark? _fromRow(VolumeLandmark? row) => row == null
       ? null
@@ -27,7 +26,9 @@ class LandmarkStore {
 
   /// Persist an edit (upsert). Callers validate with [Landmark.isValid].
   Future<void> save(String muscleId, Landmark lm) async {
-    await _db.into(_db.volumeLandmarks).insertOnConflictUpdate(
+    await _db
+        .into(_db.volumeLandmarks)
+        .insertOnConflictUpdate(
           VolumeLandmarksCompanion.insert(
             muscleId: muscleId,
             mevSets: lm.mev,

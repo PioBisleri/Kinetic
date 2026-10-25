@@ -49,12 +49,17 @@ void main() {
         overrides: [
           databaseProvider.overrideWithValue(db),
           sharedPreferencesProvider.overrideWithValue(prefs),
-          balancePairsProvider.overrideWith((_) => Future.value([
-                for (final p in (jsonDecode(
+          balancePairsProvider.overrideWith(
+            (_) => Future.value([
+              for (final p
+                  in (jsonDecode(
                         File('assets/seed/muscle_groups.json')
-                            .readAsStringSync())['balance_pairs'] as List))
-                  BalancePairConfig.fromJson(p as Map<String, dynamic>),
-              ])),
+                            .readAsStringSync(),
+                      )['balance_pairs']
+                      as List))
+                BalancePairConfig.fromJson(p as Map<String, dynamic>),
+            ]),
+          ),
         ],
         child: const KineticApp(),
       ),
@@ -71,35 +76,41 @@ void main() {
 
   Future<void> seedWorkout(DateTime day) async {
     final id = 'w-${seq++}';
-    await db.workouts.insertOnConflictUpdate(WorkoutsCompanion.insert(
-      id: id,
-      userId: 'local',
-      startedAt: day,
-      updatedAt: day,
-      status: const Value('completed'),
-      endedAt: Value(day.add(const Duration(hours: 1))),
-      durationSec: const Value(3600),
-      totalVolume: const Value(0),
-    ));
-    await db.workoutSets.insertOnConflictUpdate(WorkoutSetsCompanion.insert(
-      id: 's-$id',
-      workoutId: id,
-      exerciseId: 'barbell-bench-press',
-      orderIndex: 0,
-      setType: const Value('working'),
-      weightKg: const Value(60),
-      reps: const Value(5),
-      isCompleted: const Value(true),
-      loggedAt: Value(day),
-      updatedAt: day,
-    ));
+    await db.workouts.insertOnConflictUpdate(
+      WorkoutsCompanion.insert(
+        id: id,
+        userId: 'local',
+        startedAt: day,
+        updatedAt: day,
+        status: const Value('completed'),
+        endedAt: Value(day.add(const Duration(hours: 1))),
+        durationSec: const Value(3600),
+        totalVolume: const Value(0),
+      ),
+    );
+    await db.workoutSets.insertOnConflictUpdate(
+      WorkoutSetsCompanion.insert(
+        id: 's-$id',
+        workoutId: id,
+        exerciseId: 'barbell-bench-press',
+        orderIndex: 0,
+        setType: const Value('working'),
+        weightKg: const Value(60),
+        reps: const Value(5),
+        isCompleted: const Value(true),
+        loggedAt: Value(day),
+        updatedAt: day,
+      ),
+    );
     await RollupService(db).recomputeDay(day);
   }
 
   group('freshnessVerdict', () {
     test('never trained', () {
-      expect(GradeEngine.freshnessVerdict(double.infinity),
-          'Never trained — consistency starts at 0');
+      expect(
+        GradeEngine.freshnessVerdict(double.infinity),
+        'Never trained — consistency starts at 0',
+      );
     });
 
     test('fresh window (0–24h)', () {
@@ -109,8 +120,10 @@ void main() {
     });
 
     test('cooling (24–72h)', () {
-      expect(GradeEngine.freshnessVerdict(30),
-          'Cooling — trained 30h ago, credit is fading');
+      expect(
+        GradeEngine.freshnessVerdict(30),
+        'Cooling — trained 30h ago, credit is fading',
+      );
     });
 
     test('cold at and beyond the 72h window', () {
@@ -123,7 +136,13 @@ void main() {
     await seedWorkout(DateTime.now().subtract(const Duration(days: 1)));
     await pumpApp(tester);
 
-    await tester.scrollUntilVisible(find.byKey(const Key('grade-chest')), 200);
+    // The compact board previews six rows; open the full sheet to reach
+    // a muscle that may sit below the preview cutoff.
+    await tester.scrollUntilVisible(find.byKey(const Key('grades-all')), 200);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('grades-all')));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const Key('grade-chest')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('grade-chest')));
     await tester.pumpAndSettle();
@@ -162,11 +181,14 @@ void main() {
     expect(find.textContaining('Score = 0.40 × Volume'), findsOneWidget);
     expect(
       find.textContaining(
-          'S ≥ 90 · A ≥ 78 · B ≥ 64 · C ≥ 48 · D ≥ 30 · F below 30'),
+        'S ≥ 90 · A ≥ 78 · B ≥ 64 · C ≥ 48 · D ≥ 30 · F below 30',
+      ),
       findsOneWidget,
     );
-    expect(find.textContaining('computed on-device from your own logs'),
-        findsOneWidget);
+    expect(
+      find.textContaining('computed on-device from your own logs'),
+      findsOneWidget,
+    );
 
     Navigator.of(tester.element(find.text('How grades work'))).pop();
     await tester.pumpAndSettle();
@@ -174,8 +196,9 @@ void main() {
     await endApp(tester);
   });
 
-  testWidgets('breakdown sheet spells out the raw inputs and verdict',
-      (tester) async {
+  testWidgets('breakdown sheet spells out the raw inputs and verdict', (
+    tester,
+  ) async {
     final result = GradeEngine.grade(
       muscleId: 'chest',
       volumeKg30d: 2000,
@@ -215,10 +238,7 @@ void main() {
 
     expect(find.text('Chest'), findsOneWidget);
     expect(find.textContaining('pts'), findsWidgets); // score + components
-    expect(
-      find.text('2,000 kg in 30 days · target 34,640 kg'),
-      findsOneWidget,
-    );
+    expect(find.text('2,000 kg in 30 days · target 34,640 kg'), findsOneWidget);
     expect(
       find.text('Best e1RM 90 kg · standard 80 kg (1× bodyweight)'),
       findsOneWidget,
@@ -234,8 +254,9 @@ void main() {
     await tester.pump(const Duration(milliseconds: 1));
   });
 
-  testWidgets('suggestion why sheet highlights the active rule',
-      (tester) async {
+  testWidgets('suggestion why sheet highlights the active rule', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -261,10 +282,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Why this suggestion?'), findsOneWidget);
-    expect(
-      find.text('62.5 kg · Hit 10 reps last session'),
-      findsOneWidget,
-    );
+    expect(find.text('62.5 kg · Hit 10 reps last session'), findsOneWidget);
     expect(
       find.textContaining('Double progression — the four rules'),
       findsOneWidget,

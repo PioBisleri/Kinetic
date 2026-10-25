@@ -1,5 +1,4 @@
 import 'dart:async' show StreamSubscription, unawaited;
-import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,6 +7,7 @@ import 'package:home_widget/home_widget.dart';
 import 'package:quick_actions/quick_actions.dart';
 
 import 'core/database/database.dart';
+import 'core/ledger/ledger.dart';
 import 'core/notifications/weekly_reminder_service.dart';
 import 'core/notifications/water_reminder_service.dart';
 import 'core/navigation/shell_navigation.dart';
@@ -21,6 +21,8 @@ import 'features/health/live_activity_service.dart';
 import 'features/history/history_page.dart';
 import 'features/profile/profile_page.dart';
 import 'features/nutrition/diet_page.dart';
+import 'features/onboarding/onboarding_gate.dart';
+import 'features/onboarding/onboarding_page.dart';
 import 'features/routines/exercise_detail_page.dart';
 import 'features/routines/exercise_edit_page.dart';
 import 'features/routines/exercise_library_page.dart';
@@ -33,9 +35,15 @@ import 'features/workout/live_workout_page.dart';
 import 'features/workout/workout_detail_page.dart';
 
 final _routerProvider = Provider<GoRouter>((ref) {
+  final onboardingPending = ref.watch(onboardingPendingProvider);
   return GoRouter(
-    initialLocation: '/',
+    initialLocation: onboardingPending ? '/onboarding' : '/',
     routes: [
+      // First-run setup — full-screen, outside the shell.
+      GoRoute(
+        path: '/onboarding',
+        builder: (context, state) => const OnboardingPage(),
+      ),
       // Full-screen live logger — pushed over the shell, so no bottom nav.
       GoRoute(
         path: '/workout',
@@ -44,9 +52,8 @@ final _routerProvider = Provider<GoRouter>((ref) {
       // Read-only history viewer for a finished workout (Round 9).
       GoRoute(
         path: '/workout-history/:id',
-        builder: (context, state) => WorkoutDetailPage(
-          workoutId: state.pathParameters['id']!,
-        ),
+        builder: (context, state) =>
+            WorkoutDetailPage(workoutId: state.pathParameters['id']!),
       ),
       // Exercise catalog browser — also full-screen.
       GoRoute(
@@ -60,9 +67,8 @@ final _routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/library/:id/edit',
-        builder: (context, state) => ExerciseEditPage(
-          exerciseId: state.pathParameters['id'],
-        ),
+        builder: (context, state) =>
+            ExerciseEditPage(exerciseId: state.pathParameters['id']),
       ),
       // Exercise detail: animation + weighted muscle metadata.
       GoRoute(
@@ -81,10 +87,7 @@ final _routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const WeeklyPlanPage(),
       ),
       // Diet: daily macros, water, food library.
-      GoRoute(
-        path: '/diet',
-        builder: (context, state) => const DietPage(),
-      ),
+      GoRoute(path: '/diet', builder: (context, state) => const DietPage()),
       // Routine builder routes ('new' must precede ':id' to match first).
       GoRoute(
         path: '/routines/new',
@@ -98,29 +101,43 @@ final _routerProvider = Provider<GoRouter>((ref) {
       StatefulShellRoute.indexedStack(
         builder: (context, state, shell) => _AppShell(shell: shell),
         branches: [
-          StatefulShellBranch(routes: [
-            GoRoute(path: '/', builder: (context, state) => const HomePage()),
-          ]),
-          StatefulShellBranch(routes: [
-            GoRoute(
+          StatefulShellBranch(
+            routes: [
+              GoRoute(path: '/', builder: (context, state) => const HomePage()),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
                 path: '/routines',
-                builder: (context, state) => const RoutinesPage()),
-          ]),
-          StatefulShellBranch(routes: [
-            GoRoute(
+                builder: (context, state) => const RoutinesPage(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
                 path: '/analytics',
-                builder: (context, state) => const AnalyticsPage()),
-          ]),
-          StatefulShellBranch(routes: [
-            GoRoute(
+                builder: (context, state) => const AnalyticsPage(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
                 path: '/history',
-                builder: (context, state) => const HistoryPage()),
-          ]),
-          StatefulShellBranch(routes: [
-            GoRoute(
+                builder: (context, state) => const HistoryPage(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
                 path: '/profile',
-                builder: (context, state) => const ProfilePage()),
-          ]),
+                builder: (context, state) => const ProfilePage(),
+              ),
+            ],
+          ),
         ],
       ),
     ],
@@ -171,7 +188,9 @@ class _KineticAppState extends ConsumerState<KineticApp>
     try {
       final s = ref.read(settingsProvider);
       if (!s.reminderEnabled) return;
-      await ref.read(weeklyReminderProvider).schedule(
+      await ref
+          .read(weeklyReminderProvider)
+          .schedule(
             weekday: s.reminderWeekday,
             hour: s.reminderHour,
             minute: s.reminderMinute,
@@ -185,7 +204,9 @@ class _KineticAppState extends ConsumerState<KineticApp>
     try {
       final s = ref.read(settingsProvider);
       if (!s.waterReminderEnabled) return;
-      await ref.read(waterReminderProvider).schedule(
+      await ref
+          .read(waterReminderProvider)
+          .schedule(
             startHour: s.waterStartHour,
             endHour: s.waterEndHour,
             intervalMin: s.waterIntervalMin,
@@ -228,9 +249,11 @@ class _KineticAppState extends ConsumerState<KineticApp>
   /// is guarded — the channel is absent in widget tests.
   void _initHomeWidget() {
     try {
-      unawaited(HomeWidget.initiallyLaunchedFromHomeWidget()
-          .then(_onWidgetLaunch)
-          .catchError((Object _) {}));
+      unawaited(
+        HomeWidget.initiallyLaunchedFromHomeWidget()
+            .then(_onWidgetLaunch)
+            .catchError((Object _) {}),
+      );
       _widgetClickSub = HomeWidget.widgetClicked.listen(
         _onWidgetLaunch,
         onError: (Object _) {},
@@ -305,62 +328,28 @@ class _AppShell extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       key: ref.watch(shellScaffoldKeyProvider),
-      // Light scrim: the drawer is frosted glass, so the page behind it
-      // should stay visible (blurred) instead of being crushed to black.
-      drawerScrimColor: Colors.black.withValues(alpha: 0.35),
+      // The drawer is an opaque ledger page; dim the shell behind it so the
+      // index reads as a separate sheet rather than a floating overlay.
+      drawerScrimColor: Colors.black.withValues(alpha: 0.45),
       drawer: KineticDrawer(
         currentIndex: shell.currentIndex,
-        onBranchSelected: (index) => shell.goBranch(
-          index,
-          initialLocation: index == shell.currentIndex,
-        ),
+        onBranchSelected: (index) =>
+            shell.goBranch(index, initialLocation: index == shell.currentIndex),
       ),
       body: shell,
-      bottomNavigationBar: NavigationBar(
+      bottomNavigationBar: AppBottomNav(
         selectedIndex: shell.currentIndex,
-        onDestinationSelected: (index) =>
+        onSelected: (index) =>
             shell.goBranch(index, initialLocation: index == shell.currentIndex),
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.play_circle_outline_rounded),
-            selectedIcon: Icon(Icons.play_circle_rounded),
-            label: 'Home',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.list_alt_rounded),
-            selectedIcon: Icon(Icons.playlist_add_check_circle_rounded),
-            label: 'Routines',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.insights_rounded),
-            selectedIcon: Icon(Icons.insights),
-            label: 'Analytics',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.history_outlined),
-            selectedIcon: Icon(Icons.history_rounded),
-            label: 'History',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.person_outline_rounded),
-            selectedIcon: Icon(Icons.person_rounded),
-            label: 'Profile',
-          ),
-        ],
       ),
     );
   }
 }
 
-/// Left drawer on the shell — a frosted-glass panel: translucent tint over
-/// a blurred snapshot of the current tab, colored entirely from the app's
-/// semantic tokens (dark/light/AMOLED all follow automatically).
-///
-/// Contents: a Start Workout button, the four tabs (mirroring the bottom
-/// bar so the drawer never feels empty), and the non-tab destinations —
-/// exercise library, weekly plan, settings. Drawer content is only built
-/// while open (Scaffold latches it), so the tab labels here never collide
-/// with the bottom bar's in widget tests.
+/// Left drawer on the shell — an opaque ledger index rather than a floating
+/// menu. It mirrors the tabs, exposes the non-tab destinations, and keeps the
+/// blank-session action at the top. Content is only built while open, so the
+/// tab labels never collide with the bottom bar in widget tests.
 class KineticDrawer extends ConsumerWidget {
   const KineticDrawer({
     super.key,
@@ -374,70 +363,89 @@ class KineticDrawer extends ConsumerWidget {
   /// Hands the index back to the shell's [StatefulNavigationShell].
   final ValueChanged<int> onBranchSelected;
 
-  /// (unselected icon, selected icon, label) — mirrors the bottom bar.
-  static const _tabs = [
-    (Icons.play_circle_outline_rounded, Icons.play_circle_rounded, 'Home'),
-    (Icons.list_alt_rounded, Icons.playlist_add_check_circle_rounded,
-        'Routines'),
-    (Icons.insights_rounded, Icons.insights, 'Analytics'),
-    (Icons.history_outlined, Icons.history_rounded, 'History'),
-    (Icons.person_outline_rounded, Icons.person_rounded, 'Profile'),
+  static const _tabs = ['Home', 'Routines', 'Analytics', 'History', 'Profile'];
+
+  static const _routes = [
+    ('LIB', 'Exercise Library', '/library'),
+    ('DIET', 'Diet', '/diet'),
+    ('WK', 'Schedule', '/schedule'),
+    ('SET', 'Settings', '/settings'),
   ];
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Drawer(
-      backgroundColor: Colors.transparent,
+      backgroundColor: context.background,
       elevation: 0,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
-      child: ClipRect(
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-          // The tint IS a Material: ListTiles paint their background and
-          // ink splashes on the nearest Material ancestor, so a plain
-          // ColoredBox here would hide both (framework assertion).
-          child: Material(
-            color: context.surface.withValues(alpha: 0.60),
-            child: SafeArea(
-              child: ListView(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                children: [
-                  _header(context),
-                  _startWorkoutButton(context, ref),
-                  const Divider(height: 1),
-                  _sectionLabel(context, 'Navigate'),
-                  for (var i = 0; i < _tabs.length; i++)
-                    _tabTile(context, i),
-                  const Divider(height: 1),
-                  _sectionLabel(context, 'App'),
-                  _routeTile(
-                    context,
-                    icon: Icons.fitness_center_outlined,
-                    title: 'Exercise Library',
-                    path: '/library',
-                  ),
-                  _routeTile(
-                    context,
-                    icon: Icons.restaurant_outlined,
-                    title: 'Diet',
-                    path: '/diet',
-                  ),
-                  _routeTile(
-                    context,
-                    icon: Icons.calendar_view_week_outlined,
-                    title: 'Schedule',
-                    path: '/schedule',
-                  ),
-                  _routeTile(
-                    context,
-                    icon: Icons.settings_outlined,
-                    title: 'Settings',
-                    path: '/settings',
-                  ),
-                  _versionFooter(context),
-                ],
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          border: Border(right: BorderSide(color: context.border)),
+        ),
+        child: SafeArea(
+          child: Column(
+            children: [
+              _header(context),
+              Rule(),
+              Expanded(
+                child: ListView(
+                  padding: EdgeInsets.zero,
+                  children: [
+                    const SizedBox(height: AppSpace.x3),
+                    _sectionHead(context, '00', 'Session', 'START'),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(
+                        AppSpace.x5,
+                        AppSpace.x3,
+                        AppSpace.x5,
+                        0,
+                      ),
+                      child: PushKey(
+                        key: const Key('drawer-start-workout'),
+                        label: 'Start Workout',
+                        height: 50,
+                        onPressed: () => _startWorkout(context, ref),
+                        icon: LedgerGlyph(
+                          LedgerGlyphType.play,
+                          size: 15,
+                          strokeWidth: 2,
+                          color: onAccent(context.accent),
+                        ),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(
+                        AppSpace.x5,
+                        AppSpace.x2,
+                        AppSpace.x5,
+                        AppSpace.x2,
+                      ),
+                      child: Text(
+                        'Blank session',
+                        style: AppType.metaSm.copyWith(
+                          color: context.textTertiary,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: AppSpace.x4),
+                    _sectionHead(context, '01', 'Navigate', '05'),
+                    for (var i = 0; i < _tabs.length; i++) _tabTile(context, i),
+                    const SizedBox(height: AppSpace.x4),
+                    _sectionHead(context, '02', 'App', 'TOOLS'),
+                    for (final route in _routes)
+                      _routeTile(
+                        context,
+                        code: route.$1,
+                        title: route.$2,
+                        path: route.$3,
+                      ),
+                    const SizedBox(height: AppSpace.x5),
+                  ],
+                ),
               ),
-            ),
+              Rule(),
+              _versionFooter(context),
+            ],
           ),
         ),
       ),
@@ -445,37 +453,57 @@ class KineticDrawer extends ConsumerWidget {
   }
 
   Widget _header(BuildContext context) => Padding(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+    padding: const EdgeInsets.fromLTRB(
+      AppSpace.x5,
+      AppSpace.x4,
+      AppSpace.x5,
+      AppSpace.x4,
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'KINETIC',
+          style: AppType.h1.copyWith(
+            fontSize: 26,
+            letterSpacing: 3.2,
+            height: 1,
+          ),
+        ),
+        const SizedBox(height: AppSpace.x2),
+        Text(
+          'Offline-first training log',
+          style: AppType.bodySm.copyWith(color: context.textSecondary),
+        ),
+        const SizedBox(height: AppSpace.x3),
+        Row(
           children: [
+            Stamp('Local only', color: context.textTertiary, rotate: false),
+            const Spacer(),
             Text(
-              'KINETIC',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 2,
-                color: context.textPrimary,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Offline-first training log',
-              style: TextStyle(fontSize: 13, color: context.textSecondary),
+              'FIELD / 02',
+              style: AppType.metaSm.copyWith(color: context.textTertiary),
             ),
           ],
         ),
-      );
+      ],
+    ),
+  );
 
-  Widget _startWorkoutButton(BuildContext context, WidgetRef ref) => Padding(
-        padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-        child: FilledButton.icon(
-          key: const Key('drawer-start-workout'),
-          onPressed: () => _startWorkout(context, ref),
-          icon: const Icon(Icons.play_arrow_rounded),
-          label: const Text('Start Workout'),
-        ),
-      );
+  Widget _sectionHead(
+    BuildContext context,
+    String index,
+    String title,
+    String meta,
+  ) => Padding(
+    padding: const EdgeInsets.fromLTRB(
+      AppSpace.x5,
+      0,
+      AppSpace.x5,
+      AppSpace.x2,
+    ),
+    child: SectionHead(index: index, title: title, meta: meta),
+  );
 
   /// Same contract as the home-screen quick action: boot (or resume) a
   /// session, then land on the logger — never stacking a second page.
@@ -492,71 +520,153 @@ class KineticDrawer extends ConsumerWidget {
     if (router.state.uri.path != '/workout') router.push('/workout');
   }
 
-  Widget _sectionLabel(BuildContext context, String title) => Padding(
-        padding: const EdgeInsets.fromLTRB(20, 14, 20, 6),
-        child: Text(
-          title.toUpperCase(),
-          style: Theme.of(context)
-              .textTheme
-              .labelSmall!
-              .copyWith(color: context.textTertiary),
-        ),
-      );
-
   Widget _tabTile(BuildContext context, int index) {
-    final (icon, selectedIcon, label) = _tabs[index];
+    final label = _tabs[index];
     final active = index == currentIndex;
-    return ListTile(
-      key: Key('drawer-tab-$index'),
-      dense: true,
-      leading: Icon(
-        active ? selectedIcon : icon,
-        size: 22,
-        color: active ? context.accent : context.textSecondary,
-      ),
-      title: Text(
-        label,
-        style: TextStyle(
-          color: active ? context.textPrimary : context.textSecondary,
-          fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+    return Semantics(
+      selected: active,
+      child: Material(
+        color: active
+            ? context.accent.withValues(alpha: 0.07)
+            : Colors.transparent,
+        child: InkWell(
+          key: Key('drawer-tab-$index'),
+          onTap: () {
+            Scaffold.of(context).closeDrawer();
+            onBranchSelected(index);
+          },
+          splashColor: context.accent.withValues(alpha: 0.06),
+          child: Container(
+            height: 48,
+            decoration: BoxDecoration(
+              border: Border(
+                left: BorderSide(
+                  color: active ? context.accent : Colors.transparent,
+                  width: 2,
+                ),
+              ),
+            ),
+            padding: const EdgeInsets.fromLTRB(18, 0, AppSpace.x5, 0),
+            child: Row(
+              children: [
+                LedgerGlyph(
+                  tabGlyph(index),
+                  size: 19,
+                  color: active ? context.accent : context.textSecondary,
+                ),
+                const SizedBox(width: AppSpace.x3),
+                Expanded(
+                  child: Text(
+                    label,
+                    style: AppType.body.copyWith(
+                      color: active
+                          ? context.textPrimary
+                          : context.textSecondary,
+                      fontWeight: active ? FontWeight.w600 : FontWeight.w400,
+                    ),
+                  ),
+                ),
+                Text(
+                  '0${index + 1}',
+                  style: AppType.metaSm.copyWith(
+                    color: active ? context.accent : context.textTertiary,
+                  ),
+                ),
+                if (active) ...[
+                  const SizedBox(width: AppSpace.x2),
+                  Transform.rotate(
+                    angle: 0.785398,
+                    child: Container(
+                      width: 5,
+                      height: 5,
+                      color: context.accent,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
         ),
       ),
-      onTap: () {
-        Scaffold.of(context).closeDrawer();
-        onBranchSelected(index);
-      },
     );
   }
 
   Widget _routeTile(
     BuildContext context, {
-    required IconData icon,
+    required String code,
     required String title,
     required String path,
-  }) =>
-      ListTile(
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
         key: Key('drawer-${path.replaceAll('/', '')}'),
-        dense: true,
-        leading: Icon(icon, size: 22, color: context.textSecondary),
-        title: Text(
-          title,
-          style: TextStyle(
-            color: context.textPrimary,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
         onTap: () {
           // The drawer is part of the shell scaffold, not a route.
           Scaffold.of(context).closeDrawer();
           context.push(path);
         },
-      );
+        splashColor: context.accent.withValues(alpha: 0.06),
+        child: Container(
+          height: 48,
+          padding: const EdgeInsets.fromLTRB(AppSpace.x5, 0, AppSpace.x5, 0),
+          decoration: BoxDecoration(
+            border: Border(bottom: BorderSide(color: context.border)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 36,
+                height: 22,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  border: Border.all(color: context.border),
+                  borderRadius: BorderRadius.circular(AppRadius.data),
+                ),
+                child: Text(
+                  code,
+                  style: AppType.metaSm.copyWith(color: context.textTertiary),
+                ),
+              ),
+              const SizedBox(width: AppSpace.x3),
+              Expanded(
+                child: Text(
+                  title,
+                  style: AppType.body.copyWith(color: context.textPrimary),
+                ),
+              ),
+              LedgerGlyph(
+                LedgerGlyphType.chevronRight,
+                size: 12,
+                color: context.textTertiary,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   Widget _versionFooter(BuildContext context) => Padding(
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
-        child: Text(
-          'Kinetic · offline-first',
-          style: TextStyle(fontSize: 12, color: context.textTertiary),
+    padding: const EdgeInsets.fromLTRB(
+      AppSpace.x5,
+      AppSpace.x3,
+      AppSpace.x5,
+      AppSpace.x3,
+    ),
+    child: Row(
+      children: [
+        Expanded(
+          child: Text(
+            'Kinetic · offline-first',
+            style: AppType.metaSm.copyWith(color: context.textTertiary),
+          ),
         ),
-      );
+        Text(
+          'NO CLOUD',
+          style: AppType.metaSm.copyWith(color: context.textTertiary),
+        ),
+      ],
+    ),
+  );
 }

@@ -1,4 +1,4 @@
-import 'package:drift/drift.dart';
+import 'package:drift/drift.dart' hide isNull;
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,8 +7,8 @@ import 'package:kinetic/app.dart';
 import 'package:kinetic/core/database/database.dart';
 import 'package:kinetic/core/database/seed_service.dart';
 import 'package:kinetic/core/settings/settings.dart';
-import 'package:kinetic/features/profile/profile_page.dart';
 import 'package:kinetic/features/routines/application/routine_repository.dart';
+import 'package:kinetic/features/settings/settings_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -55,23 +55,37 @@ void main() {
     await tester.pump(const Duration(milliseconds: 1));
   }
 
-  /// All mounted tabs stay alive in the shell and the bodyweight TextField
-  /// has its own internal Scrollable, so scroll helpers can't just look for
-  /// a [Scrollable] — drag the Profile page's [ListView] itself instead,
-  /// until [target] is built (ListView children below the fold aren't).
-  Future<void> scrollProfileUntil(
+  Future<void> scrollSettingsUntil(
     WidgetTester tester,
     Finder target, {
-    int maxDrags = 8,
+    int maxDrags = 12,
   }) async {
     final list = find.descendant(
-      of: find.byType(ProfilePage),
+      of: find.byType(SettingsPage),
       matching: find.byType(ListView),
     );
     for (var i = 0; i < maxDrags && target.evaluate().isEmpty; i++) {
       await tester.drag(list, const Offset(0, -300));
       await tester.pumpAndSettle();
     }
+  }
+
+  Future<void> openSettings(WidgetTester tester) async {
+    await tester.tap(find.byTooltip('Menu'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Settings'),
+      60,
+      scrollable: find
+          .descendant(
+            of: find.byType(Drawer),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Settings'));
+    await tester.pumpAndSettle();
   }
 
   testWidgets('seeds the exercise catalog on first launch', (tester) async {
@@ -93,8 +107,33 @@ void main() {
     await endApp(tester);
   });
 
-  testWidgets('navigates to Routines and lists seeded exercises',
-      (tester) async {
+  testWidgets('profile header fits a phone-width viewport', (tester) async {
+    tester.view.devicePixelRatio = 1.0;
+    tester.view.physicalSize = const Size(360, 800);
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          databaseProvider.overrideWithValue(db),
+          sharedPreferencesProvider.overrideWithValue(prefs),
+        ],
+        child: const KineticApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Profile'));
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('LOCAL RECORD'), findsOneWidget);
+    expect(find.text('SETTINGS → DATA'), findsOneWidget);
+    await endApp(tester);
+  });
+
+  testWidgets('navigates to Routines and lists seeded exercises', (
+    tester,
+  ) async {
     await pumpApp(tester);
 
     await tester.tap(find.text('Routines'));
@@ -134,16 +173,19 @@ void main() {
     await endApp(tester);
   });
 
-  testWidgets('full logging flow: start → add exercise → log set → rest',
-      (tester) async {
+  testWidgets('full logging flow: start → add exercise → log set → rest', (
+    tester,
+  ) async {
     await pumpApp(tester);
 
     // Home → start a session → live logger opens.
     await tester.tap(find.text('Start Workout'));
     await tester.pumpAndSettle();
     expect(find.text('Finish'), findsOneWidget);
-    expect(find.text('No exercises yet.\nAdd your first exercise to begin.'),
-        findsOneWidget);
+    expect(
+      find.text('No exercises yet.\nAdd your first exercise to begin.'),
+      findsOneWidget,
+    );
 
     // Add an exercise through the searchable sheet.
     await tester.tap(find.byKey(const Key('add-exercise-empty')));
@@ -158,8 +200,7 @@ void main() {
     // Log a set via the big-target editor.
     await tester.tap(find.byKey(const Key('add-set-barbell-bench-press')));
     await tester.pumpAndSettle();
-    await tester.enterText(
-        find.byKey(const Key('set-weight-input')), '60');
+    await tester.enterText(find.byKey(const Key('set-weight-input')), '60');
     await tester.enterText(find.byKey(const Key('set-reps-input')), '5');
     await tester.ensureVisible(find.byKey(const Key('set-save')));
     await tester.pumpAndSettle();
@@ -179,8 +220,9 @@ void main() {
     await endApp(tester);
   });
 
-  testWidgets('remove exercise asks for confirmation before deleting',
-      (tester) async {
+  testWidgets('remove exercise asks for confirmation before deleting', (
+    tester,
+  ) async {
     await pumpApp(tester);
 
     await tester.tap(find.text('Start Workout'));
@@ -195,8 +237,7 @@ void main() {
     // Log a set so the dialog can report the count.
     await tester.tap(find.byKey(const Key('add-set-barbell-bench-press')));
     await tester.pumpAndSettle();
-    await tester.enterText(
-        find.byKey(const Key('set-weight-input')), '60');
+    await tester.enterText(find.byKey(const Key('set-weight-input')), '60');
     await tester.enterText(find.byKey(const Key('set-reps-input')), '5');
     await tester.ensureVisible(find.byKey(const Key('set-save')));
     await tester.pumpAndSettle();
@@ -230,8 +271,9 @@ void main() {
     await endApp(tester);
   });
 
-  testWidgets('suggestion chip offers the next weight from prior sessions',
-      (tester) async {
+  testWidgets('suggestion chip offers the next weight from prior sessions', (
+    tester,
+  ) async {
     await pumpApp(tester);
 
     // --- session one: log 60 × 10 and finish -----------------------------
@@ -283,8 +325,9 @@ void main() {
     // Tapping the chip prefills the weight field…
     await tester.tap(find.byKey(const Key('apply-suggestion')));
     await tester.pumpAndSettle();
-    final weightField =
-        tester.widget<TextField>(find.byKey(const Key('set-weight-input')));
+    final weightField = tester.widget<TextField>(
+      find.byKey(const Key('set-weight-input')),
+    );
     expect(weightField.controller!.text, '62.5');
 
     // No in-session last set here, so reps need entering explicitly.
@@ -299,8 +342,9 @@ void main() {
     await endApp(tester);
   });
 
-  testWidgets('build a routine end-to-end: targets, sets, superset',
-      (tester) async {
+  testWidgets('build a routine end-to-end: targets, sets, superset', (
+    tester,
+  ) async {
     await pumpApp(tester);
     await tester.tap(find.text('Routines'));
     await tester.pumpAndSettle();
@@ -311,14 +355,15 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('New Routine'), findsOneWidget);
 
-    await tester.enterText(
-        find.byKey(const Key('routine-name')), 'Push Day');
+    await tester.enterText(find.byKey(const Key('routine-name')), 'Push Day');
 
     // Add bench press through the searchable sheet.
     await tester.tap(find.byKey(const Key('add-routine-exercise')));
     await tester.pumpAndSettle();
     await tester.enterText(
-        find.byKey(const Key('exercise-search')), 'bench press');
+      find.byKey(const Key('exercise-search')),
+      'bench press',
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.text('Barbell Bench Press'));
     await tester.pumpAndSettle();
@@ -328,19 +373,22 @@ void main() {
     await tester.tap(find.byKey(const Key('sets-plus-barbell-bench-press')));
     await tester.pumpAndSettle();
     await tester.enterText(
-        find.byKey(const Key('target-weight-barbell-bench-press')), '60');
+      find.byKey(const Key('target-weight-barbell-bench-press')),
+      '60',
+    );
     await tester.pumpAndSettle();
 
     // Second exercise + superset link from bench → incline.
     await tester.tap(find.byKey(const Key('add-routine-exercise')));
     await tester.pumpAndSettle();
     await tester.enterText(
-        find.byKey(const Key('exercise-search')), 'incline dumbbell');
+      find.byKey(const Key('exercise-search')),
+      'incline dumbbell',
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.text('Incline Dumbbell Press'));
     await tester.pumpAndSettle();
-    await tester
-        .tap(find.byKey(const Key('superset-barbell-bench-press')));
+    await tester.tap(find.byKey(const Key('superset-barbell-bench-press')));
     await tester.pumpAndSettle();
 
     await tester.ensureVisible(find.byKey(const Key('routine-save')));
@@ -354,21 +402,27 @@ void main() {
     await endApp(tester);
   });
 
-  testWidgets('start a routine: planned sets complete and start rest',
-      (tester) async {
+  testWidgets('start a routine: planned sets complete and start rest', (
+    tester,
+  ) async {
     final repo = RoutineRepository(db);
-    final id = await repo.saveRoutine(name: 'Leg Day', entries: [
-      RoutineDraft(
+    final id = await repo.saveRoutine(
+      name: 'Leg Day',
+      entries: [
+        RoutineDraft(
           exerciseId: 'barbell-back-squat',
           targetSets: 3,
           targetReps: 5,
-          targetWeight: 100),
-      RoutineDraft(
+          targetWeight: 100,
+        ),
+        RoutineDraft(
           exerciseId: 'leg-press',
           targetSets: 2,
           targetReps: 10,
-          targetWeight: 140),
-    ]);
+          targetWeight: 140,
+        ),
+      ],
+    );
 
     await pumpApp(tester);
     await tester.tap(find.text('Routines'));
@@ -393,8 +447,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('1:30'), findsOneWidget); // working → 90s rest
-    expect(find.byIcon(Icons.radio_button_unchecked),
-        findsWidgets); // remaining planned rows are hollow
+    expect(
+      find.byIcon(Icons.radio_button_unchecked),
+      findsWidgets,
+    ); // remaining planned rows are hollow
 
     // Home reflects the running session (we popped back to Routines).
     tester.state<NavigatorState>(find.byType(Navigator)).pop();
@@ -407,17 +463,22 @@ void main() {
     await endApp(tester);
   });
 
-  testWidgets('a routine rest override drives the auto-started timer',
-      (tester) async {
+  testWidgets('a routine rest override drives the auto-started timer', (
+    tester,
+  ) async {
     final repo = RoutineRepository(db);
-    final id = await repo.saveRoutine(name: 'Leg Day', entries: [
-      const RoutineDraft(
+    final id = await repo.saveRoutine(
+      name: 'Leg Day',
+      entries: [
+        const RoutineDraft(
           exerciseId: 'barbell-back-squat',
           targetSets: 2,
           targetReps: 5,
           targetWeight: 100,
-          restSeconds: 150), // override: 2m 30s instead of the 90s default
-    ]);
+          restSeconds: 150,
+        ), // override: 2m 30s instead of the 90s default
+      ],
+    );
 
     await pumpApp(tester);
     await tester.tap(find.text('Routines'));
@@ -436,16 +497,21 @@ void main() {
     await endApp(tester);
   });
 
-  testWidgets('finish warns when planned sets were never checked',
-      (tester) async {
+  testWidgets('finish warns when planned sets were never checked', (
+    tester,
+  ) async {
     final repo = RoutineRepository(db);
-    final id = await repo.saveRoutine(name: 'Push Day', entries: [
-      RoutineDraft(
+    final id = await repo.saveRoutine(
+      name: 'Push Day',
+      entries: [
+        RoutineDraft(
           exerciseId: 'barbell-bench-press',
           targetSets: 2,
           targetReps: 5,
-          targetWeight: 60),
-    ]);
+          targetWeight: 60,
+        ),
+      ],
+    );
 
     await pumpApp(tester);
     await tester.tap(find.text('Routines'));
@@ -470,13 +536,24 @@ void main() {
     await endApp(tester);
   });
 
-  testWidgets('reorder exercises in the builder persists new order',
-      (tester) async {
+  testWidgets('reorder exercises in the builder persists new order', (
+    tester,
+  ) async {
+    // Use a phone-sized viewport: both builder cards must be reachable in
+    // the list for the drag to cross the second card.
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
     final repo = RoutineRepository(db);
-    final id = await repo.saveRoutine(name: 'Pull Day', entries: [
-      RoutineDraft(exerciseId: 'barbell-row', targetSets: 3, targetReps: 8),
-      RoutineDraft(exerciseId: 'pull-up', targetSets: 3, targetReps: 8),
-    ]);
+    final id = await repo.saveRoutine(
+      name: 'Pull Day',
+      entries: [
+        RoutineDraft(exerciseId: 'barbell-row', targetSets: 3, targetReps: 8),
+        RoutineDraft(exerciseId: 'pull-up', targetSets: 3, targetReps: 8),
+      ],
+    );
 
     await pumpApp(tester);
     await tester.tap(find.text('Routines'));
@@ -486,11 +563,17 @@ void main() {
     expect(find.text('Edit Routine'), findsOneWidget);
     expect(find.text('Barbell Bent-Over Row'), findsOneWidget);
 
-    // Drag the first card's handle down past the second card. Cards are
-    // four rows tall now (targets + set types + rest/superset), so clear
-    // more than two card heights.
-    await tester.drag(
-        find.byIcon(Icons.drag_handle).first, const Offset(0, 600));
+    // Drag the first card's handle down past the second card. Move in
+    // increments with pumps so the reorderable list can auto-scroll as the
+    // card clears more than one card height.
+    final handle = find.byIcon(Icons.drag_handle).first;
+    final drag = await tester.startGesture(tester.getCenter(handle));
+    await tester.pump();
+    for (var i = 0; i < 12; i++) {
+      await drag.moveBy(const Offset(0, 50));
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    await drag.up();
     await tester.pumpAndSettle();
 
     await tester.ensureVisible(find.byKey(const Key('routine-save')));
@@ -498,34 +581,20 @@ void main() {
     await tester.tap(find.byKey(const Key('routine-save')));
     await tester.pumpAndSettle();
 
-    final rows = await (db.routineExercises.select()
-          ..where((e) => e.routineId.equals(id))
-          ..orderBy([(e) => OrderingTerm.asc(e.orderIndex)]))
-        .get();
-    expect(rows.map((e) => e.exerciseId).toList(),
-        ['pull-up', 'barbell-row']);
+    final rows =
+        await (db.routineExercises.select()
+              ..where((e) => e.routineId.equals(id))
+              ..orderBy([(e) => OrderingTerm.asc(e.orderIndex)]))
+            .get();
+    expect(rows.map((e) => e.exerciseId).toList(), ['pull-up', 'barbell-row']);
     await endApp(tester);
   });
 
-  testWidgets('Settings toggles persist units; privacy stays in Profile',
-      (tester) async {
+  testWidgets('Settings toggles persist units; privacy lives in Settings', (
+    tester,
+  ) async {
     await pumpApp(tester);
-
-    // Units moved to Settings (Round 2) — reach it through the drawer.
-    // The Diet tile (Round 8) pushed the Settings tile below the default
-    // test viewport; drag the drawer list until it is built and visible.
-    await tester.tap(find.byTooltip('Menu'));
-    await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(
-      find.text('Settings'),
-      60,
-      scrollable: find
-          .descendant(of: find.byType(Drawer), matching: find.byType(Scrollable))
-          .first,
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Settings'));
-    await tester.pumpAndSettle();
+    await openSettings(tester);
 
     // Units sit at the top of the page — assert them before scrolling.
     await tester.tap(find.text('lbs'));
@@ -534,40 +603,19 @@ void main() {
     expect(prefs.getString('unit'), 'lbs');
     expect(
       ProviderScope.containerOf(
-              tester.element(find.widgetWithText(AppBar, 'Settings')))
-          .read(settingsProvider)
-          .unit,
+        tester.element(find.widgetWithText(AppBar, 'Settings')),
+      ).read(settingsProvider).unit,
       UnitSystem.lbs,
     );
 
-    // Back out of Settings; the privacy statement still lives in Profile.
-    await tester.pageBack();
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Profile'));
-    await tester.pumpAndSettle();
-
-    await scrollProfileUntil(tester, find.text('Fully private'));
+    await scrollSettingsUntil(tester, find.text('Fully private'));
     expect(find.text('Fully private'), findsOneWidget);
     await endApp(tester);
   });
 
-  testWidgets('Sync lives in Settings; export stays in Profile',
-      (tester) async {
+  testWidgets('Sync and export both live in Settings', (tester) async {
     await pumpApp(tester);
-
-    // Sync moved to Settings (Round 2).
-    await tester.tap(find.byTooltip('Menu'));
-    await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(
-      find.text('Settings'),
-      60,
-      scrollable: find
-          .descendant(of: find.byType(Drawer), matching: find.byType(Scrollable))
-          .first,
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Settings'));
-    await tester.pumpAndSettle();
+    await openSettings(tester);
 
     // No dart-defines in tests → the Sync section is absent entirely
     // (Round 9.2): with sync not built in, Settings shows nothing about
@@ -575,26 +623,21 @@ void main() {
     expect(find.text('Cloud sync not configured'), findsNothing);
     expect(find.text('SYNC'), findsNothing);
 
-    await tester.pageBack();
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Profile'));
-    await tester.pumpAndSettle();
-
-    // The Data section sits at the bottom of the page — bring it into view.
-    await scrollProfileUntil(tester, find.text('Export JSON backup'));
+    // Data moved here in Round 12; scroll to the bottom of Settings.
+    await scrollSettingsUntil(tester, find.text('Export JSON backup'));
     expect(find.text('Export JSON backup'), findsOneWidget);
     expect(find.text('Export CSV'), findsOneWidget);
     await endApp(tester);
   });
 
-  testWidgets('Profile offers import + a typed delete-all confirmation',
-      (tester) async {
+  testWidgets('Settings offers import + a typed delete-all confirmation', (
+    tester,
+  ) async {
     await pumpApp(tester);
-    await tester.tap(find.text('Profile'));
-    await tester.pumpAndSettle();
+    await openSettings(tester);
 
     // Import + Danger zone sit below the fold — scroll until built.
-    await scrollProfileUntil(tester, find.byKey(const Key('delete-all')));
+    await scrollSettingsUntil(tester, find.byKey(const Key('delete-all')));
     expect(find.byKey(const Key('import-json')), findsOneWidget);
     expect(find.byKey(const Key('delete-history')), findsOneWidget);
     expect(find.byKey(const Key('delete-routines')), findsOneWidget);
@@ -627,10 +670,7 @@ void main() {
     await tester.tap(find.widgetWithText(TextButton, 'Cancel'));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('confirm-delete-all')), findsNothing);
-    expect(
-      await db.exerciseCountOnce(),
-      greaterThan(80),
-    );
+    expect(await db.exerciseCountOnce(), greaterThan(80));
     await endApp(tester);
   });
 }

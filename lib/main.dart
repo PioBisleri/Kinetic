@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+
 import 'dart:async' show unawaited;
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -14,6 +16,7 @@ import 'core/settings/settings.dart';
 import 'core/sync/sync_providers.dart';
 import 'features/analytics/application/rollup_service.dart';
 import 'features/health/step_tracker.dart';
+import 'features/onboarding/onboarding_gate.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -29,6 +32,10 @@ Future<void> main() async {
 
   // 3. Settings are synchronous reads at startup.
   final prefs = await SharedPreferences.getInstance();
+
+  // 3b. First-run gate. Existing installs with data are marked done so
+  // they never see setup after an update.
+  final onboardingPending = await resolveOnboardingPending(db, prefs);
 
   // 4. Supabase is optional at boot; failure must never block the UI.
   var supabaseConfigured = false;
@@ -62,7 +69,9 @@ Future<void> main() async {
     prefs: prefs,
     onDaySteps: (dayKey, steps) => setDaySteps(db, dayKey, steps),
   );
-  unawaited(stepTracker.start());
+  // Hold the activity permission prompt until setup is out of the way;
+  // the onboarding page starts this after finishing or skipping.
+  if (!onboardingPending) unawaited(stepTracker.start());
 
   runApp(
     ProviderScope(
@@ -73,6 +82,7 @@ Future<void> main() async {
         weeklyReminderProvider.overrideWithValue(reminder),
         waterReminderProvider.overrideWithValue(waterReminder),
         stepTrackerProvider.overrideWithValue(stepTracker),
+        onboardingPendingProvider.overrideWithValue(onboardingPending),
         // Only true when the dart-defines were present AND initialize above
         // succeeded — providers below use this to avoid touching
         // `Supabase.instance`, which asserts when uninitialized.

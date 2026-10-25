@@ -28,12 +28,14 @@ class RollupService {
 
     // Completed sets are always stamped with loggedAt, so the day bucket is
     // simply the loggedAt range.
-    final sets = await (_db.workoutSets.select()
-          ..where((s) =>
-              s.isCompleted.equals(true) &
-              s.loggedAt.isBiggerOrEqualValue(start) &
-              s.loggedAt.isSmallerThanValue(end)))
-        .get();
+    final sets =
+        await (_db.workoutSets.select()..where(
+              (s) =>
+                  s.isCompleted.equals(true) &
+                  s.loggedAt.isBiggerOrEqualValue(start) &
+                  s.loggedAt.isSmallerThanValue(end),
+            ))
+            .get();
 
     final byExercise = <String, List<WorkoutSet>>{};
     for (final s in sets) {
@@ -44,12 +46,10 @@ class RollupService {
     await _db.transaction(() async {
       // Wipe-and-rebuild the day (a day is a handful of rows).
       await (_db.exerciseHistory.delete()
-            ..where((h) =>
-                h.userId.equals(_userId) & h.date.equals(start)))
+            ..where((h) => h.userId.equals(_userId) & h.date.equals(start)))
           .go();
       await (_db.muscleVolumeDaily.delete()
-            ..where((m) =>
-                m.userId.equals(_userId) & m.date.equals(start)))
+            ..where((m) => m.userId.equals(_userId) & m.date.equals(start)))
           .go();
       if (byExercise.isEmpty) return;
 
@@ -93,9 +93,10 @@ class RollupService {
       }
 
       // --- per-muscle attribution --------------------------------------
-      final maps = await (_db.exerciseMuscleMap.select()
-            ..where((m) => m.exerciseId.isIn(byExercise.keys.toList())))
-          .get();
+      final maps =
+          await (_db.exerciseMuscleMap.select()
+                ..where((m) => m.exerciseId.isIn(byExercise.keys.toList())))
+              .get();
 
       final perMuscle = <String, _MuscleDayStats>{};
       for (final m in maps) {
@@ -125,16 +126,17 @@ class RollupService {
   /// One-shot repair for data logged before rollups existed (or after a
   /// crash mid-write). No-op once any rollup row is present.
   Future<void> backfillIfNeeded() async {
-    final done =
-        await (_db.exerciseHistory.select()..limit(1)).getSingleOrNull();
+    final done = await (_db.exerciseHistory.select()..limit(1))
+        .getSingleOrNull();
     if (done == null) {
-      final muscle =
-          await (_db.muscleVolumeDaily.select()..limit(1)).getSingleOrNull();
+      final muscle = await (_db.muscleVolumeDaily.select()..limit(1))
+          .getSingleOrNull();
       if (muscle == null) {
-        final rows = await (_db.workoutSets.select()
-              ..where((s) =>
-                  s.isCompleted.equals(true) & s.loggedAt.isNotNull()))
-            .get();
+        final rows =
+            await (_db.workoutSets.select()..where(
+                  (s) => s.isCompleted.equals(true) & s.loggedAt.isNotNull(),
+                ))
+                .get();
         final days = <DateTime>{
           for (final s in rows)
             if (s.loggedAt != null) dayOf(s.loggedAt!),

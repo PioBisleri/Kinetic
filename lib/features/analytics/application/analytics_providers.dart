@@ -17,9 +17,9 @@ class AnalyticsPeriodNotifier extends Notifier<int> {
   void set(int weeks) => state = weeks;
 }
 
-final analyticsPeriodProvider =
-    NotifierProvider<AnalyticsPeriodNotifier, int>(
-        AnalyticsPeriodNotifier.new);
+final analyticsPeriodProvider = NotifierProvider<AnalyticsPeriodNotifier, int>(
+  AnalyticsPeriodNotifier.new,
+);
 
 /// Exercise picked in the strength chart (null → first with history).
 class SelectedExerciseNotifier extends Notifier<String?> {
@@ -29,21 +29,23 @@ class SelectedExerciseNotifier extends Notifier<String?> {
   void select(String id) => state = id;
 }
 
-final selectedExerciseProvider = NotifierProvider<SelectedExerciseNotifier,
-    String?>(SelectedExerciseNotifier.new);
+final selectedExerciseProvider =
+    NotifierProvider<SelectedExerciseNotifier, String?>(
+      SelectedExerciseNotifier.new,
+    );
 
 /// `ExerciseHistory` rows inside the selected window (day-level volumes).
-final dailyVolumeProvider = StreamProvider.family<List<ExerciseHistoryData>, int>(
-  (ref, weeks) {
-    final db = ref.watch(databaseProvider);
-    final since = periodStart(weeks, DateTime.now());
-    final q = db.exerciseHistory.select()
-      ..where((h) =>
-          h.userId.equals(_userId) & h.date.isBiggerOrEqualValue(since))
-      ..orderBy([(h) => OrderingTerm.asc(h.date)]);
-    return q.watch();
-  },
-);
+final dailyVolumeProvider =
+    StreamProvider.family<List<ExerciseHistoryData>, int>((ref, weeks) {
+      final db = ref.watch(databaseProvider);
+      final since = periodStart(weeks, DateTime.now());
+      final q = db.exerciseHistory.select()
+        ..where(
+          (h) => h.userId.equals(_userId) & h.date.isBiggerOrEqualValue(since),
+        )
+        ..orderBy([(h) => OrderingTerm.asc(h.date)]);
+      return q.watch();
+    });
 
 /// Finished-workout stats for the selected window; the streak looks at all
 /// history (a streak isn't window-scoped).
@@ -59,33 +61,34 @@ class WorkoutStats {
   final int streak; // consecutive weeks with ≥1 workout (all time)
 }
 
-final workoutStatsProvider = StreamProvider.family<WorkoutStats, int>(
-  (ref, weeks) {
-    final db = ref.watch(databaseProvider);
-    final since = periodStart(weeks, DateTime.now());
-    final now = DateTime.now();
-    final q = db.workouts.select()
-      ..where((w) => w.status.equals('completed'))
-      ..orderBy([(w) => OrderingTerm.asc(w.startedAt)]);
-    return q.watch().map((rows) {
-      var count = 0;
-      final days = <DateTime>{};
-      final allDays = <DateTime>[];
-      for (final w in rows) {
-        final d = dayOf(w.startedAt);
-        allDays.add(d);
-        if (d.isBefore(since)) continue;
-        count++;
-        days.add(d);
-      }
-      return WorkoutStats(
-        count: count,
-        days: days,
-        streak: weeklyStreak(allDays, now: now),
-      );
-    });
-  },
-);
+final workoutStatsProvider = StreamProvider.family<WorkoutStats, int>((
+  ref,
+  weeks,
+) {
+  final db = ref.watch(databaseProvider);
+  final since = periodStart(weeks, DateTime.now());
+  final now = DateTime.now();
+  final q = db.workouts.select()
+    ..where((w) => w.status.equals('completed'))
+    ..orderBy([(w) => OrderingTerm.asc(w.startedAt)]);
+  return q.watch().map((rows) {
+    var count = 0;
+    final days = <DateTime>{};
+    final allDays = <DateTime>[];
+    for (final w in rows) {
+      final d = dayOf(w.startedAt);
+      allDays.add(d);
+      if (d.isBefore(since)) continue;
+      count++;
+      days.add(d);
+    }
+    return WorkoutStats(
+      count: count,
+      days: days,
+      streak: weeklyStreak(allDays, now: now),
+    );
+  });
+});
 
 /// Trained days for the consistency calendar, scoped to the selected
 /// window (the grid sizes itself to the period; "All" scans history).
@@ -94,48 +97,56 @@ final calendarDaysProvider = StreamProvider<Set<DateTime>>((ref) {
   final db = ref.watch(databaseProvider);
   final since = periodStart(weeks, DateTime.now());
   final q = db.workouts.select()
-    ..where((w) =>
-        w.status.equals('completed') &
-        w.startedAt.isBiggerOrEqualValue(since));
+    ..where(
+      (w) =>
+          w.status.equals('completed') &
+          w.startedAt.isBiggerOrEqualValue(since),
+    );
   return q.watch().map((rows) => {for (final w in rows) dayOf(w.startedAt)});
 });
 
 /// Exercises with history rows in the window, ordered by name — powers the
 /// strength chart's picker.
-final historyExercisesProvider = StreamProvider.family<List<Exercise>, int>(
-  (ref, weeks) {
-    final db = ref.watch(databaseProvider);
-    final since = periodStart(weeks, DateTime.now());
-    final q = db.exerciseHistory.select()
-      ..where((h) =>
-          h.userId.equals(_userId) & h.date.isBiggerOrEqualValue(since));
-    return q.watch().asyncMap((rows) async {
-      final ids = rows.map((r) => r.exerciseId).toSet().toList()..sort();
-      if (ids.isEmpty) return const <Exercise>[];
-      final exercises = await (db.exercises.select()
-            ..where((e) => e.id.isIn(ids) & e.deletedAt.isNull())
-            ..orderBy([(e) => OrderingTerm.asc(e.name)]))
-          .get();
-      return exercises;
-    });
-  },
-);
+final historyExercisesProvider = StreamProvider.family<List<Exercise>, int>((
+  ref,
+  weeks,
+) {
+  final db = ref.watch(databaseProvider);
+  final since = periodStart(weeks, DateTime.now());
+  final q = db.exerciseHistory.select()
+    ..where(
+      (h) => h.userId.equals(_userId) & h.date.isBiggerOrEqualValue(since),
+    );
+  return q.watch().asyncMap((rows) async {
+    final ids = rows.map((r) => r.exerciseId).toSet().toList()..sort();
+    if (ids.isEmpty) return const <Exercise>[];
+    final exercises =
+        await (db.exercises.select()
+              ..where((e) => e.id.isIn(ids) & e.deletedAt.isNull())
+              ..orderBy([(e) => OrderingTerm.asc(e.name)]))
+            .get();
+    return exercises;
+  });
+});
 
 /// Day-level e1RM/top-set history for one exercise inside the window.
-final exerciseTrendProvider = StreamProvider
-    .family<List<ExerciseHistoryData>, ({String exerciseId, int weeks})>(
-  (ref, args) {
-    final db = ref.watch(databaseProvider);
-    final since = periodStart(args.weeks, DateTime.now());
-    final q = db.exerciseHistory.select()
-      ..where((h) =>
-          h.userId.equals(_userId) &
-          h.exerciseId.equals(args.exerciseId) &
-          h.date.isBiggerOrEqualValue(since))
-      ..orderBy([(h) => OrderingTerm.asc(h.date)]);
-    return q.watch();
-  },
-);
+final exerciseTrendProvider =
+    StreamProvider.family<
+      List<ExerciseHistoryData>,
+      ({String exerciseId, int weeks})
+    >((ref, args) {
+      final db = ref.watch(databaseProvider);
+      final since = periodStart(args.weeks, DateTime.now());
+      final q = db.exerciseHistory.select()
+        ..where(
+          (h) =>
+              h.userId.equals(_userId) &
+              h.exerciseId.equals(args.exerciseId) &
+              h.date.isBiggerOrEqualValue(since),
+        )
+        ..orderBy([(h) => OrderingTerm.asc(h.date)]);
+      return q.watch();
+    });
 
 // ---------------------------------------------------------------------------
 // Phase 5 — muscle grade board, heat map, balance ratios
@@ -172,8 +183,9 @@ final muscleWindowProvider = StreamProvider<Map<String, MuscleWindow>>((ref) {
   final db = ref.watch(databaseProvider);
   final since = addDays(dayOf(DateTime.now()), -29); // last 30 calendar days
   final q = db.muscleVolumeDaily.select()
-    ..where((m) =>
-        m.userId.equals(_userId) & m.date.isBiggerOrEqualValue(since));
+    ..where(
+      (m) => m.userId.equals(_userId) & m.date.isBiggerOrEqualValue(since),
+    );
   return q.watch().map((rows) {
     final volume = <String, double>{};
     final sets = <String, int>{};
@@ -217,7 +229,8 @@ final periodSetsProvider = StreamProvider<Map<String, int>>((ref) {
   final since = periodStart(weeks, DateTime.now());
   final q = db.muscleVolumeDaily.select()
     ..where(
-        (m) => m.userId.equals(_userId) & m.date.isBiggerOrEqualValue(since));
+      (m) => m.userId.equals(_userId) & m.date.isBiggerOrEqualValue(since),
+    );
   return q.watch().map((rows) {
     final sets = <String, int>{};
     for (final r in rows) {
@@ -229,8 +242,9 @@ final periodSetsProvider = StreamProvider<Map<String, int>>((ref) {
 
 /// Landmark *overrides* only — the card merges these over the curated
 /// defaults; an absent row simply means "default" (Round 6).
-final landmarkOverridesProvider =
-    StreamProvider<Map<String, VolumeLandmark>>((ref) {
+final landmarkOverridesProvider = StreamProvider<Map<String, VolumeLandmark>>((
+  ref,
+) {
   final q = ref.watch(databaseProvider).volumeLandmarks.select()
     ..orderBy([(v) => OrderingTerm.asc(v.muscleId)]);
   return q.watch().map((rows) => {for (final v in rows) v.muscleId: v});
@@ -263,13 +277,13 @@ class BalancePairConfig {
 }
 
 /// Balance pairs ship in the bundled seed (single source of truth).
-final balancePairsProvider = FutureProvider<List<BalancePairConfig>>(
-  (ref) async {
-    final raw = await rootBundle.loadString('assets/seed/muscle_groups.json');
-    final json = jsonDecode(raw) as Map<String, dynamic>;
-    return [
-      for (final p in json['balance_pairs'] as List)
-        BalancePairConfig.fromJson(p as Map<String, dynamic>),
-    ];
-  },
-);
+final balancePairsProvider = FutureProvider<List<BalancePairConfig>>((
+  ref,
+) async {
+  final raw = await rootBundle.loadString('assets/seed/muscle_groups.json');
+  final json = jsonDecode(raw) as Map<String, dynamic>;
+  return [
+    for (final p in json['balance_pairs'] as List)
+      BalancePairConfig.fromJson(p as Map<String, dynamic>),
+  ];
+});

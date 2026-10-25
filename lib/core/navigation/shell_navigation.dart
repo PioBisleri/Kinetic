@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../ledger/ledger.dart';
+import '../theme/app_theme.dart';
+
 /// Key for the shell [Scaffold] that hosts the app drawer. Provided per
 /// container (not a global) so two apps mounted in one test container can
 /// never fight over the same GlobalKey.
@@ -17,7 +20,11 @@ class DrawerMenuButton extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return IconButton(
-      icon: const Icon(Icons.menu),
+      icon: LedgerGlyph(
+        LedgerGlyphType.menu,
+        size: 20,
+        color: context.textPrimary,
+      ),
       tooltip: 'Menu',
       onPressed: () =>
           ref.read(shellScaffoldKeyProvider).currentState?.openDrawer(),

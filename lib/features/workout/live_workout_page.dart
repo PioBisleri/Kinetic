@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/database/database.dart';
+import '../../core/ledger/ledger.dart';
 import '../../core/settings/settings.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/weight_units.dart';
@@ -32,7 +33,9 @@ class _LiveWorkoutPageState extends ConsumerState<LiveWorkoutPage> {
   void initState() {
     super.initState();
     _ticker = Timer.periodic(
-        const Duration(seconds: 1), (_) => setState(() {}));
+      const Duration(seconds: 1),
+      (_) => setState(() {}),
+    );
   }
 
   @override
@@ -48,11 +51,12 @@ class _LiveWorkoutPageState extends ConsumerState<LiveWorkoutPage> {
     final warning = pending == 0
         ? ''
         : '\n\n⚠️ $pending planned set${pending == 1 ? '' : 's'} not '
-            'checked — they will NOT be saved to your history.';
+              'checked — they will NOT be saved to your history.';
     final confirmed = await confirmAction(
       context,
       title: 'Finish workout?',
-      message: '${session.exercises.length} exercises · '
+      message:
+          '${session.exercises.length} exercises · '
           '${session.completedSetCount} sets · '
           '${formatElapsed(session.elapsed)}\n'
           'Volume: ${session.volumeKg.toStringAsFixed(0)} kg'
@@ -70,7 +74,8 @@ class _LiveWorkoutPageState extends ConsumerState<LiveWorkoutPage> {
     final confirmed = await confirmAction(
       context,
       title: 'Discard workout?',
-      message: '${session.exercises.length} exercises · '
+      message:
+          '${session.exercises.length} exercises · '
           '${session.completedSetCount} sets · '
           'Volume: ${session.volumeKg.toStringAsFixed(0)} kg\n\n'
           'Nothing will be saved to your history. This cannot be undone.',
@@ -84,7 +89,11 @@ class _LiveWorkoutPageState extends ConsumerState<LiveWorkoutPage> {
   }
 
   Future<void> _confirmRemove(
-      BuildContext context, WidgetRef ref, Exercise exercise, WorkoutSession session) async {
+    BuildContext context,
+    WidgetRef ref,
+    Exercise exercise,
+    WorkoutSession session,
+  ) async {
     final sets = session.setsFor(exercise.id);
     final completed = sets.where((s) => s.isCompleted).length;
     final confirmed = await confirmAction(
@@ -93,7 +102,7 @@ class _LiveWorkoutPageState extends ConsumerState<LiveWorkoutPage> {
       message: sets.isEmpty
           ? 'This exercise has no sets yet.'
           : '${sets.length} set${sets.length == 1 ? '' : 's'} '
-              '($completed completed) will be deleted from this workout.',
+                '($completed completed) will be deleted from this workout.',
       confirmLabel: 'Remove',
       danger: true,
     );
@@ -102,23 +111,24 @@ class _LiveWorkoutPageState extends ConsumerState<LiveWorkoutPage> {
   }
 
   Future<void> _editNotes(WorkoutSession session) async {
-    final controller = TextEditingController(
-        text: session.workout.notes ?? '');
+    final controller = TextEditingController(text: session.workout.notes ?? '');
     final result = await showAppSheet<String>(
       context: context,
       isScrollControlled: true,
       builder: (context) => Padding(
         padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom),
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+        ),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text('Workout notes',
-                  style: TextStyle(
-                      fontSize: 20, fontWeight: FontWeight.w800)),
+              const Text(
+                'Workout notes',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
+              ),
               const SizedBox(height: 12),
               TextField(
                 controller: controller,
@@ -130,8 +140,7 @@ class _LiveWorkoutPageState extends ConsumerState<LiveWorkoutPage> {
               ),
               const SizedBox(height: 16),
               FilledButton(
-                onPressed: () =>
-                    Navigator.of(context).pop(controller.text),
+                onPressed: () => Navigator.of(context).pop(controller.text),
                 child: const Text('Save'),
               ),
             ],
@@ -208,8 +217,12 @@ class _LiveWorkoutPageState extends ConsumerState<LiveWorkoutPage> {
     }
   }
 
-  Future<void> _editSet(WorkoutSession session, Exercise exercise,
-      WorkoutSet set, int number) async {
+  Future<void> _editSet(
+    WorkoutSession session,
+    Exercise exercise,
+    WorkoutSet set,
+    int number,
+  ) async {
     final result = await showSetEditSheet(
       context,
       exercise: exercise,
@@ -257,33 +270,45 @@ class _LiveWorkoutPageState extends ConsumerState<LiveWorkoutPage> {
   Widget build(BuildContext context) {
     final sessionAsync = ref.watch(workoutSessionProvider);
     final unit = ref.watch(settingsProvider).unit;
+    final title = sessionAsync.when(
+      data: (s) => s == null ? 'Workout' : formatElapsed(s.elapsed),
+      loading: () => 'Workout',
+      error: (_, _) => 'Workout',
+    );
 
     return Scaffold(
-      appBar: AppBar(
-        title: sessionAsync.when(
-          data: (s) =>
-              Text(s == null ? 'Workout' : formatElapsed(s.elapsed)),
-          loading: () => const Text('Workout'),
-          error: (_, _) => const Text('Workout'),
+      appBar: TailBar(
+        title: title,
+        meta: 'LIVE SESSION',
+        showMenu: false,
+        leading: IconButton(
+          tooltip: 'Back',
+          onPressed: () => Navigator.of(context).maybePop(),
+          icon: LedgerGlyph(
+            LedgerGlyphType.chevronLeft,
+            size: 18,
+            color: context.textPrimary,
+          ),
         ),
         actions: [
           PopupMenuButton<String>(
             tooltip: 'More',
-            icon: const Icon(Icons.more_vert),
+            icon: Icon(Icons.more_vert, size: 20, color: context.textSecondary),
             enabled: sessionAsync.value != null,
             onSelected: (value) {
               if (value == 'discard') _discard(sessionAsync.value);
             },
             itemBuilder: (context) => const [
-              PopupMenuItem(
-                value: 'discard',
-                child: Text('Discard workout'),
-              ),
+              PopupMenuItem(value: 'discard', child: Text('Discard workout')),
             ],
           ),
           IconButton(
             tooltip: 'Notes',
-            icon: const Icon(Icons.notes_rounded),
+            icon: LedgerGlyph(
+              LedgerGlyphType.edit,
+              size: 18,
+              color: context.textSecondary,
+            ),
             onPressed: sessionAsync.value == null
                 ? null
                 : () => _editNotes(sessionAsync.value!),
@@ -292,8 +317,14 @@ class _LiveWorkoutPageState extends ConsumerState<LiveWorkoutPage> {
             onPressed: sessionAsync.value == null
                 ? null
                 : () => _finish(sessionAsync.value!),
-            child: const Text('Finish',
-                style: TextStyle(fontWeight: FontWeight.w700)),
+            style: TextButton.styleFrom(
+              foregroundColor: context.accent,
+              textStyle: AppType.meta.copyWith(
+                letterSpacing: 1.2,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            child: const Text('Finish'),
           ),
         ],
       ),
@@ -317,56 +348,70 @@ class _LiveWorkoutPageState extends ConsumerState<LiveWorkoutPage> {
             );
           }
           if (session.exercises.isEmpty) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.fitness_center_rounded,
-                        size: 48, color: context.textTertiary),
-                    const SizedBox(height: 12),
-                    Text(
-                      'No exercises yet.\nAdd your first exercise to begin.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: context.textSecondary),
-                    ),
-                    const SizedBox(height: 16),
-                    FilledButton.icon(
-                      key: const Key('add-exercise-empty'),
-                      onPressed: _addExercise,
-                      icon: const Icon(Icons.add),
-                      label: const Text('Add Exercise'),
-                    ),
-                  ],
-                ),
+            return ListView(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpace.x5,
+                AppSpace.x1,
+                AppSpace.x5,
+                AppSpace.x8,
               ),
+              children: [
+                _SessionSummary(session: session, unit: unit),
+                const SizedBox(height: AppSpace.x5),
+                _EmptySession(onAdd: _addExercise),
+              ],
             );
           }
 
           return ListView(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+            padding: const EdgeInsets.fromLTRB(
+              AppSpace.x5,
+              AppSpace.x1,
+              AppSpace.x5,
+              AppSpace.x8,
+            ),
             children: [
+              _SessionSummary(session: session, unit: unit),
+              const SizedBox(height: AppSpace.x5),
+              SectionHead(
+                index: '01',
+                title: 'Exercise log',
+                meta: '${session.exercises.length} EXERCISES',
+              ),
+              const SizedBox(height: AppSpace.x3),
               for (var i = 0; i < session.exercises.length; i++)
-                _ExerciseCard(
-                  key: ValueKey(session.exercises[i].id),
-                  exercise: session.exercises[i],
-                  session: session,
-                  unit: unit,
-                  onAddSet: () => _logSet(session.exercises[i], session),
-                  onEditSet: (set, number) =>
-                      _editSet(session, session.exercises[i], set, number),
-                  onSupersetNext: () => ref
-                      .read(workoutSessionProvider.notifier)
-                      .supersetWithNext(session.exercises[i].id),
-                  onRemove: () => _confirmRemove(
-                      context, ref, session.exercises[i], session),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: AppSpace.x3),
+                  child: _ExercisePanel(
+                    key: ValueKey(session.exercises[i].id),
+                    index: i,
+                    exercise: session.exercises[i],
+                    session: session,
+                    unit: unit,
+                    onAddSet: () => _logSet(session.exercises[i], session),
+                    onEditSet: (set, number) =>
+                        _editSet(session, session.exercises[i], set, number),
+                    onSupersetNext: () => ref
+                        .read(workoutSessionProvider.notifier)
+                        .supersetWithNext(session.exercises[i].id),
+                    onRemove: () => _confirmRemove(
+                      context,
+                      ref,
+                      session.exercises[i],
+                      session,
+                    ),
+                  ),
                 ),
-              const SizedBox(height: 8),
+              const SizedBox(height: AppSpace.x1),
               OutlinedButton.icon(
                 key: const Key('add-exercise'),
                 onPressed: _addExercise,
-                icon: const Icon(Icons.add),
+                style: _outlineStyle(context),
+                icon: LedgerGlyph(
+                  LedgerGlyphType.plus,
+                  size: 14,
+                  color: context.textSecondary,
+                ),
                 label: const Text('Add Exercise'),
               ),
             ],
@@ -378,9 +423,151 @@ class _LiveWorkoutPageState extends ConsumerState<LiveWorkoutPage> {
   }
 }
 
-class _ExerciseCard extends StatelessWidget {
-  const _ExerciseCard({
+class _SessionSummary extends StatelessWidget {
+  const _SessionSummary({required this.session, required this.unit});
+
+  final WorkoutSession session;
+  final UnitSystem unit;
+
+  @override
+  Widget build(BuildContext context) {
+    final totalSets = session.sets.length;
+    final progress = totalSets == 0
+        ? 0.0
+        : session.completedSetCount / totalSets;
+    final volume = unit == UnitSystem.kg
+        ? '${session.volumeKg.toStringAsFixed(0)} kg'
+        : '${formatWeight(session.volumeKg, unit)} lb';
+
+    return LedgerPanel(
+      accentTop: true,
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Container(width: 6, height: 6, color: context.signal),
+              const SizedBox(width: 8),
+              Text(
+                'IN PROGRESS',
+                style: AppType.meta.copyWith(color: context.signal),
+              ),
+              const Spacer(),
+              Text(
+                formatElapsed(session.elapsed),
+                style: AppType.data.copyWith(
+                  color: context.textPrimary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpace.x4),
+          Row(
+            children: [
+              _LiveStat(
+                value: session.exercises.length.toString().padLeft(2, '0'),
+                label: 'EXERCISES',
+              ),
+              Container(width: 1, height: 38, color: context.border),
+              _LiveStat(
+                value:
+                    '${session.completedSetCount.toString().padLeft(2, '0')}/'
+                    '${totalSets.toString().padLeft(2, '0')}',
+                label: 'SETS',
+              ),
+              Container(width: 1, height: 38, color: context.border),
+              _LiveStat(value: volume, label: 'VOLUME'),
+            ],
+          ),
+          const SizedBox(height: AppSpace.x3),
+          ProgressRule(value: progress, segments: 18, height: 6),
+        ],
+      ),
+    );
+  }
+}
+
+class _LiveStat extends StatelessWidget {
+  const _LiveStat({required this.value, required this.label});
+
+  final String value;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            value,
+            style: AppType.dataLg.copyWith(
+              color: context.textPrimary,
+              height: 1,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 3),
+          Text(
+            label,
+            style: AppType.metaSm.copyWith(color: context.textTertiary),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmptySession extends StatelessWidget {
+  const _EmptySession({required this.onAdd});
+
+  final VoidCallback onAdd;
+
+  @override
+  Widget build(BuildContext context) {
+    return LedgerPanel(
+      grid: true,
+      padding: const EdgeInsets.fromLTRB(18, 20, 18, 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text('00', style: AppType.meta.copyWith(color: context.textTertiary)),
+          const SizedBox(height: AppSpace.x2),
+          Text(
+            'Blank session',
+            style: AppType.h2.copyWith(color: context.textPrimary),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'No exercises yet.\nAdd your first exercise to begin.',
+            style: AppType.bodySm.copyWith(color: context.textSecondary),
+          ),
+          const SizedBox(height: AppSpace.x4),
+          PushKey(
+            key: const Key('add-exercise-empty'),
+            label: 'Add Exercise',
+            height: 48,
+            onPressed: onAdd,
+            icon: LedgerGlyph(
+              LedgerGlyphType.plus,
+              size: 15,
+              strokeWidth: 2,
+              color: onAccent(context.accent),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ExercisePanel extends StatelessWidget {
+  const _ExercisePanel({
     super.key,
+    required this.index,
     required this.exercise,
     required this.session,
     required this.unit,
@@ -390,6 +577,7 @@ class _ExerciseCard extends StatelessWidget {
     required this.onRemove,
   });
 
+  final int index;
   final Exercise exercise;
   final WorkoutSession session;
   final UnitSystem unit;
@@ -403,51 +591,70 @@ class _ExerciseCard extends StatelessWidget {
     final sets = session.setsFor(exercise.id);
     final group = session.supersetGroupOf(exercise.id);
     final isCardio = exercise.defaultMetric != 'weight_reps';
+    final number = (index + 1).toString().padLeft(2, '0');
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 8, 8, 12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
+    return LedgerPanel(
+      padding: EdgeInsets.zero,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 8, 4, 8),
+            child: Row(
               children: [
+                Text(
+                  number,
+                  style: AppType.meta.copyWith(color: context.textTertiary),
+                ),
+                const SizedBox(width: AppSpace.x3),
                 Expanded(
                   child: Text(
                     exercise.name,
-                    style: const TextStyle(
-                        fontSize: 16, fontWeight: FontWeight.w700),
+                    style: AppType.h2.copyWith(
+                      color: context.textPrimary,
+                      fontSize: 19,
+                      height: 1.05,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 if (group != null)
                   Container(
+                    margin: const EdgeInsets.only(left: 8),
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 3),
+                      horizontal: 6,
+                      vertical: 3,
+                    ),
                     decoration: BoxDecoration(
-                      color: context.accent.withValues(alpha: 0.16),
-                      borderRadius: BorderRadius.circular(6),
+                      color: context.accent.withValues(alpha: 0.10),
+                      border: Border.all(
+                        color: context.accent.withValues(alpha: 0.35),
+                      ),
+                      borderRadius: BorderRadius.circular(AppRadius.data),
                     ),
                     child: Text(
                       'SS$group',
-                      style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w800,
-                          color: context.accent),
+                      style: AppType.metaSm.copyWith(color: context.accent),
                     ),
                   ),
                 PopupMenuButton<String>(
-                  icon: const Icon(Icons.more_vert, size: 20),
+                  icon: Icon(
+                    Icons.more_vert,
+                    size: 19,
+                    color: context.textTertiary,
+                  ),
+                  tooltip: 'Exercise options',
                   onSelected: (action) {
                     if (action == 'superset') onSupersetNext();
                     if (action == 'remove') onRemove();
                   },
-                  itemBuilder: (_) => [
-                    const PopupMenuItem(
+                  itemBuilder: (_) => const [
+                    PopupMenuItem(
                       value: 'superset',
                       child: Text('Superset with next'),
                     ),
-                    const PopupMenuItem(
+                    PopupMenuItem(
                       value: 'remove',
                       child: Text('Remove from workout'),
                     ),
@@ -455,36 +662,41 @@ class _ExerciseCard extends StatelessWidget {
                 ),
               ],
             ),
-            if (sets.isEmpty)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Text(
-                  'No sets yet — tap Add Set after your first effort.',
-                  style: TextStyle(
-                      fontSize: 13, color: context.textTertiary),
-                ),
-              )
-            else
-              for (var s = 0; s < sets.length; s++) _SetRow(
-                    number: s + 1,
-                    set: sets[s],
-                    isCardio: isCardio,
-                    unit: unit,
-                    onTap: () => onEditSet(sets[s], s + 1),
-                  ),
-            const SizedBox(height: 4),
-            FilledButton.tonal(
+          ),
+          Rule(),
+          if (sets.isEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+              child: Text(
+                'No sets yet — tap Add Set after your first effort.',
+                style: AppType.bodySm.copyWith(color: context.textTertiary),
+              ),
+            )
+          else
+            for (var s = 0; s < sets.length; s++)
+              _SetRow(
+                number: s + 1,
+                set: sets[s],
+                isCardio: isCardio,
+                unit: unit,
+                onTap: () => onEditSet(sets[s], s + 1),
+              ),
+          Rule(),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
+            child: OutlinedButton.icon(
               key: Key('add-set-${exercise.id}'),
               onPressed: onAddSet,
-              style: FilledButton.styleFrom(
-                minimumSize: const Size.fromHeight(48),
-                backgroundColor: context.surfaceElevated,
-                foregroundColor: context.textPrimary,
+              style: _outlineStyle(context),
+              icon: LedgerGlyph(
+                LedgerGlyphType.plus,
+                size: 13,
+                color: context.textSecondary,
               ),
-              child: const Text('Add Set'),
+              label: const Text('Add Set'),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -517,71 +729,87 @@ class _SetRow extends StatelessWidget {
     final primary = isCardio
         ? '${set.distanceM?.round() ?? '—'} m'
         : '${set.weightKg != null ? formatWeight(set.weightKg!, unit) : '—'}'
-            '${set.weightKg != null ? (unit == UnitSystem.kg ? ' kg' : ' lb') : ''}'
-            ' × ${set.reps ?? '—'}';
+              '${set.weightKg != null ? (unit == UnitSystem.kg ? ' kg' : ' lb') : ''}'
+              ' × ${set.reps ?? '—'}';
 
     final secondary = isCardio
         ? set.durationSec != null
-            ? '${(set.durationSec! / 60).toStringAsFixed(1)} min'
-            : ''
-        : set.rpe != null ? 'RPE ${set.rpe}' : '';
+              ? '${(set.durationSec! / 60).toStringAsFixed(1)} min'
+              : ''
+        : set.rpe != null
+        ? 'RPE ${set.rpe}'
+        : '';
 
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(6),
-      child: Container(
-        margin: const EdgeInsets.only(top: 6),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-        decoration: BoxDecoration(
-          color: context.background.withValues(alpha: 0.55),
-          borderRadius: BorderRadius.circular(6),
-        ),
-        child: Row(
-          children: [
-            SizedBox(
-              width: 28,
-              child: Text('$number',
-                  style: TextStyle(
-                      color: context.textTertiary,
-                      fontWeight: FontWeight.w700)),
-            ),
-            if (typeLabel.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(right: 8),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        splashColor: context.accent.withValues(alpha: 0.06),
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+          decoration: BoxDecoration(
+            border: Border(bottom: BorderSide(color: context.border)),
+          ),
+          child: Row(
+            children: [
+              SizedBox(
+                width: 24,
                 child: Text(
-                  typeLabel,
-                  style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.heatWarm),
+                  '$number',
+                  style: AppType.metaSm.copyWith(color: context.textTertiary),
                 ),
               ),
-            Expanded(
-              child: Text(
-                primary,
-                style: const TextStyle(
-                    fontSize: 17,
+              if (typeLabel.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: Text(
+                    typeLabel,
+                    style: AppType.metaSm.copyWith(
+                      color: AppColors.heatWarm,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              Expanded(
+                child: Text(
+                  primary,
+                  style: AppType.data.copyWith(
+                    color: context.textPrimary,
                     fontWeight: FontWeight.w700,
-                    fontFeatures: [FontFeature.tabularFigures()]),
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
-            ),
-            if (secondary.isNotEmpty)
-              Text(secondary,
-                  style: TextStyle(
-                      fontSize: 13, color: context.textSecondary)),
-            const SizedBox(width: 8),
-            // Planned (routine) sets show hollow until completed.
-            Icon(
-              set.isCompleted
-                  ? Icons.check_circle_rounded
-                  : Icons.radio_button_unchecked,
-              size: 18,
-              color:
-                  set.isCompleted ? context.accent : context.textTertiary,
-            ),
-          ],
+              if (secondary.isNotEmpty) ...[
+                const SizedBox(width: 8),
+                Text(
+                  secondary,
+                  style: AppType.metaSm.copyWith(color: context.textSecondary),
+                ),
+              ],
+              const SizedBox(width: 10),
+              Icon(
+                set.isCompleted
+                    ? Icons.check_circle_rounded
+                    : Icons.radio_button_unchecked,
+                size: 17,
+                color: set.isCompleted ? context.accent : context.textTertiary,
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 }
+
+ButtonStyle _outlineStyle(BuildContext context) => OutlinedButton.styleFrom(
+  foregroundColor: context.textPrimary,
+  minimumSize: const Size.fromHeight(46),
+  side: BorderSide(color: context.border),
+  shape: RoundedRectangleBorder(
+    borderRadius: BorderRadius.circular(AppRadius.control),
+  ),
+  textStyle: AppType.button.copyWith(fontSize: 13, letterSpacing: 0.8),
+);

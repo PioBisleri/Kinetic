@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/database/database.dart';
+import '../../core/ledger/ledger.dart';
 import '../../core/database/database_providers.dart';
 import '../../core/settings/settings.dart';
 import '../../core/theme/app_theme.dart';
@@ -12,7 +13,6 @@ import '../../core/utils/bmi.dart';
 import '../../core/utils/day_key.dart';
 import '../../core/utils/weight_units.dart';
 import '../../core/widgets/app_empty.dart';
-import '../../core/widgets/section_card.dart';
 import '../analytics/domain/analytics_math.dart' show compactNumber;
 import '../nutrition/domain/food_math.dart';
 import 'domain/day_history.dart';
@@ -40,7 +40,14 @@ class _HistoryPageState extends ConsumerState<HistoryPage>
     'Water',
     'Burned',
   ];
-  static const _tabKeys = ['all', 'workouts', 'steps', 'food', 'water', 'burned'];
+  static const _tabKeys = [
+    'all',
+    'workouts',
+    'steps',
+    'food',
+    'water',
+    'burned',
+  ];
 
   late final TabController _tab;
   late String _dayKey;
@@ -112,53 +119,74 @@ class _HistoryPageState extends ConsumerState<HistoryPage>
     final week = ref.watch(weekBodyMetricsProvider(_dayKey)).value;
 
     return Scaffold(
-      body: SafeArea(
-        child: Column(
-          children: [
-            _dateBar(isToday),
-            _chipStrip(),
-            TabBar(
-              controller: _tab,
-              isScrollable: true,
-              tabs: [
-                for (var i = 0; i < _tabKeys.length; i++)
-                  Tab(key: Key('history-tab-${_tabKeys[i]}'), text: _tabLabels[i]),
-              ],
+      appBar: const TailBar(
+        title: 'History',
+        meta: 'One day · every ledger line',
+      ),
+      body: Column(
+        children: [
+          _dateBar(isToday),
+          _chipStrip(),
+          TabBar(
+            controller: _tab,
+            isScrollable: true,
+            tabAlignment: TabAlignment.start,
+            indicator: UnderlineTabIndicator(
+              borderSide: BorderSide(color: context.accent, width: 2),
+              insets: const EdgeInsets.symmetric(horizontal: 8),
             ),
-            Expanded(
-              child: history.when(
-                loading: () => const Center(
-                  key: Key('history-loading'),
-                  child: SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: CircularProgressIndicator(strokeWidth: 2.5),
-                  ),
+            indicatorSize: TabBarIndicatorSize.tab,
+            labelStyle: AppType.meta.copyWith(
+              color: context.textPrimary,
+              fontWeight: FontWeight.w700,
+            ),
+            unselectedLabelStyle: AppType.meta.copyWith(
+              color: context.textTertiary,
+              fontWeight: FontWeight.w500,
+            ),
+            labelPadding: const EdgeInsets.symmetric(horizontal: 10),
+            dividerColor: context.border,
+            tabs: [
+              for (var i = 0; i < _tabKeys.length; i++)
+                Tab(
+                  key: Key('history-tab-${_tabKeys[i]}'),
+                  text: _tabLabels[i].toUpperCase(),
                 ),
-                error: (e, _) => ListView(
-                  padding: const EdgeInsets.all(16),
-                  children: const [
-                    EmptyState(
-                      message: 'Could not load this day.',
-                      secondary: 'Go back to today and try again.',
-                    ),
-                  ],
-                ),
-                data: (h) => TabBarView(
-                  controller: _tab,
-                  children: [
-                    _allTab(day: h, week: week),
-                    _workoutsTab(day: h),
-                    _stepsTab(day: h, week: week),
-                    _foodTab(day: h),
-                    _waterTab(day: h, week: week),
-                    _burnedTab(day: h),
-                  ],
+            ],
+          ),
+          Expanded(
+            child: history.when(
+              loading: () => const Center(
+                key: Key('history-loading'),
+                child: SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(strokeWidth: 2.5),
                 ),
               ),
+              error: (e, _) => ListView(
+                padding: const EdgeInsets.all(16),
+                children: const [
+                  EmptyState(
+                    message: 'Could not load this day.',
+                    secondary: 'Go back to today and try again.',
+                  ),
+                ],
+              ),
+              data: (h) => TabBarView(
+                controller: _tab,
+                children: [
+                  _allTab(day: h, week: week),
+                  _workoutsTab(day: h),
+                  _stepsTab(day: h, week: week),
+                  _foodTab(day: h),
+                  _waterTab(day: h, week: week),
+                  _burnedTab(day: h),
+                ],
+              ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -171,53 +199,56 @@ class _HistoryPageState extends ConsumerState<HistoryPage>
     final sub = diff == 0
         ? 'Today'
         : diff == 1
-            ? 'Yesterday'
-            : diff > 1
-                ? '$diff days ago'
-                : '';
+        ? 'Yesterday'
+        : diff > 1
+        ? '$diff days ago'
+        : '';
     return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 8, 8, 4),
-      child: Row(
-        children: [
-          IconButton(
-            key: const Key('history-prev-day'),
-            tooltip: 'Previous day',
-            icon: const Icon(Icons.chevron_left_rounded),
-            onPressed: () => _setDay(
-              dayKey(parsed.subtract(const Duration(days: 1))),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
+      child: LedgerPanel(
+        padding: EdgeInsets.zero,
+        child: Row(
+          children: [
+            IconButton(
+              key: const Key('history-prev-day'),
+              tooltip: 'Previous day',
+              icon: const Icon(Icons.chevron_left_rounded),
+              onPressed: () =>
+                  _setDay(dayKey(parsed.subtract(const Duration(days: 1)))),
             ),
-          ),
-          Expanded(
-            child: Column(
-              children: [
-                Text(
-                  key: const Key('history-date-label'),
-                  DateFormat('EEE, d MMM yyyy').format(parsed),
-                  style: const TextStyle(
-                      fontSize: 15, fontWeight: FontWeight.w700),
-                ),
-                if (sub.isNotEmpty)
+            Expanded(
+              child: Column(
+                children: [
                   Text(
-                    sub,
-                    style: TextStyle(
-                        fontSize: 11, color: context.textTertiary),
+                    key: const Key('history-date-label'),
+                    DateFormat('EEE, d MMM yyyy').format(parsed),
+                    style: AppType.h2.copyWith(color: context.textPrimary),
                   ),
-              ],
+                  const SizedBox(height: 2),
+                  Text(
+                    sub.toUpperCase(),
+                    style: AppType.metaSm.copyWith(color: context.textTertiary),
+                  ),
+                ],
+              ),
             ),
-          ),
-          if (!isToday)
-            TextButton(
-              key: const Key('history-today-jump'),
-              onPressed: () => _setDay(dayKey(now)),
-              child: const Text('Today'),
+            if (!isToday)
+              TextButton(
+                key: const Key('history-today-jump'),
+                onPressed: () => _setDay(dayKey(now)),
+                child: Text(
+                  'TODAY',
+                  style: AppType.meta.copyWith(color: context.accent),
+                ),
+              ),
+            IconButton(
+              key: const Key('history-date-picker'),
+              tooltip: 'Pick a date',
+              icon: const Icon(Icons.calendar_month_outlined),
+              onPressed: _pickDate,
             ),
-          IconButton(
-            key: const Key('history-date-picker'),
-            tooltip: 'Pick a date',
-            icon: const Icon(Icons.calendar_month_outlined),
-            onPressed: _pickDate,
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -225,46 +256,60 @@ class _HistoryPageState extends ConsumerState<HistoryPage>
   Widget _chipStrip() {
     final days = _chipDays();
     return SizedBox(
-      height: 56,
+      height: 64,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        padding: const EdgeInsets.fromLTRB(16, 6, 16, 10),
         itemCount: days.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 6),
+        separatorBuilder: (_, _) => const SizedBox(width: 4),
         itemBuilder: (context, i) {
           final k = days[i];
           final selected = k == _dayKey;
           final key = _chipKeys.putIfAbsent(k, GlobalKey.new);
           final d = parseDayKey(k);
-          final ink = selected ? onAccent(context.accent) : null;
           return Container(
             key: key,
             child: Material(
-              color: selected ? context.accent : context.surfaceElevated,
-              borderRadius: BorderRadius.circular(12),
+              color: selected
+                  ? context.accent.withValues(alpha: 0.12)
+                  : Colors.transparent,
               child: InkWell(
                 key: Key('history-date-$k'),
-                borderRadius: BorderRadius.circular(12),
                 onTap: () => _setDay(k),
-                child: SizedBox(
-                  width: 52,
+                child: Container(
+                  width: 46,
+                  decoration: BoxDecoration(
+                    border: Border.all(
+                      color: selected ? context.accent : context.border,
+                    ),
+                  ),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
-                        DateFormat.E().format(d),
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: ink ?? context.textTertiary,
+                        DateFormat.E().format(d).substring(0, 2).toUpperCase(),
+                        style: AppType.metaSm.copyWith(
+                          color: selected
+                              ? context.accent
+                              : context.textTertiary,
+                          letterSpacing: 0.8,
                         ),
                       ),
+                      const SizedBox(height: 3),
                       Text(
                         '${d.day}',
-                        style: TextStyle(
-                          fontSize: 15,
+                        style: AppType.data.copyWith(
+                          color: selected
+                              ? context.accent
+                              : context.textPrimary,
                           fontWeight: FontWeight.w700,
-                          color: ink ?? context.textPrimary,
                         ),
+                      ),
+                      const SizedBox(height: 2),
+                      Container(
+                        height: 2,
+                        width: 18,
+                        color: selected ? context.accent : Colors.transparent,
                       ),
                     ],
                   ),
@@ -350,8 +395,10 @@ class _HistoryPageState extends ConsumerState<HistoryPage>
       targetText: '/ ${settings.waterTargetMl} ml',
       progress: day.waterMl == null
           ? 0
-          : progress(day.waterMl!.toDouble(),
-              settings.waterTargetMl.toDouble()),
+          : progress(
+              day.waterMl!.toDouble(),
+              settings.waterTargetMl.toDouble(),
+            ),
       avgText: _avgLabel(_weekAvg(week, (r) => r.waterMl ?? 0), 'ml'),
       spark: _weekValues(week, (r) => r.waterMl ?? 0),
     );
@@ -393,18 +440,26 @@ class _HistoryPageState extends ConsumerState<HistoryPage>
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
       children: [
-        SectionCard(
+        _HistorySection(
           title: 'FINISHED SESSIONS',
           icon: Icons.fitness_center_rounded,
           children: [
             for (final w in day.workouts)
               ListTile(
                 key: Key('history-workout-${w.workout.id}'),
-                leading: CircleAvatar(
-                  radius: 18,
-                  backgroundColor: context.accentDim,
-                  child: Icon(Icons.fitness_center_rounded,
-                      size: 18, color: context.accent),
+                leading: Container(
+                  width: 34,
+                  height: 34,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: context.accentDim,
+                    border: Border.all(color: context.border),
+                  ),
+                  child: Icon(
+                    Icons.fitness_center_rounded,
+                    size: 17,
+                    color: context.accent,
+                  ),
                 ),
                 title: Text(
                   w.routineName,
@@ -418,11 +473,13 @@ class _HistoryPageState extends ConsumerState<HistoryPage>
                   '${unitLabel(unit)}'
                   '${day.burnWeightKg == null ? '' : '\n≈ ${w.kcalBurn.round()} kcal burn'}',
                   style: TextStyle(
-                      fontSize: 12, color: context.textTertiary, height: 1.4),
+                    fontSize: 12,
+                    color: context.textTertiary,
+                    height: 1.4,
+                  ),
                 ),
                 trailing: const Icon(Icons.chevron_right_rounded, size: 20),
-                onTap: () =>
-                    context.push('/workout-history/${w.workout.id}'),
+                onTap: () => context.push('/workout-history/${w.workout.id}'),
               ),
           ],
         ),
@@ -443,7 +500,9 @@ class _HistoryPageState extends ConsumerState<HistoryPage>
           progress: day.steps == null
               ? 0
               : progress(
-                  day.steps!.toDouble(), settings.stepsTarget.toDouble()),
+                  day.steps!.toDouble(),
+                  settings.stepsTarget.toDouble(),
+                ),
           footnote: day.walkingBurn == null
               ? (day.steps == null ? null : 'add a weigh-in for kcal')
               : '≈ ${day.walkingBurn!.round()} kcal walking',
@@ -470,7 +529,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage>
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
       children: [
-        SectionCard(
+        _HistorySection(
           title: 'INTAKE',
           icon: Icons.restaurant_outlined,
           children: [
@@ -486,7 +545,9 @@ class _HistoryPageState extends ConsumerState<HistoryPage>
                         key: const Key('history-food-kcal'),
                         '${t.kcal.round()}',
                         style: const TextStyle(
-                            fontSize: 26, fontWeight: FontWeight.w800),
+                          fontSize: 26,
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
                       const SizedBox(width: 6),
                       Padding(
@@ -494,18 +555,18 @@ class _HistoryPageState extends ConsumerState<HistoryPage>
                         child: Text(
                           '/ ${settings.kcalTarget} kcal',
                           style: TextStyle(
-                              fontSize: 13, color: context.textTertiary),
+                            fontSize: 13,
+                            color: context.textTertiary,
+                          ),
                         ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 8),
-                  LinearProgressIndicator(
+                  ProgressRule(
                     value: progress(t.kcal, settings.kcalTarget.toDouble()),
-                    minHeight: 6,
-                    borderRadius: BorderRadius.circular(3),
-                    backgroundColor: context.surfaceElevated,
-                    color: context.accent,
+                    segments: 16,
+                    height: 6,
                   ),
                 ],
               ),
@@ -515,8 +576,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage>
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
                 child: Text(
                   'Nothing logged on this day.',
-                  style:
-                      TextStyle(fontSize: 13, color: context.textTertiary),
+                  style: TextStyle(fontSize: 13, color: context.textTertiary),
                 ),
               ),
             for (final log in day.foodLogs)
@@ -527,8 +587,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage>
                   padding: const EdgeInsets.only(top: 2),
                   child: Text(
                     DateFormat.Hm().format(log.loggedAt),
-                    style: TextStyle(
-                        fontSize: 12, color: context.textTertiary),
+                    style: TextStyle(fontSize: 12, color: context.textTertiary),
                   ),
                 ),
                 title: Text(
@@ -536,26 +595,29 @@ class _HistoryPageState extends ConsumerState<HistoryPage>
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                      fontWeight: FontWeight.w600, fontSize: 14),
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                  ),
                 ),
                 subtitle: Text(
                   '${_servings(log.servings)} · '
                   'P ${log.proteinG.round()} · '
                   'C ${log.carbsG.round()} · '
                   'F ${log.fatG.round()}',
-                  style:
-                      TextStyle(fontSize: 12, color: context.textTertiary),
+                  style: TextStyle(fontSize: 12, color: context.textTertiary),
                 ),
                 trailing: Text(
                   '${log.kcal.round()} kcal',
                   style: const TextStyle(
-                      fontWeight: FontWeight.w700, fontSize: 14),
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
+                  ),
                 ),
               ),
           ],
         ),
         const SizedBox(height: 12),
-        SectionCard(
+        _HistorySection(
           title: 'MACROS',
           icon: Icons.donut_small_outlined,
           children: [
@@ -576,20 +638,20 @@ class _HistoryPageState extends ConsumerState<HistoryPage>
   }
 
   Widget _macroCell(String label, double done, int target) => Expanded(
-        child: Column(
-          children: [
-            Text(
-              '${done.round()} / $target',
-              style: const TextStyle(fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              '$label g',
-              style: TextStyle(fontSize: 11, color: context.textTertiary),
-            ),
-          ],
+    child: Column(
+      children: [
+        Text(
+          '${done.round()} / $target',
+          style: const TextStyle(fontWeight: FontWeight.w700),
         ),
-      );
+        const SizedBox(height: 2),
+        Text(
+          '$label g',
+          style: TextStyle(fontSize: 11, color: context.textTertiary),
+        ),
+      ],
+    ),
+  );
 
   Widget _waterTab({required DayHistory day, required List<BodyMetric>? week}) {
     final settings = ref.watch(settingsProvider);
@@ -603,8 +665,10 @@ class _HistoryPageState extends ConsumerState<HistoryPage>
           targetText: '/ ${settings.waterTargetMl} ml',
           progress: day.waterMl == null
               ? 0
-              : progress(day.waterMl!.toDouble(),
-                  settings.waterTargetMl.toDouble()),
+              : progress(
+                  day.waterMl!.toDouble(),
+                  settings.waterTargetMl.toDouble(),
+                ),
           avgText: _avgLabel(_weekAvg(week, (r) => r.waterMl ?? 0), 'ml'),
           spark: _weekValues(week, (r) => r.waterMl ?? 0),
           sparkWidth: double.infinity,
@@ -620,7 +684,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage>
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
       children: [
-        SectionCard(
+        _HistorySection(
           title: 'CALORIES BURNED',
           icon: Icons.local_fire_department_outlined,
           children: [
@@ -628,10 +692,14 @@ class _HistoryPageState extends ConsumerState<HistoryPage>
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
               child: Column(
                 children: [
-                  _HistoryKvRow('Walking',
-                      noWeight ? null : day.walkingBurn?.round().toString()),
-                  _HistoryKvRow('Workout',
-                      noWeight ? null : day.workoutBurn.round().toString()),
+                  _HistoryKvRow(
+                    'Walking',
+                    noWeight ? null : day.walkingBurn?.round().toString(),
+                  ),
+                  _HistoryKvRow(
+                    'Workout',
+                    noWeight ? null : day.workoutBurn.round().toString(),
+                  ),
                   Divider(height: 20, color: context.border),
                   _HistoryKvRow(
                     'Total',
@@ -648,14 +716,14 @@ class _HistoryPageState extends ConsumerState<HistoryPage>
                 noWeight
                     ? 'Add a weigh-in to estimate calories burned.'
                     : 'walking: bodyweight × km × 1.036 · '
-                        'workout: MET $kLiftingMet × bodyweight × hours',
+                          'workout: MET $kLiftingMet × bodyweight × hours',
                 style: TextStyle(fontSize: 11, color: context.textTertiary),
               ),
             ),
           ],
         ),
         const SizedBox(height: 12),
-        SectionCard(
+        _HistorySection(
           title: 'INTAKE & NET',
           icon: Icons.restaurant_outlined,
           children: [
@@ -664,8 +732,10 @@ class _HistoryPageState extends ConsumerState<HistoryPage>
               child: Column(
                 children: [
                   _HistoryKvRow('Intake', '${day.totals.kcal.round()}'),
-                  _HistoryKvRow('Burned',
-                      noWeight ? null : day.totalBurned?.round().toString()),
+                  _HistoryKvRow(
+                    'Burned',
+                    noWeight ? null : day.totalBurned?.round().toString(),
+                  ),
                   Divider(height: 20, color: context.border),
                   _HistoryKvRow(
                     'Net',
@@ -710,6 +780,38 @@ class _HistoryPageState extends ConsumerState<HistoryPage>
       avg == null ? null : '7-day avg ${avg.round()} $unit';
 }
 
+class _HistorySection extends StatelessWidget {
+  const _HistorySection({
+    required this.title,
+    required this.children,
+    this.icon,
+  });
+
+  final String title;
+  final List<Widget> children;
+  final IconData? icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SectionHead(
+          title: title,
+          action: icon == null
+              ? null
+              : Icon(icon, size: 16, color: context.textTertiary),
+        ),
+        const SizedBox(height: 8),
+        LedgerPanel(
+          padding: EdgeInsets.zero,
+          child: Column(children: children),
+        ),
+      ],
+    );
+  }
+}
+
 /// One metric block (Steps / Water): headline vs target, progress bar,
 /// footnote row and a 7-day sparkline — the History page's workhorse.
 class _MetricCard extends StatelessWidget {
@@ -739,7 +841,7 @@ class _MetricCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SectionCard(
+    return _HistorySection(
       title: title,
       icon: icon,
       children: [
@@ -754,7 +856,9 @@ class _MetricCard extends StatelessWidget {
                   Text(
                     valueText,
                     style: const TextStyle(
-                        fontSize: 26, fontWeight: FontWeight.w800),
+                      fontSize: 26,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                   const SizedBox(width: 6),
                   Padding(
@@ -762,18 +866,18 @@ class _MetricCard extends StatelessWidget {
                     child: Text(
                       targetText,
                       style: TextStyle(
-                          fontSize: 13, color: context.textTertiary),
+                        fontSize: 13,
+                        color: context.textTertiary,
+                      ),
                     ),
                   ),
                 ],
               ),
               const SizedBox(height: 8),
-              LinearProgressIndicator(
+              ProgressRule(
                 value: progress.clamp(0, 1),
-                minHeight: 6,
-                borderRadius: BorderRadius.circular(3),
-                backgroundColor: context.surfaceElevated,
-                color: context.accent,
+                segments: 16,
+                height: 6,
               ),
               if (footnote != null || avgText != null) ...[
                 const SizedBox(height: 10),
@@ -782,15 +886,16 @@ class _MetricCard extends StatelessWidget {
                     if (footnote != null)
                       Text(
                         footnote!,
-                        style: TextStyle(
-                            fontSize: 11, color: context.accent),
+                        style: TextStyle(fontSize: 11, color: context.accent),
                       ),
                     const Spacer(),
                     if (avgText != null)
                       Text(
                         avgText!,
                         style: TextStyle(
-                            fontSize: 11, color: context.textTertiary),
+                          fontSize: 11,
+                          color: context.textTertiary,
+                        ),
                       ),
                   ],
                 ),
@@ -823,7 +928,7 @@ class _BurnCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final noWeight = day.burnWeightKg == null;
-    return SectionCard(
+    return _HistorySection(
       title: 'CALORIES BURNED',
       icon: Icons.local_fire_department_outlined,
       children: [
@@ -856,7 +961,7 @@ class _BurnCard extends StatelessWidget {
             noWeight
                 ? 'Add a weigh-in to estimate calories burned.'
                 : 'walking: bodyweight × km × 1.036 · '
-                    'workout: MET $kLiftingMet × bodyweight × hours',
+                      'workout: MET $kLiftingMet × bodyweight × hours',
             style: TextStyle(fontSize: 11, color: context.textTertiary),
           ),
         ),
@@ -911,26 +1016,25 @@ class _IntakeNetCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final noWeight = day.burnWeightKg == null;
     Widget cell(String label, String value, {Color? color}) => Expanded(
-          child: Column(
-            children: [
-              Text(
-                value,
-                style: TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w800,
-                  color: color,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                label,
-                style:
-                    TextStyle(fontSize: 11, color: context.textTertiary),
-              ),
-            ],
+      child: Column(
+        children: [
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w800,
+              color: color,
+            ),
           ),
-        );
-    return SectionCard(
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: TextStyle(fontSize: 11, color: context.textTertiary),
+          ),
+        ],
+      ),
+    );
+    return _HistorySection(
       title: 'INTAKE & NET',
       icon: Icons.restaurant_outlined,
       children: [
@@ -939,10 +1043,7 @@ class _IntakeNetCard extends StatelessWidget {
           child: Row(
             children: [
               cell('Intake', '${day.totals.kcal.round()}'),
-              cell(
-                'Burned',
-                noWeight ? '—' : '${day.totalBurned!.round()}',
-              ),
+              cell('Burned', noWeight ? '—' : '${day.totalBurned!.round()}'),
               cell(
                 'Net',
                 noWeight
@@ -995,15 +1096,16 @@ class _WeighInCard extends StatelessWidget {
                 key: const Key('history-weight'),
                 kgToDisplay(day.weightKg!, unit).toStringAsFixed(1),
                 style: const TextStyle(
-                    fontSize: 26, fontWeight: FontWeight.w800),
+                  fontSize: 26,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
               const SizedBox(width: 6),
               Padding(
                 padding: const EdgeInsets.only(bottom: 3),
                 child: Text(
                   unitLabel(unit),
-                  style: TextStyle(
-                      fontSize: 13, color: context.textTertiary),
+                  style: TextStyle(fontSize: 13, color: context.textTertiary),
                 ),
               ),
               const Spacer(),
@@ -1014,12 +1116,16 @@ class _WeighInCard extends StatelessWidget {
                     Text(
                       'BMI ${bmi.toStringAsFixed(1)}',
                       style: const TextStyle(
-                          fontWeight: FontWeight.w700, fontSize: 13),
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13,
+                      ),
                     ),
                     Text(
                       bmiLabel(bmiCategory(bmi)),
                       style: TextStyle(
-                          fontSize: 11, color: context.textTertiary),
+                        fontSize: 11,
+                        color: context.textTertiary,
+                      ),
                     ),
                   ],
                 ),
@@ -1029,8 +1135,8 @@ class _WeighInCard extends StatelessWidget {
           Text(
             hasDelta
                 ? '${delta >= 0 ? '▲' : '▼'} '
-                    '${kgToDisplay(delta.abs(), unit).toStringAsFixed(1)} '
-                    '${unitLabel(unit)} since ${DateFormat('d MMM').format(parseDayKey(day.prevWeightDay!))}'
+                      '${kgToDisplay(delta.abs(), unit).toStringAsFixed(1)} '
+                      '${unitLabel(unit)} since ${DateFormat('d MMM').format(parseDayKey(day.prevWeightDay!))}'
                 : 'first weigh-in',
             style: TextStyle(fontSize: 12, color: context.textTertiary),
           ),
@@ -1050,7 +1156,7 @@ class _WeighInCard extends StatelessWidget {
         style: TextStyle(fontSize: 13, color: context.textTertiary),
       );
     }
-    return SectionCard(
+    return _HistorySection(
       title: 'WEIGH-IN',
       icon: Icons.monitor_weight_outlined,
       children: [
@@ -1073,7 +1179,7 @@ class _WorkoutStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SectionCard(
+    return _HistorySection(
       title: 'WORKOUTS',
       icon: Icons.fitness_center_rounded,
       children: [
@@ -1094,8 +1200,7 @@ class _WorkoutStrip extends StatelessWidget {
                 child: InkWell(
                   key: Key('history-workout-card-${w.workout.id}'),
                   borderRadius: BorderRadius.circular(8),
-                  onTap: () =>
-                      context.push('/workout-history/${w.workout.id}'),
+                  onTap: () => context.push('/workout-history/${w.workout.id}'),
                   child: Container(
                     width: 196,
                     padding: const EdgeInsets.all(10),
@@ -1107,7 +1212,9 @@ class _WorkoutStrip extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
-                              fontWeight: FontWeight.w700, fontSize: 13.5),
+                            fontWeight: FontWeight.w700,
+                            fontSize: 13.5,
+                          ),
                         ),
                         const SizedBox(height: 4),
                         Text(
@@ -1116,16 +1223,19 @@ class _WorkoutStrip extends StatelessWidget {
                           '${compactNumber(kgToDisplay(w.workout.totalVolume, unit))} '
                           '${unitLabel(unit)}',
                           style: TextStyle(
-                              fontSize: 11.5, color: context.textTertiary),
+                            fontSize: 11.5,
+                            color: context.textTertiary,
+                          ),
                         ),
                         const Spacer(),
                         if (day.burnWeightKg != null)
                           Text(
                             '≈ ${w.kcalBurn.round()} kcal burn',
                             style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                                color: context.accent),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: context.accent,
+                            ),
                           ),
                       ],
                     ),
@@ -1203,27 +1313,14 @@ class _SparkPainter extends CustomPainter {
         ),
     ];
 
-    final fill = Path()
-      ..moveTo(points.first.dx, size.height)
-      ..lineTo(points.first.dx, points.first.dy);
-    for (final p in points.skip(1)) {
-      fill.lineTo(p.dx, p.dy);
+    final tick = Paint()
+      ..color = track
+      ..strokeWidth = 1;
+    final baseline = size.height - pad;
+    for (final p in points) {
+      canvas.drawLine(Offset(p.dx, baseline), Offset(p.dx, baseline - 3), tick);
     }
-    fill
-      ..lineTo(points.last.dx, size.height)
-      ..close();
-    canvas.drawPath(
-      fill,
-      Paint()
-        ..shader = LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            color.withValues(alpha: 0.25),
-            color.withValues(alpha: 0.0),
-          ],
-        ).createShader(Rect.fromLTWH(0, 0, w, size.height)),
-    );
+    canvas.drawLine(Offset(0, baseline), Offset(w, baseline), tick);
 
     final line = Path()..moveTo(points.first.dx, points.first.dy);
     for (final p in points.skip(1)) {
@@ -1234,12 +1331,15 @@ class _SparkPainter extends CustomPainter {
       Paint()
         ..color = color
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 2
-        ..strokeCap = StrokeCap.round
-        ..strokeJoin = StrokeJoin.round,
+        ..strokeWidth = 1.6
+        ..strokeCap = StrokeCap.square
+        ..strokeJoin = StrokeJoin.miter,
     );
 
-    canvas.drawCircle(points.last, 3, Paint()..color = color);
+    canvas.drawRect(
+      Rect.fromCenter(center: points.last, width: 5, height: 5),
+      Paint()..color = color,
+    );
   }
 
   @override

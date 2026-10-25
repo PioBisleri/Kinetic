@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/ledger/ledger.dart';
 import '../../../core/theme/app_theme.dart';
 import '../application/analytics_providers.dart';
 import '../domain/grade_engine.dart';
@@ -70,13 +71,13 @@ class _BalanceRow extends StatelessWidget {
     final ratioText = !hasData
         ? '—'
         : status.ratio! >= 999
-            ? '∞'
-            : '×${status.ratio!.toStringAsFixed(2)}';
+        ? '∞'
+        : '×${status.ratio!.toStringAsFixed(2)}';
     final ratioColor = !hasData
         ? context.textTertiary
         : status.isBalanced
-            ? AppColors.gradeA
-            : AppColors.heatWarm;
+        ? AppColors.gradeA
+        : AppColors.heatWarm;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -87,8 +88,10 @@ class _BalanceRow extends StatelessWidget {
               child: Text(
                 pair.name,
                 overflow: TextOverflow.ellipsis,
-                style:
-                    const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
             Text(
@@ -115,16 +118,15 @@ class _BalanceRow extends StatelessWidget {
                   fontSize: 11,
                   color: hasData
                       ? (status.isBalanced
-                          ? AppColors.gradeA
-                          : AppColors.heatWarm)
+                            ? AppColors.gradeA
+                            : AppColors.heatWarm)
                       : context.textTertiary,
                 ),
               ),
             ),
             Text(
               'target ${_fmt(pair.targetMin)}–${_fmt(pair.targetMax)}',
-              style: TextStyle(
-                  fontSize: 10, color: context.textTertiary),
+              style: TextStyle(fontSize: 10, color: context.textTertiary),
             ),
           ],
         ),
@@ -156,28 +158,16 @@ class _Bar extends StatelessWidget {
           width: 14,
           child: Text(
             label,
-            style:
-                TextStyle(fontSize: 10, color: context.textTertiary),
+            style: TextStyle(fontSize: 10, color: context.textTertiary),
           ),
         ),
         const SizedBox(width: 6),
         Expanded(
-          child: Container(
+          child: ProgressRule(
+            value: max <= 0 ? 0 : value / max,
+            segments: 18,
             height: 8,
-            decoration: BoxDecoration(
-              color: context.surfaceElevated,
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: FractionallySizedBox(
-              alignment: Alignment.centerLeft,
-              widthFactor: max <= 0 ? 0 : (value / max).clamp(0.0, 1.0),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: color,
-                  borderRadius: BorderRadius.circular(4),
-                ),
-              ),
-            ),
+            color: color,
           ),
         ),
       ],

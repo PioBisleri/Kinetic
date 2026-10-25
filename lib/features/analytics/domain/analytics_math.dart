@@ -31,17 +31,17 @@ DateTime weekStartOf(DateTime t) {
 }
 
 /// Whole calendar days from [a] to [b] (b − a), timezone-safe.
-int daysBetween(DateTime a, DateTime b) =>
-    DateTime.utc(b.year, b.month, b.day)
-        .difference(DateTime.utc(a.year, a.month, a.day))
-        .inDays;
+int daysBetween(DateTime a, DateTime b) => DateTime.utc(
+  b.year,
+  b.month,
+  b.day,
+).difference(DateTime.utc(a.year, a.month, a.day)).inDays;
 
 /// First day covered by a [weeks]-long window ending in the week of [now]:
 /// exactly [weeks] Monday-start slots, aligned with [bucketWeekly].
 /// [weeks] == 0 means "All" → the epoch (every real log is newer).
-DateTime periodStart(int weeks, DateTime now) => weeks <= 0
-    ? DateTime(1970)
-    : addDays(weekStartOf(now), -7 * (weeks - 1));
+DateTime periodStart(int weeks, DateTime now) =>
+    weeks <= 0 ? DateTime(1970) : addDays(weekStartOf(now), -7 * (weeks - 1));
 
 /// Where a chart's x-axis begins: the Monday slot for bounded periods,
 /// the earliest data point for "All" (weeks == 0) — plotting from the

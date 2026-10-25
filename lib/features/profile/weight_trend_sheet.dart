@@ -1,6 +1,8 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+
 import '../../core/widgets/app_dialog.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/database/database_providers.dart';
@@ -12,11 +14,10 @@ import 'weight_trend.dart';
 /// The weight-trend bottom sheet (Round 6): current / 7-day average /
 /// change over the window, then the raw series with its trailing
 /// 7-day average drawn through it.
-Future<void> showWeightTrendSheet(BuildContext context) =>
-    showAppSheet<void>(
-      context: context,
-      builder: (_) => const WeightTrendSheet(),
-    );
+Future<void> showWeightTrendSheet(BuildContext context) => showAppSheet<void>(
+  context: context,
+  builder: (_) => const WeightTrendSheet(),
+);
 
 class WeightTrendSheet extends ConsumerWidget {
   const WeightTrendSheet({super.key});
@@ -50,9 +51,7 @@ class WeightTrendSheet extends ConsumerWidget {
             const SizedBox(height: 16),
             Text(
               'Weight trend',
-              style: Theme.of(context)
-                  .textTheme
-                  .titleMedium
+              style: Theme.of(context).textTheme.titleMedium
                   ?.copyWith(fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 4),
@@ -69,8 +68,7 @@ class WeightTrendSheet extends ConsumerWidget {
                     'No weigh-ins in this window yet.\n'
                     'Save a weight under Your data to add one.',
                     textAlign: TextAlign.center,
-                    style: TextStyle(
-                        fontSize: 12, color: context.textTertiary),
+                    style: TextStyle(fontSize: 12, color: context.textTertiary),
                   ),
                 ),
               )
@@ -79,19 +77,20 @@ class WeightTrendSheet extends ConsumerWidget {
                 children: [
                   _TrendStat(
                     label: 'Current',
-                    value:
-                        '${formatWeight(points.last.weightKg, unit)} $lbl',
+                    value: '${formatWeight(points.last.weightKg, unit)} $lbl',
                   ),
                   _TrendStat(
                     label: '7-day avg',
-                    value: avg == null ? '—' : '${formatWeight(avg, unit)} $lbl',
+                    value: avg == null
+                        ? '—'
+                        : '${formatWeight(avg, unit)} $lbl',
                   ),
                   _TrendStat(
                     label: 'Change',
                     value: delta == null
                         ? '—'
                         : '${delta >= 0 ? '+' : '-'}'
-                            '${formatWeight(delta.abs(), unit)} $lbl',
+                              '${formatWeight(delta.abs(), unit)} $lbl',
                   ),
                 ],
               ),
@@ -297,10 +296,12 @@ class _TrendChart extends StatelessWidget {
           ),
         ),
         titlesData: FlTitlesData(
-          topTitles:
-              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          rightTitles:
-              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          topTitles: const AxisTitles(
+            sideTitles: SideTitles(showTitles: false),
+          ),
+          rightTitles: const AxisTitles(
+            sideTitles: SideTitles(showTitles: false),
+          ),
           leftTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
@@ -328,8 +329,7 @@ class _TrendChart extends StatelessWidget {
                   padding: const EdgeInsets.only(top: 4),
                   child: Text(
                     _dateLabel(since.add(Duration(days: x))),
-                    style:
-                        TextStyle(fontSize: 10, color: context.textTertiary),
+                    style: TextStyle(fontSize: 10, color: context.textTertiary),
                   ),
                 );
               },

@@ -127,12 +127,12 @@ void main() {
     await seedToday();
     await pumpPage(tester);
 
-    expect(find.text('STEPS'), findsOneWidget);
-    expect(find.text('WATER'), findsOneWidget);
+    expect(find.text('STEPS'), findsWidgets);
+    expect(find.text('WATER'), findsWidgets);
     expect(find.text('CALORIES BURNED'), findsOneWidget);
     expect(find.text('INTAKE & NET'), findsOneWidget);
     expect(find.text('WEIGH-IN'), findsOneWidget);
-    expect(find.text('WORKOUTS'), findsOneWidget);
+    expect(find.text('WORKOUTS'), findsWidgets);
     expect(find.text('5000'), findsOneWidget); // steps headline
     expect(find.text('1200'), findsOneWidget); // water headline
     expect(find.text('80.0'), findsOneWidget); // weigh-in (kg default)

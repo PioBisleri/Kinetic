@@ -1,16 +1,18 @@
 import 'dart:async' show unawaited;
 
 import 'package:flutter/material.dart';
+
 import '../../core/widgets/app_dialog.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/database/database.dart';
 import '../../core/settings/settings.dart';
+import '../../core/ledger/ledger.dart';
 import '../../core/theme/app_theme.dart';
 import '../health/health_providers.dart';
 import '../health/live_activity_service.dart';
-import '../../core/widgets/app_empty.dart';
 import 'application/nutrition_providers.dart';
 import 'domain/food_math.dart';
 import 'food_sheets.dart';
@@ -23,10 +25,10 @@ class DietPage extends ConsumerWidget {
 
   /// Rank-and-pick a food from the library, then log one serving.
   Future<void> _openPicker(BuildContext context) => showAppSheet<void>(
-        context: context,
-        isScrollControlled: true,
-        builder: (_) => const FoodPickerSheet(),
-      );
+    context: context,
+    isScrollControlled: true,
+    builder: (_) => const FoodPickerSheet(),
+  );
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -37,130 +39,97 @@ class DietPage extends ConsumerWidget {
     final libraryAsync = ref.watch(foodLibraryProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Diet')),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          _MacroCard(totals: totals, settings: settings),
-          const SizedBox(height: 16),
-          const _StepsCard(),
-          const SizedBox(height: 16),
-          const _WaterCard(),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              const Expanded(
-                child: Text(
-                  'Today\'s food',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontWeight: FontWeight.w700),
-                ),
-              ),
-              IconButton.filledTonal(
+      appBar: const TailBar(
+        title: 'Diet',
+        meta: 'Macros · water · movement',
+        showMenu: false,
+      ),
+      body: SafeArea(
+        top: false,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpace.x5,
+            AppSpace.x2,
+            AppSpace.x5,
+            AppSpace.x8,
+          ),
+          children: [
+            const SectionHead(index: '01', title: 'Intake', meta: 'macros'),
+            const SizedBox(height: AppSpace.x3),
+            _MacroCard(totals: totals, settings: settings),
+            const SizedBox(height: AppSpace.x6),
+            const SectionHead(
+              index: '02',
+              title: 'Movement',
+              meta: 'sensor only',
+            ),
+            const SizedBox(height: AppSpace.x3),
+            const _StepsCard(),
+            const SizedBox(height: AppSpace.x6),
+            const SectionHead(index: '03', title: 'Water', meta: 'quick log'),
+            const SizedBox(height: AppSpace.x3),
+            const _WaterCard(),
+            const SizedBox(height: AppSpace.x6),
+            _FeedHeader(
+              index: '04',
+              title: "Today's food",
+              meta: 'logged',
+              action: _AddButton(
                 key: const Key('diet-log-food'),
                 tooltip: 'Log food',
-                icon: const Icon(Icons.add, size: 20),
                 onPressed: () => unawaited(_openPicker(context)),
-                style: IconButton.styleFrom(
-                  minimumSize: const Size(40, 40),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          logsAsync.when(
-            loading: () => const SizedBox(
-              height: 48,
-              child: Center(
-                child: SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
               ),
             ),
-            error: (e, _) => Padding(
-              padding: const EdgeInsets.all(16),
-              child: Text('Error: $e'),
-            ),
-            data: (logs) => logs.isEmpty
-                ? const EmptyState(message: 'Nothing logged yet.')
-                : Card(
-                    margin: EdgeInsets.zero,
-                    child: Column(
-                      children: [
-                        for (var i = 0; i < logs.length; i++) ...[
-                          if (i > 0) const Divider(height: 1),
-                          _LogTile(log: logs[i]),
+            const SizedBox(height: AppSpace.x3),
+            logsAsync.when(
+              loading: () => const _LoadingPanel(),
+              error: (e, _) => _MessagePanel(message: 'Error: $e'),
+              data: (logs) => logs.isEmpty
+                  ? const _MessagePanel(message: 'Nothing logged yet.')
+                  : LedgerPanel(
+                      padding: EdgeInsets.zero,
+                      child: Column(
+                        children: [
+                          for (var i = 0; i < logs.length; i++) ...[
+                            if (i > 0) Rule(),
+                            _LogTile(log: logs[i]),
+                          ],
                         ],
-                      ],
-                    ),
-                  ),
-          ),
-          const SizedBox(height: 24),
-          Row(
-            children: [
-              const Expanded(
-                child: Text(
-                  'My foods',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontWeight: FontWeight.w700),
-                ),
-              ),
-              IconButton.filledTonal(
-                key: const Key('diet-new-food'),
-                tooltip: 'New food',
-                icon: const Icon(Icons.add, size: 20),
-                onPressed: () => unawaited(showFoodEditorSheet(context)),
-                style: IconButton.styleFrom(
-                  minimumSize: const Size(40, 40),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          libraryAsync.when(
-            loading: () => const SizedBox(
-              height: 48,
-              child: Center(
-                child: SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-              ),
-            ),
-            error: (e, _) => Padding(
-              padding: const EdgeInsets.all(16),
-              child: Text('Error: $e'),
-            ),
-            data: (foods) => foods.isEmpty
-                ? Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(20),
-                      child: Center(
-                        child: Text(
-                          'No foods yet — "New food" saves one with '
-                          'per-serving macros you can tap to log.',
-                          style: TextStyle(color: context.textSecondary),
-                          textAlign: TextAlign.center,
-                        ),
                       ),
                     ),
-                  )
-                : Card(
-                    margin: EdgeInsets.zero,
-                    child: Column(
-                      children: [
-                        for (final food in foods) _LibraryTile(food: food),
-                      ],
+            ),
+            const SizedBox(height: AppSpace.x6),
+            _FeedHeader(
+              index: '05',
+              title: 'My foods',
+              meta: 'library',
+              action: _AddButton(
+                key: const Key('diet-new-food'),
+                tooltip: 'New food',
+                onPressed: () => unawaited(showFoodEditorSheet(context)),
+              ),
+            ),
+            const SizedBox(height: AppSpace.x3),
+            libraryAsync.when(
+              loading: () => const _LoadingPanel(),
+              error: (e, _) => _MessagePanel(message: 'Error: $e'),
+              data: (foods) => foods.isEmpty
+                  ? const _MessagePanel(
+                      message:
+                          'No foods yet — "New food" saves one with '
+                          'per-serving macros you can tap to log.',
+                    )
+                  : LedgerPanel(
+                      padding: EdgeInsets.zero,
+                      child: Column(
+                        children: [
+                          for (final food in foods) _LibraryTile(food: food),
+                        ],
+                      ),
                     ),
-                  ),
-          ),
-          const SizedBox(height: 32),
-        ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -176,17 +145,28 @@ class _MacroCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
+    return LedgerPanel(
+      grid: true,
+      padding: EdgeInsets.zero,
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
-              'TODAY',
-              style: Theme.of(context).textTheme.labelSmall!.copyWith(color: context.textSecondary),
+            Row(
+              children: [
+                Text(
+                  'KCAL TODAY',
+                  style: AppType.meta.copyWith(color: context.textTertiary),
+                ),
+                const Spacer(),
+                Text(
+                  'TARGET ${settings.kcalTarget}',
+                  style: AppType.metaSm.copyWith(color: context.textTertiary),
+                ),
+              ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
             Row(
               crossAxisAlignment: CrossAxisAlignment.baseline,
               textBaseline: TextBaseline.alphabetic,
@@ -194,28 +174,25 @@ class _MacroCard extends StatelessWidget {
                 Text(
                   totals.kcal.round().toString(),
                   key: const Key('diet-kcal-today'),
-                  style: const TextStyle(
-                    fontSize: 34,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -1,
-                  ),
+                  style: AppType.dataHero.copyWith(color: context.textPrimary),
                 ),
-                const SizedBox(width: 6),
-                Text(
-                  '/ ${settings.kcalTarget} kcal',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: context.textSecondary,
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    '/ ${settings.kcalTarget} kcal',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppType.meta.copyWith(color: context.textSecondary),
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 12),
-            _Scale(
-              done: totals.kcal,
-              target: settings.kcalTarget.toDouble(),
-              keyTag: 'diet-kcal-scale',
+            ProgressRule(
+              key: const Key('diet-kcal-scale'),
+              value: progress(totals.kcal, settings.kcalTarget.toDouble()),
+              segments: 20,
+              height: 8,
             ),
             const SizedBox(height: 16),
             _MacroRow(
@@ -254,69 +231,39 @@ class _MacroRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: 5),
       child: Row(
         children: [
           SizedBox(
-            width: 60,
+            width: 58,
             child: Text(
-              label,
-              style: TextStyle(fontSize: 13, color: context.textSecondary),
+              label.toUpperCase(),
+              style: AppType.metaSm.copyWith(color: context.textTertiary),
             ),
           ),
-          Expanded(child: _Scale(done: done, target: target.toDouble())),
+          const SizedBox(width: 8),
+          Expanded(
+            child: ProgressRule(
+              value: progress(done, target.toDouble()),
+              segments: 10,
+              height: 5,
+            ),
+          ),
           const SizedBox(width: 10),
-          SizedBox(
-            width: 120,
-            child: Text.rich(
-              TextSpan(
-                text: done.round().toString(),
-                style: const TextStyle(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 14,
-                ),
-                children: [
-                  if (target > 0)
-                    TextSpan(
-                      text: ' / $target g',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w500,
-                        fontSize: 12,
-                        color: context.textSecondary,
-                      ),
-                    ),
-                ],
-              ),
+          Text.rich(
+            TextSpan(
+              text: done.round().toString(),
+              style: AppType.data.copyWith(color: context.textPrimary),
+              children: [
+                if (target > 0)
+                  TextSpan(
+                    text: ' / $target g',
+                    style: AppType.metaSm.copyWith(color: context.textTertiary),
+                  ),
+              ],
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-/// Thin progress bar on the accent color — value clamped to 0..1, so an
-/// over-target day reads "full" rather than overflowing.
-class _Scale extends StatelessWidget {
-  const _Scale({required this.done, required this.target, this.keyTag});
-
-  final double done;
-  final double target;
-  final String? keyTag;
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(3),
-      child: SizedBox(
-        height: 6,
-        child: LinearProgressIndicator(
-          key: keyTag == null ? null : Key(keyTag!),
-          value: progress(done, target),
-          minHeight: 6,
-          backgroundColor: context.textTertiary.withValues(alpha: 0.18),
-          color: context.accent,
-        ),
       ),
     );
   }
@@ -337,32 +284,28 @@ class _StepsCard extends ConsumerWidget {
     final settings = ref.watch(settingsProvider);
     final steps = metric?.steps ?? 0;
 
-    return Card(
+    return LedgerPanel(
+      padding: EdgeInsets.zero,
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Row(
               children: [
                 Text(
                   'STEPS',
-                  style: Theme.of(context).textTheme.labelSmall!.copyWith(color: context.textSecondary),
+                  style: AppType.meta.copyWith(color: context.textTertiary),
                 ),
                 const Spacer(),
                 Text.rich(
                   TextSpan(
                     text: '$steps',
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w800,
-                    ),
+                    style: AppType.dataLg.copyWith(color: context.textPrimary),
                     children: [
                       TextSpan(
                         text: ' / ${settings.stepsTarget} steps',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
+                        style: AppType.metaSm.copyWith(
                           color: context.textSecondary,
                         ),
                       ),
@@ -371,23 +314,15 @@ class _StepsCard extends ConsumerWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 10),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(3),
-              child: SizedBox(
-                height: 6,
-                child: LinearProgressIndicator(
-                  key: const Key('diet-steps-scale'),
-                  value: progress(
-                    steps.toDouble(),
-                    settings.stepsTarget.toDouble(),
-                  ),
-                  minHeight: 6,
-                  color: context.accent,
-                  backgroundColor:
-                      context.textTertiary.withValues(alpha: 0.18),
-                ),
+            const SizedBox(height: 12),
+            ProgressRule(
+              key: const Key('diet-steps-scale'),
+              value: progress(
+                steps.toDouble(),
+                settings.stepsTarget.toDouble(),
               ),
+              segments: 20,
+              height: 8,
             ),
           ],
         ),
@@ -416,20 +351,24 @@ class _WaterCard extends ConsumerWidget {
     // Capture the messenger before the async gap (use_build_context…).
     final messenger = ScaffoldMessenger.maybeOf(context);
     final live = ref.read(liveActivityControllerProvider);
-    unawaited(addWaterMl(db, day, ml).then((_) {
-      live.refresh();
-      if (messenger == null) return;
-      messenger.showSnackBar(SnackBar(
-        content: Text('+$ml ml water'),
-        duration: const Duration(seconds: 4),
-        persist: false,
-        action: SnackBarAction(
-          label: 'Undo',
-          onPressed: () =>
-              unawaited(addWaterMl(db, ref.read(todayKeyProvider), -ml)),
-        ),
-      ));
-    }));
+    unawaited(
+      addWaterMl(db, day, ml).then((_) {
+        live.refresh();
+        if (messenger == null) return;
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text('+$ml ml water'),
+            duration: const Duration(seconds: 4),
+            persist: false,
+            action: SnackBarAction(
+              label: 'Undo',
+              onPressed: () =>
+                  unawaited(addWaterMl(db, ref.read(todayKeyProvider), -ml)),
+            ),
+          ),
+        );
+      }),
+    );
   }
 
   @override
@@ -439,32 +378,28 @@ class _WaterCard extends ConsumerWidget {
     final settings = ref.watch(settingsProvider);
     final waterMl = metric?.waterMl ?? 0;
 
-    return Card(
+    return LedgerPanel(
+      padding: EdgeInsets.zero,
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Row(
               children: [
                 Text(
                   'WATER',
-                  style: Theme.of(context).textTheme.labelSmall!.copyWith(color: context.textSecondary),
+                  style: AppType.meta.copyWith(color: context.textTertiary),
                 ),
                 const Spacer(),
                 Text.rich(
                   TextSpan(
                     text: '$waterMl',
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w800,
-                    ),
+                    style: AppType.dataLg.copyWith(color: context.textPrimary),
                     children: [
                       TextSpan(
                         text: ' / ${settings.waterTargetMl} ml',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
+                        style: AppType.metaSm.copyWith(
                           color: context.textSecondary,
                         ),
                       ),
@@ -473,73 +408,215 @@ class _WaterCard extends ConsumerWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
             Row(
               children: [
-                Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: Icon(
-                    Icons.water_drop,
-                    size: 14,
-                    color: context.accent.withValues(
-                      alpha: waterMl == 0 ? 0.5 : 1.0,
-                    ),
+                Icon(
+                  Icons.water_drop,
+                  size: 14,
+                  color: context.accent.withValues(
+                    alpha: waterMl == 0 ? 0.5 : 1.0,
                   ),
                 ),
+                const SizedBox(width: 8),
                 Expanded(
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(4),
-                    child: SizedBox(
-                      height: 8,
-                      child: LinearProgressIndicator(
-                        key: const Key('diet-water-scale'),
-                        value: progress(
-                          waterMl.toDouble(),
-                          settings.waterTargetMl.toDouble(),
+                  child: ProgressRule(
+                    key: const Key('diet-water-scale'),
+                    value: progress(
+                      waterMl.toDouble(),
+                      settings.waterTargetMl.toDouble(),
+                    ),
+                    segments: 20,
+                    height: 8,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  '${_pct(waterMl, settings.waterTargetMl)}%',
+                  style: AppType.dataSm.copyWith(color: context.textTertiary),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            _QuickAddRow(onTap: (ml) => _tap(context, ref, ml)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Three hairline quick-add keys (+100 / +250 / +500 ml).
+class _QuickAddRow extends StatelessWidget {
+  const _QuickAddRow({required this.onTap});
+
+  final ValueChanged<int> onTap;
+
+  static const _amounts = [100, 250, 500];
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: const Key('diet-water-segments'),
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        border: Border.all(color: context.border),
+        borderRadius: BorderRadius.circular(AppRadius.data),
+      ),
+      child: Row(
+        children: [
+          for (final (i, ml) in _amounts.indexed)
+            Expanded(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  border: i == 0
+                      ? null
+                      : Border(left: BorderSide(color: context.border)),
+                ),
+                child: InkWell(
+                  onTap: () => onTap(ml),
+                  splashColor: context.accent.withValues(alpha: 0.06),
+                  child: SizedBox(
+                    height: 42,
+                    child: Center(
+                      child: Text(
+                        '+$ml',
+                        style: AppType.data.copyWith(
+                          color: context.textSecondary,
+                          fontWeight: FontWeight.w600,
                         ),
-                        minHeight: 8,
-                        color: context.accent,
-                        backgroundColor:
-                            context.textTertiary.withValues(alpha: 0.18),
                       ),
                     ),
                   ),
                 ),
-                Padding(
-                  padding: const EdgeInsets.only(left: 8),
-                  child: Text(
-                    '${_pct(waterMl, settings.waterTargetMl)}%',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: context.textTertiary,
-                      fontFeatures: const [FontFeature.tabularFigures()],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            // One segmented control instead of three heavy buttons —
-            // Single SegmentedButton with quick-add amounts.
-            SizedBox(
-              width: double.infinity,
-              child: SegmentedButton<int>(
-                key: const Key('diet-water-segments'),
-                showSelectedIcon: false,
-                emptySelectionAllowed: true,
-                selected: const <int>{},
-                onSelectionChanged: (sel) {
-                  if (sel.isNotEmpty) _tap(context, ref, sel.first);
-                },
-                segments: const [
-                  ButtonSegment(value: 100, label: Text('+100')),
-                  ButtonSegment(value: 250, label: Text('+250')),
-                  ButtonSegment(value: 500, label: Text('+500')),
-                ],
               ),
             ),
-          ],
+        ],
+      ),
+    );
+  }
+}
+
+// ------------------------------- section chrome --------------------------
+
+class _FeedHeader extends StatelessWidget {
+  const _FeedHeader({
+    required this.index,
+    required this.title,
+    this.meta,
+    this.action,
+  });
+
+  final String index;
+  final String title;
+  final String? meta;
+  final Widget? action;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Text(index, style: AppType.meta.copyWith(color: context.textTertiary)),
+        const SizedBox(width: 8),
+        Container(
+          width: 14,
+          height: 1,
+          color: context.textTertiary.withValues(alpha: 0.6),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: AppType.h2.copyWith(color: context.textPrimary),
+          ),
+        ),
+        if (meta != null) ...[
+          const SizedBox(width: 8),
+          Text(
+            meta!.toUpperCase(),
+            style: AppType.metaSm.copyWith(color: context.textTertiary),
+          ),
+        ],
+        if (action != null) ...[const SizedBox(width: 10), action!],
+      ],
+    );
+  }
+}
+
+class _AddButton extends StatelessWidget {
+  const _AddButton({super.key, required this.tooltip, required this.onPressed});
+
+  final String tooltip;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(AppRadius.data),
+        splashColor: context.accent.withValues(alpha: 0.08),
+        child: Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            border: Border.all(color: context.border),
+            borderRadius: BorderRadius.circular(AppRadius.data),
+          ),
+          child: Center(
+            child: LedgerGlyph(
+              LedgerGlyphType.plus,
+              size: 16,
+              color: context.accent,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MessagePanel extends StatelessWidget {
+  const _MessagePanel({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return LedgerPanel(
+      padding: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Center(
+          child: Text(
+            message,
+            textAlign: TextAlign.center,
+            style: AppType.bodySm.copyWith(color: context.textSecondary),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _LoadingPanel extends StatelessWidget {
+  const _LoadingPanel();
+
+  @override
+  Widget build(BuildContext context) {
+    return const LedgerPanel(
+      padding: EdgeInsets.zero,
+      child: SizedBox(
+        height: 58,
+        child: Center(
+          child: SizedBox(
+            width: 18,
+            height: 18,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
         ),
       ),
     );
@@ -561,34 +638,41 @@ class _LogTile extends ConsumerWidget {
       dense: true,
       title: Text(
         log.name,
-        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14.5),
+        style: AppType.body.copyWith(
+          color: context.textPrimary,
+          fontWeight: FontWeight.w600,
+        ),
       ),
       subtitle: Text(
         '${_servings(log.servings)} · $time',
-        style: TextStyle(fontSize: 12.5, color: context.textSecondary),
+        style: AppType.metaSm.copyWith(color: context.textTertiary),
       ),
       leading: IconButton(
         key: Key('diet-log-delete-${log.id}'),
-        icon: Icon(Icons.close_rounded,
-            size: 20, color: context.textTertiary),
+        icon: Icon(Icons.close_rounded, size: 20, color: context.textTertiary),
         onPressed: () {
           foodRepo.deleteLog(log.id);
           final messenger = ScaffoldMessenger.maybeOf(context);
           if (messenger == null) return;
-          messenger.showSnackBar(SnackBar(
-            content: Text('Removed ${log.name}'),
-            duration: const Duration(seconds: 4),
-            persist: false,
-            action: SnackBarAction(
-              label: 'Undo',
-              onPressed: () => foodRepo.restoreLog(log.id),
+          messenger.showSnackBar(
+            SnackBar(
+              content: Text('Removed ${log.name}'),
+              duration: const Duration(seconds: 4),
+              persist: false,
+              action: SnackBarAction(
+                label: 'Undo',
+                onPressed: () => foodRepo.restoreLog(log.id),
+              ),
             ),
-          ));
+          );
         },
       ),
       trailing: Text(
         '${log.kcal.round()} kcal',
-        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+        style: AppType.data.copyWith(
+          color: context.textPrimary,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }
@@ -614,19 +698,24 @@ class _LibraryTile extends ConsumerWidget {
       dense: true,
       title: Text(
         food.name,
-        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14.5),
+        style: AppType.body.copyWith(
+          color: context.textPrimary,
+          fontWeight: FontWeight.w600,
+        ),
       ),
       subtitle: Text(
         'per $servingLabel · ${food.kcal.round()} kcal · '
         'P ${food.proteinG.round()} / C ${food.carbsG.round()} / '
         'F ${food.fatG.round()} g',
-        style: TextStyle(fontSize: 12.5, color: context.textSecondary),
+        style: AppType.metaSm.copyWith(
+          color: context.textTertiary,
+          height: 1.4,
+        ),
       ),
       trailing: IconButton(
         key: Key('diet-food-edit-${food.id}'),
-        icon: const Icon(Icons.edit_outlined, size: 20),
-        onPressed: () =>
-            unawaited(showFoodEditorSheet(context, food: food)),
+        icon: Icon(Icons.edit_outlined, size: 20, color: context.textTertiary),
+        onPressed: () => unawaited(showFoodEditorSheet(context, food: food)),
       ),
       selected: false,
       onTap: () {
@@ -637,10 +726,12 @@ class _LibraryTile extends ConsumerWidget {
         ref.read(liveActivityControllerProvider).refresh();
         final messenger = ScaffoldMessenger.maybeOf(context);
         if (messenger == null) return;
-        messenger.showSnackBar(SnackBar(
-          content: Text('Logged ${food.name} · 1 serving'),
-          duration: const Duration(seconds: 3),
-        ));
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text('Logged ${food.name} · 1 serving'),
+            duration: const Duration(seconds: 3),
+          ),
+        );
       },
     );
   }

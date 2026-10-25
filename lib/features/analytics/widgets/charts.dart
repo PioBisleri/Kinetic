@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/database/database.dart';
+import '../../../core/ledger/ledger.dart';
 import '../../../core/settings/settings.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/weight_units.dart';
@@ -10,11 +11,11 @@ import '../application/analytics_providers.dart';
 import '../domain/analytics_math.dart';
 
 TextStyle _axisStyle(BuildContext context) =>
-    TextStyle(fontSize: 10, color: context.textTertiary);
+    AppType.metaSm.copyWith(color: context.textTertiary, letterSpacing: 0.6);
 
 String _unitLabel(UnitSystem u) => u == UnitSystem.lbs ? 'lb' : 'kg';
 
-/// Shared card chrome: title + caption + child, on any Analytics chart.
+/// Shared ledger panel chrome: numbered header, caption, dot-grid body.
 /// [onInfo] adds a small header button for sheets that explain the math.
 class ChartCard extends StatelessWidget {
   const ChartCard({
@@ -22,6 +23,7 @@ class ChartCard extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.child,
+    this.index,
     this.onInfo,
     this.infoKey = const Key('chart-info'),
   });
@@ -29,6 +31,7 @@ class ChartCard extends StatelessWidget {
   final String title;
   final String subtitle;
   final Widget child;
+  final String? index;
   final VoidCallback? onInfo;
 
   /// Key for the info button. Defaults to the shared `chart-info`; pass a
@@ -38,21 +41,56 @@ class ChartCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: context.surface,
+        borderRadius: BorderRadius.circular(AppRadius.data),
+        border: Border.all(color: context.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 8, 10),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                if (index != null) ...[
+                  Padding(
+                    padding: const EdgeInsets.only(top: 3),
+                    child: Text(
+                      index!,
+                      style: AppType.meta.copyWith(color: context.textTertiary),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 7),
+                    child: Container(
+                      width: 12,
+                      height: 1,
+                      color: context.textTertiary.withValues(alpha: 0.6),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                ],
                 Expanded(
-                  child: Text(
-                    title,
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleMedium
-                        ?.copyWith(fontWeight: FontWeight.w700),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: AppType.h2.copyWith(color: context.textPrimary),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        subtitle,
+                        style: AppType.bodySm.copyWith(
+                          color: context.textTertiary,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 if (onInfo != null)
@@ -61,30 +99,36 @@ class ChartCard extends StatelessWidget {
                     onPressed: onInfo,
                     tooltip: 'How this works',
                     padding: EdgeInsets.zero,
-                    constraints:
-                        const BoxConstraints(minWidth: 32, minHeight: 32),
+                    constraints: const BoxConstraints(
+                      minWidth: 32,
+                      minHeight: 32,
+                    ),
                     visualDensity: VisualDensity.compact,
-                    icon: Icon(Icons.info_outline,
-                        size: 20, color: context.textTertiary),
+                    icon: LedgerGlyph(
+                      LedgerGlyphType.info,
+                      size: 18,
+                      color: context.textTertiary,
+                    ),
                   ),
               ],
             ),
-            const SizedBox(height: 4),
-            Text(subtitle,
-                style:
-                    TextStyle(fontSize: 12, color: context.textSecondary)),
-            const SizedBox(height: 16),
-            child,
-          ],
-        ),
+          ),
+          Rule(),
+          DotGrid(
+            child: Padding(padding: const EdgeInsets.all(14), child: child),
+          ),
+        ],
       ),
     );
   }
 }
 
-/// 4W / 12W / 6M / All window selector.
+/// 4W / 12W / 6M / All window selector — a mono segmented rule, not chips.
 class PeriodChips extends ConsumerWidget {
-  const PeriodChips({super.key});
+  const PeriodChips({super.key, this.compact = false});
+
+  /// Shrink-wrapped variant for embedding in a header row.
+  final bool compact;
 
   /// `0` = All history (see [periodStart]).
   static const _options = [(4, '4W'), (12, '12W'), (26, '6M'), (0, 'All')];
@@ -92,21 +136,54 @@ class PeriodChips extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final weeks = ref.watch(analyticsPeriodProvider);
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        for (final (w, label) in _options)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            child: ChoiceChip(
-              key: Key('period-$w'),
-              label: Text(label),
-              selected: weeks == w,
-              onSelected: (_) =>
-                  ref.read(analyticsPeriodProvider.notifier).set(w),
+    Widget cell(int i) {
+      final (w, label) = _options[i];
+      final selected = weeks == w;
+      return InkWell(
+        key: Key('period-$w'),
+        onTap: () => ref.read(analyticsPeriodProvider.notifier).set(w),
+        splashColor: context.accent.withValues(alpha: 0.06),
+        child: AnimatedContainer(
+          duration: AppMotion.fast,
+          curve: AppMotion.curve,
+          height: compact ? 30 : 36,
+          width: compact ? 44 : null,
+          decoration: BoxDecoration(
+            color: selected
+                ? context.accent.withValues(alpha: 0.12)
+                : Colors.transparent,
+            border: i == 0
+                ? null
+                : Border(left: BorderSide(color: context.border)),
+          ),
+          child: Center(
+            child: Text(
+              label.toUpperCase(),
+              style: AppType.meta.copyWith(
+                fontSize: compact ? 9 : 10.5,
+                color: selected ? context.accent : context.textSecondary,
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                letterSpacing: compact ? 1.0 : 1.4,
+              ),
             ),
           ),
-      ],
+        ),
+      );
+    }
+
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        border: Border.all(color: context.border),
+        borderRadius: BorderRadius.circular(AppRadius.data),
+      ),
+      child: Row(
+        mainAxisSize: compact ? MainAxisSize.min : MainAxisSize.max,
+        children: [
+          for (var i = 0; i < _options.length; i++)
+            if (compact) cell(i) else Expanded(child: cell(i)),
+        ],
+      ),
     );
   }
 }
@@ -128,33 +205,28 @@ class StatsRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final style = Theme.of(context).textTheme.titleLarge;
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
-        child: Row(
-          children: [
-            _Stat(
-              valueKey: const Key('stat-workouts'),
-              value: '$workoutCount',
-              label: 'Workouts',
-              style: style,
-            ),
-            _Stat(
-              valueKey: const Key('stat-streak'),
-              value: '${streakWeeks}w',
-              label: 'Streak',
-              style: style,
-            ),
-            _Stat(
-              valueKey: const Key('stat-volume'),
-              value:
-                  '${compactNumber(kgToDisplay(volumeKg, unit))} ${_unitLabel(unit)}',
-              label: 'Volume',
-              style: style,
-            ),
-          ],
-        ),
+    return LedgerPanel(
+      grid: true,
+      padding: EdgeInsets.zero,
+      child: StatBlocks(
+        children: [
+          _Stat(
+            valueKey: const Key('stat-workouts'),
+            value: '$workoutCount',
+            label: 'Workouts',
+          ),
+          _Stat(
+            valueKey: const Key('stat-streak'),
+            value: '${streakWeeks}w',
+            label: 'Streak',
+          ),
+          _Stat(
+            valueKey: const Key('stat-volume'),
+            value:
+                '${compactNumber(kgToDisplay(volumeKg, unit))} ${_unitLabel(unit)}',
+            label: 'Volume',
+          ),
+        ],
       ),
     );
   }
@@ -165,31 +237,34 @@ class _Stat extends StatelessWidget {
     required this.valueKey,
     required this.value,
     required this.label,
-    required this.style,
   });
 
   final Key valueKey;
   final String value;
   final String label;
-  final TextStyle? style;
 
   @override
   Widget build(BuildContext context) {
-    return Expanded(
-      child: Column(
-        children: [
-          Text(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Text(
             value,
             key: valueKey,
-            style: style?.copyWith(fontWeight: FontWeight.w700),
+            style: AppType.dataXl.copyWith(color: context.textPrimary),
+            maxLines: 1,
           ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            style: TextStyle(fontSize: 12, color: context.textTertiary),
-          ),
-        ],
-      ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          label.toUpperCase(),
+          style: AppType.metaSm.copyWith(color: context.textTertiary),
+        ),
+      ],
     );
   }
 }
@@ -217,8 +292,8 @@ class WeeklyVolumeChart extends StatelessWidget {
     final rodWidth = points.length > 52
         ? 4.0
         : points.length > 26
-            ? 8.0
-            : 14.0;
+        ? 8.0
+        : 14.0;
 
     return SizedBox(
       height: 180,
@@ -227,14 +302,17 @@ class WeeklyVolumeChart extends StatelessWidget {
           maxY: maxY,
           barGroups: [
             for (var i = 0; i < points.length; i++)
-              BarChartGroupData(x: i, barRods: [
-                BarChartRodData(
-                  toY: display[i],
-                  width: rodWidth,
-                  color: context.accent,
-                  borderRadius: BorderRadius.circular(3),
-                ),
-              ]),
+              BarChartGroupData(
+                x: i,
+                barRods: [
+                  BarChartRodData(
+                    toY: display[i],
+                    width: rodWidth,
+                    color: context.accent,
+                    borderRadius: BorderRadius.circular(1),
+                  ),
+                ],
+              ),
           ],
           gridData: FlGridData(
             show: true,
@@ -263,9 +341,11 @@ class WeeklyVolumeChart extends StatelessWidget {
           ),
           titlesData: FlTitlesData(
             topTitles: const AxisTitles(
-                sideTitles: SideTitles(showTitles: false)),
+              sideTitles: SideTitles(showTitles: false),
+            ),
             rightTitles: const AxisTitles(
-                sideTitles: SideTitles(showTitles: false)),
+              sideTitles: SideTitles(showTitles: false),
+            ),
             leftTitles: AxisTitles(
               sideTitles: SideTitles(
                 showTitles: true,
@@ -289,7 +369,10 @@ class WeeklyVolumeChart extends StatelessWidget {
                   final d = points[i].weekStart;
                   return Padding(
                     padding: const EdgeInsets.only(top: 4),
-                    child: Text('${d.day}/${d.month}', style: _axisStyle(context)),
+                    child: Text(
+                      '${d.day}/${d.month}',
+                      style: _axisStyle(context),
+                    ),
                   );
                 },
               ),
@@ -326,10 +409,9 @@ class ExerciseTrendChart extends StatelessWidget {
     for (final r in rows) {
       final v = series == ExerciseSeries.e1rm ? r.bestE1Rm : r.totalVolume;
       if (v <= 0) continue;
-      spots.add(FlSpot(
-        daysBetween(since, r.date).toDouble(),
-        kgToDisplay(v, unit),
-      ));
+      spots.add(
+        FlSpot(daysBetween(since, r.date).toDouble(), kgToDisplay(v, unit)),
+      );
     }
     spots.sort((a, b) => a.x.compareTo(b.x));
 
@@ -411,9 +493,11 @@ class ExerciseTrendChart extends StatelessWidget {
           ),
           titlesData: FlTitlesData(
             topTitles: const AxisTitles(
-                sideTitles: SideTitles(showTitles: false)),
+              sideTitles: SideTitles(showTitles: false),
+            ),
             rightTitles: const AxisTitles(
-                sideTitles: SideTitles(showTitles: false)),
+              sideTitles: SideTitles(showTitles: false),
+            ),
             leftTitles: AxisTitles(
               sideTitles: SideTitles(
                 showTitles: true,
@@ -433,8 +517,10 @@ class ExerciseTrendChart extends StatelessWidget {
                   }
                   return Padding(
                     padding: const EdgeInsets.only(top: 4),
-                    child:
-                        Text(_dateLabel(addDays(since, x)), style: _axisStyle(context)),
+                    child: Text(
+                      _dateLabel(addDays(since, x)),
+                      style: _axisStyle(context),
+                    ),
                   );
                 },
               ),
@@ -486,13 +572,15 @@ class ConsistencyCalendar extends StatelessWidget {
                       child: Text(
                         l,
                         style: TextStyle(
-                            fontSize: 9, color: context.textTertiary),
+                          fontSize: 9,
+                          color: context.textTertiary,
+                        ),
                       ),
                     ),
                   ),
                 ),
               ),
-        ],
+          ],
         ),
         const SizedBox(height: 4),
         for (var w = 0; w < rows; w++)
@@ -539,8 +627,8 @@ class _CalendarCell extends StatelessWidget {
     final color = future
         ? context.background
         : trained
-            ? context.accent
-            : context.surfaceElevated;
+        ? context.accent
+        : context.surfaceElevated;
     return Expanded(
       child: Padding(
         padding: const EdgeInsets.only(right: 4),
@@ -549,7 +637,7 @@ class _CalendarCell extends StatelessWidget {
           height: 14,
           decoration: BoxDecoration(
             color: color,
-            borderRadius: BorderRadius.circular(3),
+            borderRadius: BorderRadius.circular(1),
           ),
         ),
       ),
@@ -608,8 +696,8 @@ class StrengthCard extends ConsumerWidget {
     final String? effective = exercises.isEmpty
         ? null
         : exercises.any((e) => e.id == selected)
-            ? selected
-            : exercises.first.id;
+        ? selected
+        : exercises.first.id;
 
     return ChartCard(
       title: 'Strength',
@@ -619,62 +707,58 @@ class StrengthCard extends ConsumerWidget {
               child: Padding(
                 padding: EdgeInsets.all(16),
                 child: SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2)),
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
               ),
             )
           : exercises.isEmpty
-              ? Center(
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(vertical: 16),
-                    child: Text(
-                      'No weighted sets logged in this window.',
-                      style: TextStyle(
-                          fontSize: 12, color: context.textTertiary),
-                    ),
-                  ),
-                )
-              : Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    DropdownButton<String>(
-                      key: const Key('exercise-picker'),
-                      value: effective,
-                      isExpanded: true,
-                      dropdownColor: context.surfaceElevated,
-                      underline: const SizedBox(),
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: context.textPrimary,
-                        fontWeight: FontWeight.w600,
-                      ),
-                      items: [
-                        for (final e in exercises)
-                          DropdownMenuItem(
-                              value: e.id,
-                              child: Text(
-                                e.name,
-                                overflow: TextOverflow.ellipsis,
-                              )),
-                      ],
-                      onChanged: (id) {
-                        if (id != null) {
-                          ref
-                              .read(selectedExerciseProvider.notifier)
-                              .select(id);
-                        }
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    _TrendBody(
-                      exerciseId: effective,
-                      weeks: weeks,
-                      since: windowStart,
-                      unit: unit,
-                    ),
-                  ],
+          ? Center(
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: 16),
+                child: Text(
+                  'No weighted sets logged in this window.',
+                  style: TextStyle(fontSize: 12, color: context.textTertiary),
                 ),
+              ),
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                DropdownButton<String>(
+                  key: const Key('exercise-picker'),
+                  value: effective,
+                  isExpanded: true,
+                  dropdownColor: context.surfaceElevated,
+                  underline: const SizedBox(),
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: context.textPrimary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  items: [
+                    for (final e in exercises)
+                      DropdownMenuItem(
+                        value: e.id,
+                        child: Text(e.name, overflow: TextOverflow.ellipsis),
+                      ),
+                  ],
+                  onChanged: (id) {
+                    if (id != null) {
+                      ref.read(selectedExerciseProvider.notifier).select(id);
+                    }
+                  },
+                ),
+                const SizedBox(height: 12),
+                _TrendBody(
+                  exerciseId: effective,
+                  weeks: weeks,
+                  since: windowStart,
+                  unit: unit,
+                ),
+              ],
+            ),
     );
   }
 }
@@ -696,24 +780,29 @@ class _TrendBody extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     if (exerciseId == null) return const SizedBox(height: 8);
     final trend = ref.watch(
-        exerciseTrendProvider((exerciseId: exerciseId!, weeks: weeks)));
+      exerciseTrendProvider((exerciseId: exerciseId!, weeks: weeks)),
+    );
     return trend.when(
       loading: () => const Center(
         child: Padding(
           padding: EdgeInsets.all(16),
           child: SizedBox(
-              width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
         ),
       ),
       error: (e, st) => Center(
         child: Padding(
           padding: EdgeInsets.all(8),
-          child: Text('Chart unavailable.',
-              style: TextStyle(fontSize: 12, color: context.textTertiary)),
+          child: Text(
+            'Chart unavailable.',
+            style: TextStyle(fontSize: 12, color: context.textTertiary),
+          ),
         ),
       ),
-      data: (rows) =>
-          ExerciseTrendChart(rows: rows, since: since, unit: unit),
+      data: (rows) => ExerciseTrendChart(rows: rows, since: since, unit: unit),
     );
   }
 }
@@ -753,9 +842,10 @@ class ConsistencyCard extends ConsumerWidget {
               child: Padding(
                 padding: EdgeInsets.all(16),
                 child: SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2)),
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
               ),
             )
           : ConsistencyCalendar(days: days, now: now, rows: rows),

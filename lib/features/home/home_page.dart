@@ -4,12 +4,11 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/database/database.dart';
-import '../../core/navigation/shell_navigation.dart';
+import '../../core/ledger/ledger.dart';
 import '../../core/settings/settings.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/weight_units.dart';
 import '../../core/widgets/app_dialog.dart';
-import '../../core/widgets/app_empty.dart';
 import '../analytics/application/analytics_providers.dart';
 import '../analytics/domain/analytics_math.dart';
 import '../health/health_providers.dart';
@@ -51,35 +50,35 @@ class HomePage extends ConsumerWidget {
               shrinkWrap: true,
               padding: const EdgeInsets.symmetric(vertical: 8),
               children: [
-                const Padding(
-                  padding: EdgeInsets.fromLTRB(16, 8, 16, 4),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
                   child: Text(
-                    'Start from routine',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1.1,
+                    'START FROM ROUTINE',
+                    style: AppType.meta.copyWith(
+                      color: sheetContext.textTertiary,
                     ),
                   ),
                 ),
                 for (final card in routines)
-                  ListTile(
+                  LedgerRow(
                     key: Key('home-routine-${card.routine.id}'),
-                    title: Text(card.routine.name),
+                    label: card.routine.name,
+                    value: '${card.exerciseCount} ex',
                     onTap: () {
                       Navigator.of(sheetContext).pop();
                       _startRoutine(context, ref, card.routine.id);
                     },
                   ),
                 if (routines.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.fromLTRB(16, 8, 16, 12),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
                     child: Text(
                       'No routines yet — create one from the Routines tab.',
-                      style: TextStyle(fontSize: 13),
+                      style: AppType.bodySm.copyWith(
+                        color: sheetContext.textSecondary,
+                      ),
                     ),
                   ),
-                const SizedBox(height: 8),
               ],
             ),
           );
@@ -92,50 +91,56 @@ class HomePage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final sessionAsync = ref.watch(workoutSessionProvider);
     final unit = ref.watch(settingsProvider).unit;
+    final now = DateTime.now();
 
     return Scaffold(
-      appBar: AppBar(
-        leading: const DrawerMenuButton(),
-        title: const Text('Kinetic'),
+      appBar: TailBar(
+        title: 'Kinetic',
+        meta: '${DateFormat('EEE d MMM').format(now)} · W${_weekOfYear(now)}',
       ),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(
+          AppSpace.x5,
+          AppSpace.x1,
+          AppSpace.x5,
+          AppSpace.x8,
+        ),
         children: [
           sessionAsync.when(
-            loading: () => const Card(
+            loading: () => const LedgerPanel(
               child: SizedBox(
                 height: 120,
-                child: Center(child: CircularProgressIndicator()),
+                child: Center(
+                  child: SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                ),
               ),
             ),
-            error: (e, _) => Card(
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Text('Error: $e'),
-              ),
-            ),
+            error: (e, _) => LedgerPanel(child: Text('Error: $e')),
             data: (session) => session == null
-                ? _StartWorkoutCard(
+                ? _StartBlock(
                     onStart: () => _start(context, ref),
                     onStartRoutine: () => _openRoutinePicker(context, ref),
                   )
-                : _ActiveWorkoutCard(
+                : _ActiveBlock(
                     session: session,
                     onResume: () => context.push('/workout'),
                   ),
           ),
-          const SizedBox(height: 16),
-          const _TodayStrip(),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpace.x6),
+          const _TodaySection(),
+          const SizedBox(height: AppSpace.x6),
           _HomeStats(unit: unit),
-          const SizedBox(height: 16),
-          Text(
-            'Recent workouts',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
+          const SizedBox(height: AppSpace.x6),
+          const SectionHead(
+            index: '03',
+            title: 'Recent workouts',
+            meta: 'TAP TO REVIEW',
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSpace.x3),
           const _RecentWorkouts(),
         ],
       ),
@@ -143,8 +148,15 @@ class HomePage extends ConsumerWidget {
   }
 }
 
-class _StartWorkoutCard extends StatelessWidget {
-  const _StartWorkoutCard({
+int _weekOfYear(DateTime date) {
+  final first = DateTime(date.year, 1, 1);
+  return ((date.difference(first).inDays + first.weekday) / 7).ceil();
+}
+
+String _two(int value) => value.toString().padLeft(2, '0');
+
+class _StartBlock extends StatelessWidget {
+  const _StartBlock({
     required this.onStart,
     required this.onStartRoutine,
   });
@@ -154,156 +166,174 @@ class _StartWorkoutCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Ready to train?',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.5,
-                  ),
+    return LedgerPanel(
+      accentTop: true,
+      padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Container(width: 6, height: 6, color: context.accent),
+              const SizedBox(width: 8),
+              Text(
+                'READY',
+                style: AppType.meta.copyWith(color: context.accent),
+              ),
+              const Spacer(),
+              Text(
+                'NO ACTIVE SESSION',
+                style: AppType.metaSm.copyWith(color: context.textTertiary),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Text(
+            'Start a session',
+            style: AppType.h1.copyWith(color: context.textPrimary),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            "Empty session or a saved routine. Log it or it didn't happen.",
+            style: AppType.bodySm.copyWith(color: context.textSecondary),
+          ),
+          const SizedBox(height: 18),
+          PushKey(
+            label: 'Start Workout',
+            onPressed: onStart,
+            icon: LedgerGlyph(
+              LedgerGlyphType.play,
+              size: 15,
+              strokeWidth: 2,
+              color: onAccent(context.accent),
             ),
-            const SizedBox(height: 4),
-            Text(
-              'Start an empty session or pick a routine.',
-              style: TextStyle(color: context.textSecondary),
-            ),
-            const SizedBox(height: 16),
-            FilledButton.icon(
-              onPressed: onStart,
-              icon: const Icon(Icons.play_arrow_rounded),
-              label: const Text('Start Workout'),
-            ),
-            const SizedBox(height: 8),
-            OutlinedButton.icon(
+          ),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton(
               onPressed: onStartRoutine,
-              icon: const Icon(Icons.list_alt),
-              label: const Text('Start from routine…'),
+              style: TextButton.styleFrom(
+                foregroundColor: context.textSecondary,
+                minimumSize: const Size(0, 32),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                textStyle: AppType.meta.copyWith(letterSpacing: 1.2),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('START FROM ROUTINE'),
+                  const SizedBox(width: 6),
+                  LedgerGlyph(
+                    LedgerGlyphType.chevronRight,
+                    size: 12,
+                    color: context.textSecondary,
+                  ),
+                ],
+              ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 }
 
-class _ActiveWorkoutCard extends StatelessWidget {
-  const _ActiveWorkoutCard({required this.session, required this.onResume});
+class _ActiveBlock extends StatelessWidget {
+  const _ActiveBlock({required this.session, required this.onResume});
 
   final WorkoutSession session;
   final VoidCallback onResume;
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 8,
-                  height: 8,
-                  decoration: const BoxDecoration(
-                    color: AppColors.heatHot,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  'WORKOUT IN PROGRESS',
-                  style: Theme.of(context).textTheme.labelSmall!.copyWith(color: context.textSecondary),
-                ),
-                const Spacer(),
-                Text(
-                  formatElapsed(session.elapsed),
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                    fontFeatures: [FontFeature.tabularFigures()],
-                  ),
-                ),
-              ],
+    return LedgerPanel(
+      accentTop: true,
+      padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Container(width: 6, height: 6, color: context.signal),
+              const SizedBox(width: 8),
+              Text(
+                'WORKOUT IN PROGRESS',
+                style: AppType.meta.copyWith(color: context.signal),
+              ),
+              const Spacer(),
+              Text(
+                formatElapsed(session.elapsed),
+                style: AppType.dataLg.copyWith(color: context.textPrimary),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              _MetaStat(
+                value: _two(session.exercises.length),
+                label: 'EXERCISES',
+              ),
+              const SizedBox(width: 18),
+              _MetaStat(
+                value: _two(session.completedSetCount),
+                label: 'SETS',
+              ),
+              const SizedBox(width: 18),
+              _MetaStat(
+                value: session.volumeKg.toStringAsFixed(0),
+                label: 'KG VOLUME',
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          PushKey(
+            label: 'Resume Workout',
+            onPressed: onResume,
+            icon: LedgerGlyph(
+              LedgerGlyphType.timer,
+              size: 16,
+              strokeWidth: 1.8,
+              color: onAccent(context.accent),
             ),
-            const SizedBox(height: 12),
-            Text(
-              '${session.exercises.length} exercises · '
-              '${session.completedSetCount} sets · '
-              '${session.volumeKg.toStringAsFixed(0)} kg volume',
-              style: TextStyle(color: context.textSecondary),
-            ),
-            const SizedBox(height: 16),
-            FilledButton.icon(
-              onPressed: onResume,
-              icon: const Icon(Icons.play_arrow_rounded),
-              label: const Text('Resume Workout'),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 }
 
-class _StatRow extends StatelessWidget {
-  const _StatRow({required this.stats});
+class _MetaStat extends StatelessWidget {
+  const _MetaStat({required this.value, required this.label});
 
-  final List<(String, String, String)> stats;
+  final String value;
+  final String label;
 
   @override
   Widget build(BuildContext context) {
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.baseline,
+      textBaseline: TextBaseline.alphabetic,
       children: [
-        for (final (label, value, unit) in stats) ...[
-          Expanded(
-            child: Card(
-              child: Padding(
-                padding: const EdgeInsets.all(14),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(label,
-                        style: TextStyle(
-                            fontSize: 12, color: context.textSecondary)),
-                    const SizedBox(height: 6),
-                    Text.rich(
-                      TextSpan(
-                        text: value,
-                        style: Theme.of(context).textTheme.displaySmall,
-                        children: [
-                          TextSpan(
-                            text: ' $unit',
-                            style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
-                                color: context.textSecondary),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          if (label != stats.last.$1) const SizedBox(width: 8),
-        ],
+        Text(
+          value,
+          style: AppType.dataLg.copyWith(color: context.textPrimary),
+        ),
+        const SizedBox(width: 5),
+        Text(
+          label,
+          style: AppType.metaSm.copyWith(color: context.textTertiary),
+        ),
       ],
     );
   }
 }
 
-/// One-tap glance at today's hydration, steps and calories — each tile
-/// jumps into the /diet page (single surface for all three). Values come
-/// from the same providers /diet uses, so chips never disagree.
-class _TodayStrip extends ConsumerWidget {
-  const _TodayStrip();
+/// One-tap glance at today's hydration, steps and calories — each row
+/// jumps into the /diet page (single surface for all three).
+class _TodaySection extends ConsumerWidget {
+  const _TodaySection();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -314,122 +344,50 @@ class _TodayStrip extends ConsumerWidget {
 
     final kcalLeft =
         (settings.kcalTarget - totals.kcal.round()).clamp(0, 99999);
+    final steps = metric?.steps;
+    final water = metric?.waterMl;
 
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Expanded(
-          child: _TodayTile(
-            key: const Key('home-today-water'),
-            icon: Icons.water_drop_outlined,
-            label: 'Water',
-            value: metric?.waterMl == null
-                ? '–'
-                : '${metric!.waterMl!}',
-            unit: 'ml',
-            onTap: () => context.push('/diet'),
-          ),
+        SectionHead(
+          index: '01',
+          title: 'Today',
+          meta: DateFormat('EEE').format(DateTime.now()).toUpperCase(),
         ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: _TodayTile(
-            key: const Key('home-today-steps'),
-            icon: Icons.directions_walk_outlined,
-            label: 'Steps',
-            value: metric?.steps == null
-                ? '–'
-                : compactNumber(metric!.steps!.toDouble()).toString(),
-            unit: '',
-            onTap: () => context.push('/diet'),
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: _TodayTile(
-            key: const Key('home-today-kcal'),
-            icon: Icons.local_fire_department_outlined,
-            label: 'Kcal left',
-            value: '$kcalLeft',
-            unit: '',
-            onTap: () => context.push('/diet'),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _TodayTile extends StatelessWidget {
-  const _TodayTile({
-    super.key,
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.unit,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String label;
-  final String value;
-  final String unit;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      margin: EdgeInsets.zero,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
+        const SizedBox(height: AppSpace.x3),
+        LedgerPanel(
+          padding: EdgeInsets.zero,
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  Icon(icon,
-                      size: 15, color: context.textSecondary),
-                  const SizedBox(width: 4),
-                  Flexible(
-                    child: Text(
-                      label,
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: context.textSecondary,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
+              LedgerRow(
+                key: const Key('home-today-water'),
+                label: 'Water',
+                value: water == null ? '–' : '$water',
+                unit: 'ml',
+                onTap: () => context.push('/diet'),
               ),
-              const SizedBox(height: 4),
-              Text.rich(
-                TextSpan(
-                  text: value,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.5,
-                  ),
-                  children: [
-                    if (unit.isNotEmpty)
-                      TextSpan(
-                        text: ' $unit',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w500,
-                          color: context.textSecondary,
-                        ),
-                      ),
-                  ],
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+              LedgerRow(
+                key: const Key('home-today-steps'),
+                label: 'Steps',
+                value: steps == null
+                    ? '–'
+                    : compactNumber(steps.toDouble()).toString(),
+                onTap: () => context.push('/diet'),
+              ),
+              LedgerRow(
+                key: const Key('home-today-kcal'),
+                label: 'Kcal left',
+                value: '$kcalLeft',
+                unit: 'kcal',
+                valueColor: context.accent,
+                divider: false,
+                onTap: () => context.push('/diet'),
               ),
             ],
           ),
         ),
-      ),
+      ],
     );
   }
 }
@@ -447,32 +405,71 @@ class _HomeStats extends ConsumerWidget {
     final stats = ref.watch(workoutStatsProvider(1)).value;
     final daily = ref.watch(dailyVolumeProvider(1)).value;
 
+    final header = SectionHead(
+      index: '02',
+      title: 'This week',
+      meta: 'MON — SUN',
+    );
+
     if (stats == null || daily == null) {
-      return const _StatRow(stats: [
-        ('This week', '–', 'workouts'),
-        ('Volume', '–', ''),
-        ('Streak', '–', 'weeks'),
-      ]);
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          header,
+          const SizedBox(height: AppSpace.x3),
+          LedgerPanel(
+            grid: true,
+            padding: EdgeInsets.zero,
+            child: StatBlocks(
+              children: const [
+                Metric(label: 'Sessions', value: '–'),
+                Metric(label: 'Volume', value: '–'),
+                Metric(label: 'Streak', value: '–', unit: 'wk'),
+              ],
+            ),
+          ),
+        ],
+      );
     }
 
     final volumeKg = daily.fold(0.0, (a, r) => a + r.totalVolume);
-    return _StatRow(stats: [
-      (
-        'This week',
-        '${stats.count}',
-        stats.count == 1 ? 'workout' : 'workouts',
-      ),
-      (
-        'Volume',
-        compactNumber(kgToDisplay(volumeKg, unit)),
-        unitLabel(unit),
-      ),
-      (
-        'Streak',
-        '${stats.streak}',
-        stats.streak == 1 ? 'week' : 'weeks',
-      ),
-    ]);
+    final streak = stats.streak;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        header,
+        const SizedBox(height: AppSpace.x3),
+        LedgerPanel(
+          grid: true,
+          padding: EdgeInsets.zero,
+          child: StatBlocks(
+            children: [
+              Metric(label: 'Sessions', value: _two(stats.count)),
+              Metric(
+                label: 'Volume',
+                value: compactNumber(kgToDisplay(volumeKg, unit)),
+                unit: unitLabel(unit),
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Metric(label: 'Streak', value: '$streak', unit: 'wk'),
+                  if (streak > 1) ...[
+                    const SizedBox(height: 8),
+                    Tally(
+                      count: streak.clamp(0, 25),
+                      height: 10,
+                      color: context.signal,
+                    ),
+                  ],
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 }
 
@@ -503,7 +500,7 @@ class _RecentWorkouts extends ConsumerWidget {
     final unit = ref.watch(settingsProvider).unit;
 
     return recent.when(
-      loading: () => const Card(
+      loading: () => const LedgerPanel(
         child: SizedBox(
           height: 72,
           child: Center(
@@ -515,39 +512,49 @@ class _RecentWorkouts extends ConsumerWidget {
           ),
         ),
       ),
-      error: (e, _) => Card(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Text('Error: $e'),
-        ),
-      ),
+      error: (e, _) => LedgerPanel(child: Text('Error: $e')),
       data: (rows) {
         if (rows.isEmpty) {
-          return const EmptyState(
-            message: 'No workouts yet — your history will appear here.',
+          return LedgerPanel(
+            padding: const EdgeInsets.fromLTRB(18, 18, 18, 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Nothing logged yet.',
+                  style: AppType.h2.copyWith(color: context.textPrimary),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'The bar is still on the floor. Start a session and it '
+                  'lands here.',
+                  style: AppType.bodySm.copyWith(color: context.textSecondary),
+                ),
+              ],
+            ),
           );
         }
         return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Card(
-              margin: EdgeInsets.zero,
+            LedgerPanel(
+              padding: EdgeInsets.zero,
               child: Column(
                 children: [
-                  for (var i = 0; i < rows.length; i++) ...[
-                    if (i > 0) const Divider(height: 1),
-                    _RecentTile(
+                  for (var i = 0; i < rows.length; i++)
+                    _RecentRow(
                       row: rows[i],
                       unit: unit,
+                      divider: i < rows.length - 1,
                       onDelete: () => _confirmDelete(context, ref, rows[i]),
                     ),
-                  ],
                 ],
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSpace.x3),
             Text(
-              'Tap a workout to review it · long-press to delete',
-              style: TextStyle(fontSize: 11.5, color: context.textTertiary),
+              'TAP TO REVIEW · LONG-PRESS TO DELETE',
+              style: AppType.metaSm.copyWith(color: context.textTertiary),
             ),
           ],
         );
@@ -556,15 +563,17 @@ class _RecentWorkouts extends ConsumerWidget {
   }
 }
 
-class _RecentTile extends StatelessWidget {
-  const _RecentTile({
+class _RecentRow extends StatelessWidget {
+  const _RecentRow({
     required this.row,
     required this.unit,
+    required this.divider,
     required this.onDelete,
   });
 
   final RecentWorkout row;
   final UnitSystem unit;
+  final bool divider;
   final VoidCallback onDelete;
 
   @override
@@ -574,27 +583,15 @@ class _RecentTile extends StatelessWidget {
     final duration =
         minutes >= 60 ? '${minutes ~/ 60}h ${minutes % 60}m' : '${minutes}m';
 
-    return ListTile(
-      dense: true,
-      onTap: () {
-        // Open the finished workout for review (Round 9). Delete stays on
-        // the long-press so a single tap can never destroy data.
-        context.push('/workout-history/${w.id}');
-      },
-      title: Text(
-        row.title,
-        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14.5),
-      ),
-      subtitle: Text(
-        '${DateFormat('EEE, MMM d').format(w.startedAt)} · '
-        '$duration · ${row.setCount} sets',
-        style: TextStyle(fontSize: 12.5, color: context.textSecondary),
-      ),
-      trailing: Text(
-        '${compactNumber(kgToDisplay(w.totalVolume, unit))} '
-        '${unitLabel(unit)}',
-        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
-      ),
+    return LedgerRow(
+      key: Key('home-recent-${w.id}'),
+      label: row.title,
+      sub: '${DateFormat('EEE d MMM').format(w.startedAt).toUpperCase()} · '
+          '$duration · ${row.setCount} SETS',
+      value: compactNumber(kgToDisplay(w.totalVolume, unit)),
+      unit: unitLabel(unit),
+      divider: divider,
+      onTap: () => context.push('/workout-history/${w.id}'),
       onLongPress: onDelete,
     );
   }

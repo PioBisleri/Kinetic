@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/database/database_providers.dart';
+import '../../../core/ledger/ledger.dart';
 import '../../../core/theme/app_theme.dart';
 import '../application/analytics_providers.dart';
 import '../domain/grade_engine.dart';
@@ -24,51 +25,39 @@ Color heatColorFor(double freshness) {
 class BodyRegion {
   const BodyRegion(this.x, this.y, this.w, this.h, {this.rotation = 0});
 
-  final double x, y; // center, fraction of panel
-  final double w, h; // size, fraction of panel
-  final double rotation; // radians
+  final double x, y;
+  final double w, h;
+  final double rotation;
 }
 
-/// Front-view placements, defined for the LEFT side; `_r` nodes mirror
-/// across the center line. Solo nodes have no left/right split.
 const _frontLeft = <String, BodyRegion>{
-  'front.upper_chest_l': BodyRegion(0.42, 0.175, 0.14, 0.055),
-  'front.chest_l': BodyRegion(0.41, 0.225, 0.16, 0.085),
-  'front.front_delts_l':
-      BodyRegion(0.315, 0.185, 0.11, 0.09, rotation: 0.35),
-  'front.side_delts_l':
-      BodyRegion(0.272, 0.235, 0.08, 0.10, rotation: 0.25),
-  'front.biceps_l': BodyRegion(0.238, 0.32, 0.085, 0.12, rotation: 0.2),
-  'front.forearms_l':
-      BodyRegion(0.2, 0.46, 0.07, 0.14, rotation: 0.14),
-  'front.obliques_l':
-      BodyRegion(0.397, 0.385, 0.075, 0.14, rotation: -0.1),
-  'front.quads_l':
-      BodyRegion(0.417, 0.645, 0.115, 0.20, rotation: 0.04),
+  'front.upper_chest_l': BodyRegion(0.434, 0.188, 0.135, 0.052),
+  'front.chest_l': BodyRegion(0.431, 0.239, 0.150, 0.100),
+  'front.front_delts_l': BodyRegion(0.358, 0.191, 0.100, 0.088, rotation: 0.18),
+  'front.side_delts_l': BodyRegion(0.314, 0.220, 0.076, 0.082, rotation: 0.25),
+  'front.biceps_l': BodyRegion(0.299, 0.288, 0.076, 0.130, rotation: 0.12),
+  'front.forearms_l': BodyRegion(0.262, 0.428, 0.062, 0.148, rotation: 0.11),
+  'front.obliques_l': BodyRegion(0.430, 0.390, 0.060, 0.132, rotation: -0.04),
+  'front.quads_l': BodyRegion(0.437, 0.650, 0.116, 0.210, rotation: 0.02),
 };
 const _frontSolo = <String, BodyRegion>{
-  'front.rectus_abs': BodyRegion(0.5, 0.37, 0.15, 0.19),
+  'front.rectus_abs': BodyRegion(0.5, 0.372, 0.125, 0.182),
 };
 
 const _backLeft = <String, BodyRegion>{
-  'back.traps_l': BodyRegion(0.418, 0.17, 0.14, 0.085),
-  'back.rear_delts_l':
-      BodyRegion(0.315, 0.19, 0.11, 0.085, rotation: 0.35),
-  'back.rhomboids_l': BodyRegion(0.43, 0.24, 0.11, 0.075),
-  'back.lats_l': BodyRegion(0.397, 0.305, 0.13, 0.14, rotation: -0.14),
-  'back.triceps_l': BodyRegion(0.238, 0.32, 0.085, 0.12, rotation: 0.2),
-  'back.hams_l':
-      BodyRegion(0.417, 0.635, 0.115, 0.19, rotation: 0.04),
-  'back.calves_l':
-      BodyRegion(0.432, 0.82, 0.09, 0.15, rotation: 0.03),
+  'back.traps_l': BodyRegion(0.430, 0.178, 0.150, 0.090),
+  'back.rear_delts_l': BodyRegion(0.358, 0.200, 0.100, 0.085, rotation: 0.18),
+  'back.rhomboids_l': BodyRegion(0.435, 0.246, 0.110, 0.066),
+  'back.lats_l': BodyRegion(0.422, 0.330, 0.136, 0.160, rotation: -0.08),
+  'back.triceps_l': BodyRegion(0.299, 0.288, 0.076, 0.130, rotation: 0.12),
+  'back.hams_l': BodyRegion(0.437, 0.640, 0.116, 0.200, rotation: 0.02),
+  'back.calves_l': BodyRegion(0.438, 0.835, 0.095, 0.160, rotation: 0.02),
 };
 const _backSolo = <String, BodyRegion>{
-  'back.spinal_erectors': BodyRegion(0.5, 0.31, 0.085, 0.24),
-  'back.glutes': BodyRegion(0.5, 0.49, 0.24, 0.11),
+  'back.spinal_erectors': BodyRegion(0.5, 0.325, 0.075, 0.230),
+  'back.glutes': BodyRegion(0.5, 0.500, 0.220, 0.115),
 };
 
-/// All regions for a view (`front` | `back`); `_r` nodes are the mirrors
-/// of their `_l` definitions.
 Map<String, BodyRegion> regionsFor(String view) {
   final left = view == 'front' ? _frontLeft : _backLeft;
   final solo = view == 'front' ? _frontSolo : _backSolo;
@@ -95,19 +84,60 @@ List<String> _parseNodes(String json) {
   }
 }
 
-/// Front/back body diagram with muscle regions coloured by freshness.
-class BodyHeatMap extends ConsumerWidget {
+String _heatState(double freshness) {
+  if (freshness >= 0.66) return 'FRESH';
+  if (freshness >= 0.2) return 'FADING';
+  return 'REST';
+}
+
+typedef _NodeInfo = ({String name, double freshness});
+
+/// One large front/back plate with flat, crisp muscle regions.
+class BodyHeatMap extends ConsumerStatefulWidget {
   const BodyHeatMap({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<BodyHeatMap> createState() => _BodyHeatMapState();
+}
+
+class _BodyHeatMapState extends ConsumerState<BodyHeatMap> {
+  bool _front = true;
+  String? _selected;
+
+  void _selectAt(Offset local, Size size, Map<String, Color> nodes) {
+    final view = _front ? 'front' : 'back';
+    final regions = regionsFor(view);
+    String? hit;
+    var best = double.infinity;
+    for (final key in nodes.keys) {
+      final r = regions[key];
+      if (r == null) continue;
+      final dx = local.dx - r.x * size.width;
+      final dy = local.dy - r.y * size.height;
+      final cos = math.cos(-r.rotation);
+      final sin = math.sin(-r.rotation);
+      final rx = dx * cos - dy * sin;
+      final ry = dx * sin + dy * cos;
+      final nx = rx / (r.w * size.width * 0.58);
+      final ny = ry / (r.h * size.height * 0.58);
+      final distance = nx * nx + ny * ny;
+      if (distance <= 1 && distance < best) {
+        best = distance;
+        hit = key;
+      }
+    }
+    setState(() => _selected = hit == _selected ? null : hit);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final window = ref.watch(muscleWindowProvider).value;
     final muscles = ref.watch(musclesProvider).value;
 
     if (window == null || muscles == null) {
       return const ChartCard(
-        title: 'Body Heat Map',
-        subtitle: 'freshness fades red → grey over 72h',
+        title: 'Muscle map',
+        subtitle: 'freshness fades hot → grey over 72h',
         child: Center(
           child: Padding(
             padding: EdgeInsets.all(16),
@@ -124,13 +154,12 @@ class BodyHeatMap extends ConsumerWidget {
     final now = DateTime.now();
     final front = <String, Color>{};
     final back = <String, Color>{};
+    final info = <String, _NodeInfo>{};
     for (final m in muscles) {
       final w = window[m.id];
       final freshness = w?.lastTrained == null
           ? 0.0
-          : GradeEngine.freshness(
-              hoursSinceTrained: w!.hoursSinceTrained(now),
-            );
+          : GradeEngine.freshness(hoursSinceTrained: w!.hoursSinceTrained(now));
       final color = heatColorFor(freshness);
       for (final node in _parseNodes(m.heatmapNodes)) {
         if (node.startsWith('front.')) {
@@ -138,30 +167,89 @@ class BodyHeatMap extends ConsumerWidget {
         } else if (node.startsWith('back.')) {
           back[node] = color;
         }
+        info[node] = (name: m.name, freshness: freshness);
       }
     }
 
+    final view = _front ? 'front' : 'back';
+    final nodes = _front ? front : back;
+    final selected = _selected != null && nodes.containsKey(_selected)
+        ? _selected
+        : null;
+    final selectedInfo = selected == null ? null : info[selected];
+
     return ChartCard(
-      title: 'Body Heat Map',
-      subtitle: 'freshness fades red → grey over 72h',
+      title: 'Muscle map',
+      subtitle: 'freshness fades hot → grey over 72h',
       child: Column(
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(child: _BodyPanel(view: 'front', nodes: front)),
-              const SizedBox(width: 16),
-              Expanded(child: _BodyPanel(view: 'back', nodes: back)),
-            ],
+          _ViewToggle(
+            front: _front,
+            onChanged: (frontValue) => setState(() {
+              _front = frontValue;
+              _selected = null;
+            }),
           ),
           const SizedBox(height: 14),
+          Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 244),
+              child: AspectRatio(
+                aspectRatio: 0.52,
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final size = Size(
+                      constraints.maxWidth,
+                      constraints.maxHeight,
+                    );
+                    return GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTapUp: (details) =>
+                          _selectAt(details.localPosition, size, nodes),
+                      child: Semantics(
+                        label:
+                            '${_front ? 'Front' : 'Back'} muscle map. '
+                            'Tap a muscle to inspect it.',
+                        child: CustomPaint(
+                          key: const Key('heat-figure'),
+                          painter: _BodyPainter(
+                            view: view,
+                            nodes: nodes,
+                            selected: selected,
+                            surface: context.surface,
+                            elevated: context.surfaceElevated,
+                            border: context.border,
+                            highlight: context.textPrimary,
+                          ),
+                          child: const SizedBox.expand(),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 244),
+              child: _SelectedMuscleBar(
+                name: selectedInfo?.name,
+                freshness: selectedInfo?.freshness,
+                color: selected == null ? null : nodes[selected],
+                onClear: () => setState(() => _selected = null),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
           const Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               _HeatLegend(color: AppColors.heatHot, label: 'Fresh'),
-              SizedBox(width: 14),
+              SizedBox(width: 16),
               _HeatLegend(color: AppColors.heatWarm, label: 'Fading'),
-              SizedBox(width: 14),
+              SizedBox(width: 16),
               _HeatLegend(color: AppColors.heatRest, label: 'Rest'),
             ],
           ),
@@ -171,40 +259,142 @@ class BodyHeatMap extends ConsumerWidget {
   }
 }
 
-class _BodyPanel extends StatelessWidget {
-  const _BodyPanel({required this.view, required this.nodes});
+class _SelectedMuscleBar extends StatelessWidget {
+  const _SelectedMuscleBar({
+    required this.name,
+    required this.freshness,
+    required this.color,
+    required this.onClear,
+  });
 
-  final String view;
-  final Map<String, Color> nodes;
+  final String? name;
+  final double? freshness;
+  final Color? color;
+  final VoidCallback onClear;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Text(
-          view.toUpperCase(),
-          style: TextStyle(
-            fontSize: 10,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 1.1,
-            color: context.textTertiary,
-          ),
-        ),
-        const SizedBox(height: 6),
-        AspectRatio(
-          aspectRatio: 0.52, // width / height — a standing figure
-          child: CustomPaint(
-            key: Key('heat-$view'),
-            painter: _BodyPainter(
-              view: view,
-              nodes: nodes,
-              elevated: context.surfaceElevated,
-              border: context.border,
+    final selected = name != null && freshness != null && color != null;
+    return Container(
+      height: 34,
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      decoration: BoxDecoration(
+        border: Border.all(color: context.border),
+        borderRadius: BorderRadius.circular(AppRadius.data),
+      ),
+      child: selected
+          ? Row(
+              children: [
+                Container(width: 8, height: 8, color: color),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    name!,
+                    key: const Key('heat-muscle-label'),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppType.bodySm.copyWith(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
+                      color: context.textPrimary,
+                    ),
+                  ),
+                ),
+                Text(
+                  _heatState(freshness!),
+                  style: AppType.metaSm.copyWith(
+                    color: context.textTertiary,
+                    letterSpacing: 1.1,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                GestureDetector(
+                  key: const Key('heat-clear'),
+                  behavior: HitTestBehavior.opaque,
+                  onTap: onClear,
+                  child: LedgerGlyph(
+                    LedgerGlyphType.close,
+                    size: 12,
+                    color: context.textTertiary,
+                  ),
+                ),
+              ],
+            )
+          : Row(
+              children: [
+                LedgerGlyph(
+                  LedgerGlyphType.search,
+                  size: 13,
+                  color: context.textTertiary,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'TAP A MUSCLE TO INSPECT',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppType.metaSm.copyWith(
+                      color: context.textTertiary,
+                      letterSpacing: 1.1,
+                    ),
+                  ),
+                ),
+              ],
             ),
-            child: const SizedBox.expand(),
+    );
+  }
+}
+
+class _ViewToggle extends StatelessWidget {
+  const _ViewToggle({required this.front, required this.onChanged});
+
+  final bool front;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    Widget cell(String key, bool active, String label, bool isFront) {
+      return Expanded(
+        child: InkWell(
+          key: Key(key),
+          onTap: () => onChanged(isFront),
+          splashColor: context.accent.withValues(alpha: 0.06),
+          child: Container(
+            height: 36,
+            decoration: BoxDecoration(
+              color: active
+                  ? context.accent.withValues(alpha: 0.12)
+                  : Colors.transparent,
+              border: isFront
+                  ? null
+                  : Border(left: BorderSide(color: context.border)),
+            ),
+            child: Center(
+              child: Text(
+                label,
+                style: AppType.meta.copyWith(
+                  color: active ? context.accent : context.textSecondary,
+                  fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+                ),
+              ),
+            ),
           ),
         ),
-      ],
+      );
+    }
+
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        border: Border.all(color: context.border),
+        borderRadius: BorderRadius.circular(AppRadius.data),
+      ),
+      child: Row(
+        children: [
+          cell('heat-front', front, '01  FRONT', true),
+          cell('heat-back', !front, '02  BACK', false),
+        ],
+      ),
     );
   }
 }
@@ -220,84 +410,108 @@ class _HeatLegend extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Container(
-          width: 10,
-          height: 10,
-          decoration:
-              BoxDecoration(color: color, borderRadius: BorderRadius.circular(2)),
-        ),
-        const SizedBox(width: 4),
+        Container(width: 9, height: 9, color: color),
+        const SizedBox(width: 5),
         Text(
-          label,
-          style: TextStyle(fontSize: 11, color: context.textTertiary),
+          label.toUpperCase(),
+          style: AppType.metaSm.copyWith(color: context.textTertiary),
         ),
       ],
     );
   }
 }
 
+enum _MuscleForm {
+  pec,
+  pecUpper,
+  delt,
+  bicep,
+  tricep,
+  forearm,
+  oblique,
+  abs,
+  quad,
+  ham,
+  calf,
+  trap,
+  rhomboid,
+  lat,
+  erector,
+  glute,
+  lens,
+}
+
+_MuscleForm _formFor(String node) {
+  final base = node.replaceFirst(RegExp(r'_[lr]$'), '');
+  return switch (base) {
+    'front.chest' => _MuscleForm.pec,
+    'front.upper_chest' => _MuscleForm.pecUpper,
+    'front.front_delts' ||
+    'front.side_delts' ||
+    'back.rear_delts' => _MuscleForm.delt,
+    'front.biceps' => _MuscleForm.bicep,
+    'back.triceps' => _MuscleForm.tricep,
+    'front.forearms' => _MuscleForm.forearm,
+    'front.obliques' => _MuscleForm.oblique,
+    'front.rectus_abs' => _MuscleForm.abs,
+    'front.quads' => _MuscleForm.quad,
+    'back.hams' => _MuscleForm.ham,
+    'back.calves' => _MuscleForm.calf,
+    'back.traps' => _MuscleForm.trap,
+    'back.rhomboids' => _MuscleForm.rhomboid,
+    'back.lats' => _MuscleForm.lat,
+    'back.spinal_erectors' => _MuscleForm.erector,
+    'back.glutes' => _MuscleForm.glute,
+    _ => _MuscleForm.lens,
+  };
+}
+
 class _BodyPainter extends CustomPainter {
   _BodyPainter({
     required this.view,
     required this.nodes,
+    required this.selected,
+    required this.surface,
     required this.elevated,
     required this.border,
+    required this.highlight,
   });
 
   final String view;
   final Map<String, Color> nodes;
-
-  /// Colors resolved from the ambient theme in `build` — painters have no
-  /// BuildContext of their own.
+  final String? selected;
+  final Color surface;
   final Color elevated;
   final Color border;
+  final Color highlight;
 
   @override
   void paint(Canvas canvas, Size size) {
     final w = size.width;
     final h = size.height;
-
-    // Minimal line-art figure: head, neck, torso, arms and legs merged
-    // into ONE outline, so the heat can be clipped to the body and the
-    // silhouette stroked without any internal seams.
     final body = _silhouette(w, h);
 
     canvas.save();
     canvas.clipPath(body);
     canvas.drawPath(body, Paint()..color = elevated);
 
-    // Soft heat — each node is a blurred oval (feathered halo) with a
-    // firmer core inside it. Clipping at the silhouette keeps the glow
-    // from spilling past the outline; edges cut cleanly instead.
     final regions = regionsFor(view);
     for (final e in nodes.entries) {
+      if (e.key == selected) continue;
       final r = regions[e.key];
       if (r == null) continue;
-      final bw = r.w * w;
-      final bh = r.h * h;
-      canvas.save();
-      canvas.translate(r.x * w, r.y * h);
-      canvas.rotate(r.rotation);
-      final sigma = math.max(1.5, math.min(bw, bh) * 0.34);
-      canvas.drawOval(
-        Rect.fromCenter(center: Offset.zero, width: bw, height: bh),
-        Paint()
-          ..color = e.value.withValues(alpha: 0.9)
-          ..maskFilter = MaskFilter.blur(BlurStyle.normal, sigma),
-      );
-      canvas.drawOval(
-        Rect.fromCenter(
-          center: Offset.zero,
-          width: bw * 0.7,
-          height: bh * 0.7,
-        ),
-        Paint()..color = e.value.withValues(alpha: 0.55),
-      );
-      canvas.restore();
+      _paintNode(canvas, size, e.key, r, e.value, false);
     }
+    if (selected != null) {
+      final r = regions[selected];
+      final color = nodes[selected];
+      if (r != null && color != null) {
+        _paintNode(canvas, size, selected!, r, color, true);
+      }
+    }
+    _paintAnatomy(canvas, size, view);
     canvas.restore();
 
-    // Thin outline over everything — crisp edge, soft interior.
     canvas.drawPath(
       body,
       Paint()
@@ -307,85 +521,406 @@ class _BodyPainter extends CustomPainter {
     );
   }
 
+  void _paintNode(
+    Canvas canvas,
+    Size size,
+    String key,
+    BodyRegion r,
+    Color color,
+    bool isSelected,
+  ) {
+    final bw = r.w * size.width;
+    final bh = r.h * size.height;
+    final rest = color == AppColors.heatRest;
+    final form = _formFor(key);
+    final mirror = key.endsWith('_r');
+
+    canvas.save();
+    canvas.translate(r.x * size.width, r.y * size.height);
+    canvas.rotate(r.rotation);
+    if (mirror) canvas.scale(-1, 1);
+    if (isSelected) canvas.scale(1.14);
+
+    final rect = Rect.fromCenter(center: Offset.zero, width: bw, height: bh);
+    final path = _formPath(form, rect);
+    canvas.drawPath(
+      path,
+      Paint()..color = color.withValues(alpha: rest ? 0.50 : 0.90),
+    );
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = surface.withValues(alpha: rest ? 0.16 : 0.26)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 0.7,
+    );
+    if (isSelected) {
+      canvas.drawPath(
+        path,
+        Paint()
+          ..color = border
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 3.2,
+      );
+      canvas.drawPath(
+        path,
+        Paint()
+          ..color = highlight.withValues(alpha: 0.9)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.2,
+      );
+    }
+    canvas.restore();
+  }
+
+  Path _formPath(_MuscleForm form, Rect r) {
+    final w = r.width / 2;
+    final h = r.height / 2;
+    switch (form) {
+      case _MuscleForm.pec:
+        return Path()
+          ..moveTo(w * 0.92, -h * 0.55)
+          ..quadraticBezierTo(w * 0.15, -h * 0.64, -w * 0.22, -h * 0.50)
+          ..quadraticBezierTo(-w * 0.72, -h * 0.28, -w * 0.48, h * 0.05)
+          ..quadraticBezierTo(-w * 0.30, h * 0.45, w * 0.05, h * 0.62)
+          ..quadraticBezierTo(w * 0.58, h * 0.40, w * 0.92, -h * 0.55)
+          ..close();
+      case _MuscleForm.pecUpper:
+        return Path()
+          ..moveTo(w * 0.92, -h * 0.62)
+          ..quadraticBezierTo(-w * 0.10, -h * 0.95, -w * 0.70, -h * 0.35)
+          ..quadraticBezierTo(-w * 0.74, h * 0.12, -w * 0.18, h * 0.42)
+          ..quadraticBezierTo(w * 0.40, h * 0.48, w * 0.92, -h * 0.62)
+          ..close();
+      case _MuscleForm.delt:
+        return Path()
+          ..moveTo(-w * 0.55, h * 0.25)
+          ..quadraticBezierTo(-w * 0.65, -h * 0.55, 0, -h * 0.70)
+          ..quadraticBezierTo(w * 0.70, -h * 0.45, w * 0.55, h * 0.15)
+          ..quadraticBezierTo(w * 0.30, h * 0.55, 0, h * 0.50)
+          ..quadraticBezierTo(-w * 0.25, h * 0.55, -w * 0.55, h * 0.25)
+          ..close();
+      case _MuscleForm.bicep:
+        return Path()
+          ..moveTo(0, -h * 0.55)
+          ..quadraticBezierTo(w * 0.55, -h * 0.20, w * 0.45, h * 0.15)
+          ..quadraticBezierTo(w * 0.38, h * 0.45, 0, h * 0.55)
+          ..quadraticBezierTo(-w * 0.38, h * 0.42, -w * 0.42, h * 0.10)
+          ..quadraticBezierTo(-w * 0.45, -h * 0.25, 0, -h * 0.55)
+          ..close();
+      case _MuscleForm.tricep:
+        return Path()
+          ..moveTo(w * 0.10, -h * 0.55)
+          ..quadraticBezierTo(-w * 0.55, -h * 0.35, -w * 0.50, h * 0.12)
+          ..quadraticBezierTo(-w * 0.45, h * 0.45, 0, h * 0.55)
+          ..quadraticBezierTo(w * 0.40, h * 0.42, w * 0.45, h * 0.05)
+          ..quadraticBezierTo(w * 0.35, -h * 0.30, w * 0.10, -h * 0.55)
+          ..close();
+      case _MuscleForm.forearm:
+        return Path()
+          ..moveTo(-w * 0.10, -h * 0.55)
+          ..quadraticBezierTo(-w * 0.55, -h * 0.35, -w * 0.45, h * 0.30)
+          ..quadraticBezierTo(-w * 0.35, h * 0.55, 0, h * 0.60)
+          ..quadraticBezierTo(w * 0.35, h * 0.55, w * 0.30, h * 0.20)
+          ..quadraticBezierTo(w * 0.25, -h * 0.35, w * 0.10, -h * 0.55)
+          ..close();
+      case _MuscleForm.oblique:
+        return Path()
+          ..moveTo(w * 0.65, -h * 0.52)
+          ..quadraticBezierTo(-w * 0.45, -h * 0.45, -w * 0.60, 0)
+          ..quadraticBezierTo(-w * 0.50, h * 0.45, w * 0.15, h * 0.55)
+          ..quadraticBezierTo(w * 0.55, h * 0.25, w * 0.65, -h * 0.52)
+          ..close();
+      case _MuscleForm.abs:
+        return Path()
+          ..moveTo(-w * 0.80, -h * 0.50)
+          ..quadraticBezierTo(0, -h * 0.62, w * 0.80, -h * 0.50)
+          ..quadraticBezierTo(w * 0.92, h * 0.08, w * 0.58, h * 0.55)
+          ..quadraticBezierTo(0, h * 0.64, -w * 0.58, h * 0.55)
+          ..quadraticBezierTo(-w * 0.92, h * 0.08, -w * 0.80, -h * 0.50)
+          ..close();
+      case _MuscleForm.quad:
+        return Path()
+          ..moveTo(-w * 0.55, -h * 0.55)
+          ..quadraticBezierTo(w * 0.45, -h * 0.60, w * 0.55, -h * 0.15)
+          ..quadraticBezierTo(w * 0.45, h * 0.35, w * 0.12, h * 0.55)
+          ..quadraticBezierTo(-w * 0.35, h * 0.50, -w * 0.50, h * 0.10)
+          ..close();
+      case _MuscleForm.ham:
+        return Path()
+          ..moveTo(-w * 0.35, -h * 0.55)
+          ..quadraticBezierTo(w * 0.45, -h * 0.50, w * 0.50, h * 0.05)
+          ..quadraticBezierTo(w * 0.40, h * 0.45, 0, h * 0.60)
+          ..quadraticBezierTo(-w * 0.45, h * 0.40, -w * 0.50, 0)
+          ..close();
+      case _MuscleForm.calf:
+        return Path()
+          ..moveTo(-w * 0.15, -h * 0.55)
+          ..quadraticBezierTo(w * 0.50, -h * 0.40, w * 0.55, h * 0.05)
+          ..quadraticBezierTo(w * 0.50, h * 0.40, 0, h * 0.58)
+          ..quadraticBezierTo(-w * 0.50, h * 0.40, -w * 0.50, h * 0.05)
+          ..quadraticBezierTo(-w * 0.45, -h * 0.35, -w * 0.15, -h * 0.55)
+          ..close();
+      case _MuscleForm.trap:
+        return Path()
+          ..moveTo(w * 0.60, h * 0.50)
+          ..quadraticBezierTo(0, h * 0.35, -w * 0.45, -h * 0.10)
+          ..quadraticBezierTo(-w * 0.55, -h * 0.45, -w * 0.20, -h * 0.55)
+          ..quadraticBezierTo(w * 0.30, -h * 0.45, w * 0.60, -h * 0.15)
+          ..close();
+      case _MuscleForm.rhomboid:
+        return Path()
+          ..moveTo(w * 0.55, -h * 0.50)
+          ..quadraticBezierTo(-w * 0.10, -h * 0.60, -w * 0.55, -h * 0.35)
+          ..lineTo(-w * 0.48, h * 0.45)
+          ..quadraticBezierTo(w * 0.05, h * 0.55, w * 0.55, h * 0.30)
+          ..close();
+      case _MuscleForm.lat:
+        return Path()
+          ..moveTo(w * 0.50, -h * 0.55)
+          ..quadraticBezierTo(-w * 0.55, -h * 0.45, -w * 0.60, h * 0.05)
+          ..quadraticBezierTo(-w * 0.35, h * 0.50, w * 0.15, h * 0.60)
+          ..quadraticBezierTo(w * 0.55, h * 0.25, w * 0.50, -h * 0.55)
+          ..close();
+      case _MuscleForm.erector:
+        final lobe = Rect.fromCenter(
+          center: Offset(-w * 0.22, 0),
+          width: w * 0.62,
+          height: h * 1.92,
+        );
+        final other = Rect.fromCenter(
+          center: Offset(w * 0.22, 0),
+          width: w * 0.62,
+          height: h * 1.92,
+        );
+        final radius = Radius.circular(w * 0.24);
+        return Path()
+          ..addRRect(RRect.fromRectAndRadius(lobe, radius))
+          ..addRRect(RRect.fromRectAndRadius(other, radius));
+      case _MuscleForm.glute:
+        final l = Rect.fromCenter(
+          center: Offset(-w * 0.23, 0),
+          width: w * 0.58,
+          height: h * 0.94,
+        );
+        final rr = Rect.fromCenter(
+          center: Offset(w * 0.23, 0),
+          width: w * 0.58,
+          height: h * 0.94,
+        );
+        final radius = Radius.circular(h * 0.42);
+        return Path()
+          ..addRRect(RRect.fromRectAndRadius(l, radius))
+          ..addRRect(RRect.fromRectAndRadius(rr, radius));
+      case _MuscleForm.lens:
+        return Path()
+          ..moveTo(0, -h * 0.55)
+          ..quadraticBezierTo(w * 0.55, -h * 0.10, 0, h * 0.55)
+          ..quadraticBezierTo(-w * 0.55, -h * 0.10, 0, -h * 0.55)
+          ..close();
+    }
+  }
+
+  void _paintAnatomy(Canvas canvas, Size size, String view) {
+    final w = size.width;
+    final h = size.height;
+    final ink = border.withValues(alpha: 0.80);
+    final line = Paint()
+      ..color = ink
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.8
+      ..strokeCap = StrokeCap.round;
+
+    if (view == 'front') {
+      canvas.drawLine(
+        Offset(0.5 * w, 0.125 * h),
+        Offset(0.5 * w, 0.292 * h),
+        line,
+      );
+
+      final collar = Path()
+        ..moveTo(0.5 * w, 0.171 * h)
+        ..quadraticBezierTo(0.435 * w, 0.158 * h, 0.382 * w, 0.184 * h);
+      canvas.drawPath(collar, line);
+      canvas.save();
+      canvas.translate(w, 0);
+      canvas.scale(-1, 1);
+      canvas.drawPath(collar, line);
+      canvas.restore();
+
+      canvas.drawLine(
+        Offset(0.5 * w, 0.292 * h),
+        Offset(0.5 * w, 0.462 * h),
+        line,
+      );
+      for (var i = 1; i <= 3; i++) {
+        final y = (0.292 + i * 0.043) * h;
+        canvas.drawLine(Offset(0.462 * w, y), Offset(0.538 * w, y), line);
+      }
+      final v = Path()
+        ..moveTo(0.466 * w, 0.478 * h)
+        ..lineTo(0.5 * w, 0.535 * h)
+        ..lineTo(0.534 * w, 0.478 * h);
+      canvas.drawPath(v, line);
+    } else {
+      canvas.drawLine(
+        Offset(0.5 * w, 0.132 * h),
+        Offset(0.5 * w, 0.462 * h),
+        line,
+      );
+      final scapula = Path()
+        ..moveTo(0.462 * w, 0.202 * h)
+        ..quadraticBezierTo(0.400 * w, 0.226 * h, 0.384 * w, 0.292 * h)
+        ..quadraticBezierTo(0.415 * w, 0.320 * h, 0.462 * w, 0.300 * h);
+      canvas.drawPath(scapula, line);
+      canvas.save();
+      canvas.translate(w, 0);
+      canvas.scale(-1, 1);
+      canvas.drawPath(scapula, line);
+      canvas.restore();
+
+      canvas.drawLine(
+        Offset(0.5 * w, 0.462 * h),
+        Offset(0.5 * w, 0.555 * h),
+        line,
+      );
+    }
+
+    for (final y in [0.742]) {
+      canvas.drawLine(Offset(0.405 * w, y * h), Offset(0.472 * w, y * h), line);
+      canvas.drawLine(Offset(0.528 * w, y * h), Offset(0.595 * w, y * h), line);
+    }
+  }
+
   @override
   bool shouldRepaint(_BodyPainter oldDelegate) =>
-      oldDelegate.view != view || !mapEquals(oldDelegate.nodes, nodes);
+      oldDelegate.view != view ||
+      oldDelegate.selected != selected ||
+      !mapEquals(oldDelegate.nodes, nodes) ||
+      oldDelegate.surface != surface ||
+      oldDelegate.elevated != elevated ||
+      oldDelegate.border != border ||
+      oldDelegate.highlight != highlight;
 }
 
-/// The whole figure as a single merged path for a `w × h` panel.
-///
-/// Every subpath overlaps its neighbours (neck bridges head ↔ torso, limb
-/// roots tuck inside the torso), so the unions form one connected contour
-/// whose outline can be stroked seam-free.
 Path _silhouette(double w, double h) {
   var body = Path()
-    ..addOval(Rect.fromCenter(
-      center: Offset(0.5 * w, 0.062 * h),
-      width: 0.105 * w,
-      height: 0.112 * h,
-    ));
+    ..addOval(
+      Rect.fromCenter(
+        center: Offset(0.5 * w, 0.068 * h),
+        width: 0.110 * w,
+        height: 0.120 * h,
+      ),
+    );
   body = Path.combine(PathOperation.union, body, _neck(w, h));
   body = Path.combine(PathOperation.union, body, _torso(w, h));
+  body = Path.combine(PathOperation.union, body, _pelvis(w, h));
 
-  // (joint chain as panel fractions, half-width as a fraction of w) —
-  // centre lines match where the heat-map nodes sit.
-  const limbs = <(List<(double, double)>, double)>[
-    ([(0.36, 0.165), (0.272, 0.33), (0.212, 0.485)], 0.033), // left arm
-    ([(0.64, 0.165), (0.728, 0.33), (0.788, 0.485)], 0.033), // right arm
-    ([(0.447, 0.49), (0.432, 0.715), (0.427, 0.945)], 0.045), // left leg
-    ([(0.553, 0.49), (0.568, 0.715), (0.573, 0.945)], 0.045), // right leg
+  const limbs = <(List<(double, double)>, List<double>)>[
+    ([(0.354, 0.180), (0.296, 0.326), (0.247, 0.486)], [0.052, 0.033, 0.024]),
+    ([(0.646, 0.180), (0.704, 0.326), (0.753, 0.486)], [0.052, 0.033, 0.024]),
+    ([(0.447, 0.490), (0.438, 0.720), (0.432, 0.958)], [0.060, 0.044, 0.028]),
+    ([(0.553, 0.490), (0.562, 0.720), (0.568, 0.958)], [0.060, 0.044, 0.028]),
   ];
-  for (final (joints, radius) in limbs) {
+  for (final (joints, radii) in limbs) {
+    Path limb = Path();
     for (var i = 0; i < joints.length - 1; i++) {
       final a = Offset(joints[i].$1 * w, joints[i].$2 * h);
       final b = Offset(joints[i + 1].$1 * w, joints[i + 1].$2 * h);
-      body = Path.combine(PathOperation.union, body, _capsule(a, b, radius * w));
+      limb = Path.combine(
+        PathOperation.union,
+        limb,
+        _taperedSegment(a, b, radii[i] * w, radii[i + 1] * w),
+      );
     }
+    body = Path.combine(PathOperation.union, body, limb);
+  }
+  for (final left in [true, false]) {
+    body = Path.combine(PathOperation.union, body, _hand(w, h, left: left));
+    body = Path.combine(PathOperation.union, body, _foot(w, h, left: left));
   }
   return body;
 }
 
+Path _pelvis(double w, double h) => Path()
+  ..addOval(
+    Rect.fromCenter(
+      center: Offset(0.5 * w, 0.503 * h),
+      width: 0.228 * w,
+      height: 0.092 * h,
+    ),
+  );
+
+Path _hand(double w, double h, {required bool left}) {
+  final side = left ? -1.0 : 1.0;
+  final wrist = Offset(0.5 * w + side * 0.253 * w, 0.486 * h);
+  final tip = Offset(0.5 * w + side * 0.236 * w, 0.552 * h);
+  final palm = Offset(0.5 * w + side * 0.240 * w, 0.530 * h);
+  return Path.combine(
+    PathOperation.union,
+    _taperedSegment(wrist, tip, 0.024 * w, 0.014 * w),
+    Path()..addOval(
+      Rect.fromCenter(center: palm, width: 0.046 * w, height: 0.060 * h),
+    ),
+  );
+}
+
+Path _foot(double w, double h, {required bool left}) {
+  final side = left ? -1.0 : 1.0;
+  final ankle = Offset(0.5 * w + side * 0.068 * w, 0.945 * h);
+  final toe = Offset(0.5 * w + side * 0.086 * w, 0.992 * h);
+  return Path.combine(
+    PathOperation.union,
+    _taperedSegment(ankle, toe, 0.027 * w, 0.030 * w),
+    Path()..addOval(
+      Rect.fromCenter(
+        center: Offset(0.5 * w + side * 0.080 * w, 0.984 * h),
+        width: 0.058 * w,
+        height: 0.034 * h,
+      ),
+    ),
+  );
+}
+
 Path _neck(double w, double h) => Path()
-  ..moveTo(0.468 * w, 0.098 * h)
-  ..lineTo(0.532 * w, 0.098 * h)
-  ..lineTo(0.528 * w, 0.165 * h)
-  ..lineTo(0.472 * w, 0.165 * h)
+  ..moveTo(0.466 * w, 0.100 * h)
+  ..lineTo(0.534 * w, 0.100 * h)
+  ..lineTo(0.528 * w, 0.170 * h)
+  ..lineTo(0.472 * w, 0.170 * h)
   ..close();
 
-/// Shoulders → armpits → waist → hips, traced left-to-right across the
-/// top so the winding matches the ovals (irrelevant for `union`, but it
-/// keeps the path well-formed for stroking).
 Path _torso(double w, double h) => Path()
-  ..moveTo(0.345 * w, 0.148 * h)
-  ..quadraticBezierTo(0.5 * w, 0.126 * h, 0.655 * w, 0.148 * h)
-  ..quadraticBezierTo(0.668 * w, 0.235 * h, 0.625 * w, 0.305 * h)
-  ..quadraticBezierTo(0.602 * w, 0.40 * h, 0.588 * w, 0.50 * h)
-  ..lineTo(0.412 * w, 0.50 * h)
-  ..quadraticBezierTo(0.398 * w, 0.40 * h, 0.375 * w, 0.305 * h)
-  ..quadraticBezierTo(0.332 * w, 0.235 * h, 0.345 * w, 0.148 * h)
+  ..moveTo(0.345 * w, 0.155 * h)
+  ..quadraticBezierTo(0.380 * w, 0.136 * h, 0.432 * w, 0.133 * h)
+  ..quadraticBezierTo(0.500 * w, 0.126 * h, 0.568 * w, 0.133 * h)
+  ..quadraticBezierTo(0.620 * w, 0.136 * h, 0.655 * w, 0.155 * h)
+  ..quadraticBezierTo(0.676 * w, 0.240 * h, 0.628 * w, 0.310 * h)
+  ..quadraticBezierTo(0.612 * w, 0.370 * h, 0.605 * w, 0.425 * h)
+  ..quadraticBezierTo(0.604 * w, 0.465 * h, 0.595 * w, 0.505 * h)
+  ..lineTo(0.405 * w, 0.505 * h)
+  ..quadraticBezierTo(0.396 * w, 0.465 * h, 0.395 * w, 0.425 * h)
+  ..quadraticBezierTo(0.388 * w, 0.370 * h, 0.372 * w, 0.310 * h)
+  ..quadraticBezierTo(0.324 * w, 0.240 * h, 0.345 * w, 0.155 * h)
   ..close();
 
-/// A rounded limb segment from [a] to [b]: a rectangle along the axis
-/// plus joint circles at both ends (they overlap the neighbours, so the
-/// union is a smooth capsule chain).
-Path _capsule(Offset a, Offset b, double r) {
+Path _taperedSegment(Offset a, Offset b, double ra, double rb) {
   final d = b - a;
   final len = d.distance;
   if (len < 0.0001) {
-    return Path()..addOval(Rect.fromCircle(center: a, radius: r));
+    return Path()..addOval(Rect.fromCircle(center: a, radius: ra));
   }
   final u = Offset(d.dx / len, d.dy / len);
-  final n = Offset(-u.dy, u.dx); // perpendicular, a quarter turn
-  final p1 = a + n * r;
-  final p2 = b + n * r;
-  final p3 = b - n * r;
-  final p4 = a - n * r;
+  final n = Offset(-u.dy, u.dx);
+  final p1 = a + n * ra;
+  final p2 = b + n * rb;
+  final p3 = b - n * rb;
+  final p4 = a - n * ra;
   return Path()
-    ..moveTo(p4.dx, p4.dy)
-    ..lineTo(p3.dx, p3.dy)
+    ..moveTo(p1.dx, p1.dy)
     ..lineTo(p2.dx, p2.dy)
-    ..lineTo(p1.dx, p1.dy)
+    ..lineTo(p3.dx, p3.dy)
+    ..lineTo(p4.dx, p4.dy)
     ..close()
-    ..addOval(Rect.fromCircle(center: a, radius: r))
-    ..addOval(Rect.fromCircle(center: b, radius: r));
+    ..addOval(Rect.fromCircle(center: a, radius: ra))
+    ..addOval(Rect.fromCircle(center: b, radius: rb));
 }

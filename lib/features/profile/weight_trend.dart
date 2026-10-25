@@ -16,8 +16,11 @@ class TrendPoint {
 /// oldest first. Null weights (a malformed row from elsewhere) are
 /// skipped rather than plotting at zero.
 List<TrendPoint> trendPoints(List<BodyMetric> rows, DateTime now) {
-  final from = DateTime(now.year, now.month, now.day)
-      .subtract(Duration(days: 7 * weightTrendWeeks));
+  final from = DateTime(
+    now.year,
+    now.month,
+    now.day,
+  ).subtract(Duration(days: 7 * weightTrendWeeks));
   final points = <TrendPoint>[];
   for (final r in rows) {
     final kg = r.weightKg;
@@ -25,14 +28,20 @@ List<TrendPoint> trendPoints(List<BodyMetric> rows, DateTime now) {
     points.add(TrendPoint(day: parseDayKey(r.id), weightKg: kg));
   }
   points.sort((a, b) => a.day.compareTo(b.day));
-  return [for (final p in points) if (!p.day.isBefore(from)) p];
+  return [
+    for (final p in points)
+      if (!p.day.isBefore(from)) p,
+  ];
 }
 
 /// Mean weight over the [days] days ending at (and including) [day];
 /// null when nothing falls in that range.
 double? trailingAvg(List<TrendPoint> points, DateTime day, {int days = 7}) {
-  final from = DateTime(day.year, day.month, day.day)
-      .subtract(Duration(days: days - 1));
+  final from = DateTime(
+    day.year,
+    day.month,
+    day.day,
+  ).subtract(Duration(days: days - 1));
   var sum = 0.0;
   var n = 0;
   for (final p in points) {

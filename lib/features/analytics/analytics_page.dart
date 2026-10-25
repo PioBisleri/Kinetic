@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/navigation/shell_navigation.dart';
+import '../../core/ledger/ledger.dart';
 import '../../core/settings/settings.dart';
 import '../../core/theme/app_theme.dart';
 import 'application/analytics_providers.dart';
@@ -24,15 +24,26 @@ class AnalyticsPage extends ConsumerWidget {
     final now = DateTime.now();
 
     return Scaffold(
-      appBar: AppBar(
-        leading: const DrawerMenuButton(),
-        title: const Text('Analytics'),
+      appBar: const TailBar(
+        title: 'Analytics',
+        meta: 'Volume · strength · balance',
       ),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(
+          AppSpace.x5,
+          AppSpace.x1,
+          AppSpace.x5,
+          AppSpace.x8,
+        ),
         children: [
+          const SectionHead(
+            index: '00',
+            title: 'Window',
+            meta: 'rolling ledger',
+          ),
+          const SizedBox(height: AppSpace.x3),
           const PeriodChips(),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpace.x4),
           if (stats == null || daily == null)
             const _LoadingCard()
           else ...[
@@ -42,10 +53,16 @@ class AnalyticsPage extends ConsumerWidget {
               volumeKg: daily.fold(0.0, (a, r) => a + r.totalVolume),
               unit: unit,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpace.x6),
             if (stats.count == 0)
               const _EmptyCard()
             else ...[
+              const ChapterHead(
+                index: '01',
+                title: 'Training',
+                meta: 'load · trend · consistency',
+              ),
+              const SizedBox(height: AppSpace.x4),
               ChartCard(
                 title: 'Weekly volume',
                 subtitle: 'total working volume per week',
@@ -61,26 +78,36 @@ class AnalyticsPage extends ConsumerWidget {
                   unit: unit,
                 ),
               ),
-              const SizedBox(height: 16),
-              const VolumeLandmarksCard(),
-              const SizedBox(height: 16),
+              const SizedBox(height: AppSpace.x4),
               StrengthCard(
                 weeks: weeks,
                 unit: unit,
                 // "All" anchors the axis at the first logged day, not 1970.
-                windowStart: chartStart(
-                  weeks,
-                  now,
-                  [for (final r in daily) r.date],
-                ),
+                windowStart: chartStart(weeks, now, [
+                  for (final r in daily) r.date,
+                ]),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: AppSpace.x4),
               const ConsistencyCard(),
-              const SizedBox(height: 16),
+              const SizedBox(height: AppSpace.x6),
+              const ChapterHead(
+                index: '02',
+                title: 'Muscle',
+                meta: 'dose · grade · recovery',
+              ),
+              const SizedBox(height: AppSpace.x4),
+              const VolumeLandmarksCard(),
+              const SizedBox(height: AppSpace.x4),
               const GradeBoardCard(),
-              const SizedBox(height: 16),
+              const SizedBox(height: AppSpace.x4),
               const BodyHeatMap(),
-              const SizedBox(height: 16),
+              const SizedBox(height: AppSpace.x6),
+              const ChapterHead(
+                index: '03',
+                title: 'Balance',
+                meta: 'agonist vs antagonist',
+              ),
+              const SizedBox(height: AppSpace.x4),
               const BalanceCard(),
             ],
           ],
@@ -95,9 +122,9 @@ class _LoadingCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Card(
-      child: Padding(
-        padding: EdgeInsets.all(24),
+    return const LedgerPanel(
+      child: SizedBox(
+        height: 90,
         child: Center(
           child: SizedBox(
             width: 20,
@@ -115,17 +142,21 @@ class _EmptyCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: EdgeInsets.all(20),
-        child: Center(
-          child: Text(
-            'No finished workouts yet — start one from Home and your '
-            'trends appear here.',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 13, color: context.textSecondary),
+    return LedgerPanel(
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'No data yet.',
+            style: AppType.h2.copyWith(color: context.textPrimary),
           ),
-        ),
+          const SizedBox(height: 4),
+          Text(
+            'Finish a workout from Home and the ledger starts filling in.',
+            style: AppType.bodySm.copyWith(color: context.textSecondary),
+          ),
+        ],
       ),
     );
   }

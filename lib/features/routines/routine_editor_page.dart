@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../core/database/database.dart';
+import '../../core/ledger/ledger.dart';
 import '../../core/settings/settings.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/rest_format.dart';
@@ -84,11 +85,18 @@ class _RoutineEditorPageState extends ConsumerState<RoutineEditorPage> {
 
   bool get _isNew => widget.routineId == null;
 
+  int get _totalSets => _entries.fold(0, (sum, entry) => sum + entry.sets);
+
+  int get _workingSets =>
+      _entries.fold(0, (sum, entry) => sum + entry.workingSets);
+
   String _snapshot() {
     final name = _name.text;
     final entries = _entries
-        .map((e) =>
-            '${e.exerciseId}:${e.sets}:${e.reps}:${e.restSeconds}:${e.warmupSets}:${e.dropSets}:${e.failureSets}:${e.linkNext}')
+        .map(
+          (e) =>
+              '${e.exerciseId}:${e.sets}:${e.reps}:${e.restSeconds}:${e.warmupSets}:${e.dropSets}:${e.failureSets}:${e.linkNext}',
+        )
         .join(',');
     return '$name|$entries';
   }
@@ -156,21 +164,24 @@ class _RoutineEditorPageState extends ConsumerState<RoutineEditorPage> {
     final id = await showAddExerciseSheet(context);
     if (id == null || !mounted) return;
     final db = ref.read(databaseProvider);
-    final exercise = await (db.select(db.exercises)
-          ..where((e) => e.id.equals(id))
-          ..limit(1))
-        .getSingleOrNull();
+    final exercise =
+        await (db.select(db.exercises)
+              ..where((e) => e.id.equals(id))
+              ..limit(1))
+            .getSingleOrNull();
     if (exercise == null || !mounted) return;
     setState(() {
-      _entries.add(_EntryDraft(
-        uid: _uuid.v4(),
-        exerciseId: id,
-        exerciseName: exercise.name,
-        sets: 3,
-        reps: 8,
-        restSeconds: inheritRestSeconds,
-        linkNext: false,
-      ));
+      _entries.add(
+        _EntryDraft(
+          uid: _uuid.v4(),
+          exerciseId: id,
+          exerciseName: exercise.name,
+          sets: 3,
+          reps: 8,
+          restSeconds: inheritRestSeconds,
+          linkNext: false,
+        ),
+      );
     });
   }
 
@@ -181,7 +192,9 @@ class _RoutineEditorPageState extends ConsumerState<RoutineEditorPage> {
       return;
     }
     setState(() => _saving = true);
-    await ref.read(routineRepositoryProvider).saveRoutine(
+    await ref
+        .read(routineRepositoryProvider)
+        .saveRoutine(
           id: widget.routineId,
           name: name,
           entries: [
@@ -215,9 +228,7 @@ class _RoutineEditorPageState extends ConsumerState<RoutineEditorPage> {
       danger: true,
     );
     if (confirmed != true || !mounted) return;
-    await ref
-        .read(routineRepositoryProvider)
-        .deleteRoutine(widget.routineId!);
+    await ref.read(routineRepositoryProvider).deleteRoutine(widget.routineId!);
     if (mounted) {
       _popping = true;
       context.pop();
@@ -250,15 +261,17 @@ class _RoutineEditorPageState extends ConsumerState<RoutineEditorPage> {
         }
       } else if (async.hasError) {
         return Scaffold(
-          appBar: AppBar(title: const Text('Edit Routine')),
+          appBar: TailBar(
+            title: 'Edit Routine',
+            showMenu: false,
+            leading: const _BackButton(),
+          ),
           body: Center(child: Text('Error: ${async.error}')),
         );
       }
     }
     if (!_initialized) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
     final unit = ref.watch(settingsProvider).unit;
     final unitLabel = unit == UnitSystem.kg ? 'kg' : 'lb';
@@ -272,261 +285,586 @@ class _RoutineEditorPageState extends ConsumerState<RoutineEditorPage> {
         if (discard && mounted) navigator.pop();
       },
       child: Scaffold(
-      appBar: AppBar(
-        title: Text(_isNew ? 'New Routine' : 'Edit Routine'),
-        actions: [
-          if (!_isNew)
-            IconButton(
-              key: const Key('routine-delete'),
-              tooltip: 'Delete routine',
-              icon: const Icon(Icons.delete_outline),
-              onPressed: _delete,
+        appBar: TailBar(
+          title: _isNew ? 'New Routine' : 'Edit Routine',
+          meta: _isNew ? 'PLAN BUILDER · UNSAVED' : 'PLAN BUILDER · EDITING',
+          showMenu: false,
+          leading: const _BackButton(),
+          actions: [
+            if (!_isNew)
+              IconButton(
+                key: const Key('routine-delete'),
+                tooltip: 'Delete routine',
+                icon: LedgerGlyph(
+                  LedgerGlyphType.trash,
+                  size: 18,
+                  color: context.textSecondary,
+                ),
+                onPressed: _delete,
+              ),
+            TextButton(
+              key: const Key('routine-save'),
+              onPressed: _saving ? null : _save,
+              style: TextButton.styleFrom(
+                foregroundColor: context.accent,
+                textStyle: AppType.meta.copyWith(
+                  letterSpacing: 1.4,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              child: Text(_saving ? 'SAVING…' : 'SAVE'),
             ),
-          TextButton(
-            key: const Key('routine-save'),
-            onPressed: _saving ? null : _save,
-            child: const Text('Save',
-                style: TextStyle(fontWeight: FontWeight.w700)),
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-            child: TextField(
-              key: const Key('routine-name'),
-              controller: _name,
-              textCapitalization: TextCapitalization.words,
-              decoration: const InputDecoration(
-                hintText: 'Routine name (e.g. Push Day)',
+          ],
+        ),
+        body: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpace.x5,
+                AppSpace.x1,
+                AppSpace.x5,
+                AppSpace.x3,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const SectionHead(
+                    index: '01',
+                    title: 'Identity',
+                    meta: 'NAME THE PLAN',
+                  ),
+                  const SizedBox(height: AppSpace.x3),
+                  TextField(
+                    key: const Key('routine-name'),
+                    controller: _name,
+                    textCapitalization: TextCapitalization.words,
+                    style: AppType.h2.copyWith(color: context.textPrimary),
+                    decoration: _fieldDecoration(
+                      context,
+                      hint: 'Routine name (e.g. Push Day)',
+                    ),
+                  ),
+                  const SizedBox(height: AppSpace.x3),
+                  _DraftSummary(
+                    exercises: _entries.length,
+                    sets: _totalSets,
+                    working: _workingSets,
+                  ),
+                ],
               ),
             ),
-          ),
-          Expanded(
-            child: _entries.isEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
+            Expanded(
+              child: _entries.isEmpty
+                  ? const _EmptyDraft()
+                  : ReorderableListView(
+                      buildDefaultDragHandles: false,
+                      padding: const EdgeInsets.fromLTRB(
+                        AppSpace.x5,
+                        0,
+                        AppSpace.x5,
+                        AppSpace.x3,
+                      ),
+                      onReorderItem: _reorder,
                       children: [
-                        Icon(Icons.playlist_add_rounded,
-                            size: 44, color: context.textTertiary),
-                        const SizedBox(height: 12),
-                        Text(
-                          'No exercises yet — tap Add Exercise below.',
-                          style: TextStyle(color: context.textSecondary),
-                        ),
+                        for (var i = 0; i < _entries.length; i++)
+                          _buildEntry(i, unit, unitLabel),
                       ],
                     ),
-                  )
-                : ReorderableListView(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                    onReorderItem: _reorder,
-                    children: [
-                      for (var i = 0; i < _entries.length; i++)
-                        _buildEntry(i, unit, unitLabel),
-                    ],
-                  ),
-          ),
-          SafeArea(
-            top: false,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
-              child: SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
+            ),
+            SafeArea(
+              top: false,
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpace.x5,
+                  AppSpace.x2,
+                  AppSpace.x5,
+                  AppSpace.x3,
+                ),
+                decoration: BoxDecoration(
+                  color: context.background,
+                  border: Border(top: BorderSide(color: context.border)),
+                ),
+                child: PushKey(
                   key: const Key('add-routine-exercise'),
+                  label: 'Add Exercise',
+                  height: 50,
                   onPressed: _addExercise,
-                  icon: const Icon(Icons.add),
-                  label: const Text('Add Exercise'),
+                  icon: LedgerGlyph(
+                    LedgerGlyphType.plus,
+                    size: 15,
+                    strokeWidth: 2,
+                    color: onAccent(context.accent),
+                  ),
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
-    ),
     );
   }
 
   Widget _buildEntry(int index, UnitSystem unit, String unitLabel) {
     final e = _entries[index];
     final isLast = index == _entries.length - 1;
+    final number = (index + 1).toString().padLeft(2, '0');
 
     return Container(
       key: ValueKey(e.uid),
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Card(
-        margin: EdgeInsets.zero,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(4, 8, 10, 10),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
+      padding: const EdgeInsets.only(bottom: AppSpace.x3),
+      child: LedgerPanel(
+        padding: EdgeInsets.zero,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(4, 4, 4, 4),
+              child: Row(
                 children: [
                   ReorderableDragStartListener(
                     index: index,
                     child: Padding(
                       padding: const EdgeInsets.all(8),
-                      child: Icon(Icons.drag_handle,
-                          color: context.textTertiary),
+                      child: Icon(
+                        Icons.drag_handle,
+                        size: 19,
+                        color: context.textTertiary,
+                      ),
                     ),
                   ),
+                  Text(
+                    number,
+                    style: AppType.meta.copyWith(color: context.textTertiary),
+                  ),
+                  const SizedBox(width: AppSpace.x2),
                   Expanded(
                     child: Text(
                       e.exerciseName,
-                      style: const TextStyle(
-                          fontSize: 15, fontWeight: FontWeight.w700),
+                      style: AppType.h2.copyWith(
+                        color: context.textPrimary,
+                        fontSize: 19,
+                        height: 1.05,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                   IconButton(
                     key: Key('remove-entry-${e.exerciseId}'),
                     visualDensity: VisualDensity.compact,
-                    icon: Icon(Icons.close,
-                        size: 18, color: context.textTertiary),
+                    tooltip: 'Remove exercise',
+                    icon: LedgerGlyph(
+                      LedgerGlyphType.close,
+                      size: 16,
+                      color: context.textTertiary,
+                    ),
                     onPressed: () => setState(() => _entries.removeAt(index)),
                   ),
                 ],
               ),
-              Wrap(
-                spacing: 14,
-                runSpacing: 8,
-                crossAxisAlignment: WrapCrossAlignment.center,
+            ),
+            Rule(),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _MiniStepper(
-                    label: 'Sets',
-                    value: e.sets,
-                    minusKey: Key('sets-minus-${e.exerciseId}'),
-                    plusKey: Key('sets-plus-${e.exerciseId}'),
-                    onMinus: () => setState(() {
-                      e.sets = (e.sets - 1).clamp(1, 20);
-                      e.removeOneTypedSet();
-                    }),
-                    onPlus: () => setState(() {
-                      e.sets = (e.sets + 1).clamp(1, 20);
-                    }),
-                  ),
-                  _MiniStepper(
-                    label: 'Reps',
-                    value: e.reps,
-                    minusKey: Key('reps-minus-${e.exerciseId}'),
-                    plusKey: Key('reps-plus-${e.exerciseId}'),
-                    onMinus: () => setState(
-                        () => e.reps = (e.reps - 1).clamp(1, 100)),
-                    onPlus: () =>
-                        setState(() => e.reps = (e.reps + 1).clamp(1, 100)),
-                  ),
-                  SizedBox(
-                    width: 108,
-                    child: TextFormField(
-                      key: Key('target-weight-${e.exerciseId}'),
-                      initialValue:
-                          e.weightKg != null ? formatWeight(e.weightKg!, unit) : '',
-                      keyboardType:
-                          const TextInputType.numberWithOptions(decimal: true),
-                      onChanged: (raw) {
-                        final v = double.tryParse(
-                            raw.trim().replaceAll(',', '.'));
-                        e.weightKg = v == null ? null : displayToKg(v, unit);
-                      },
-                      decoration: InputDecoration(
-                        isDense: true,
-                        labelText: 'Weight',
-                        hintText: unitLabel,
-                        suffixText: unitLabel,
-                        suffixStyle: TextStyle(
-                            fontSize: 12, color: context.textSecondary),
-                        contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 10),
+                  Row(
+                    children: [
+                      Text(
+                        'TARGETS',
+                        style: AppType.meta.copyWith(
+                          color: context.textTertiary,
+                        ),
                       ),
-                    ),
+                      const Spacer(),
+                      Text(
+                        unitLabel.toUpperCase(),
+                        style: AppType.metaSm.copyWith(
+                          color: context.textTertiary,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: AppSpace.x2),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: _TargetStepper(
+                          label: 'Sets',
+                          value: e.sets,
+                          minusKey: Key('sets-minus-${e.exerciseId}'),
+                          plusKey: Key('sets-plus-${e.exerciseId}'),
+                          onMinus: () => setState(() {
+                            e.sets = (e.sets - 1).clamp(1, 20);
+                            e.removeOneTypedSet();
+                          }),
+                          onPlus: () => setState(() {
+                            e.sets = (e.sets + 1).clamp(1, 20);
+                          }),
+                        ),
+                      ),
+                      Container(width: 1, height: 58, color: context.border),
+                      Expanded(
+                        child: _TargetStepper(
+                          label: 'Reps',
+                          value: e.reps,
+                          minusKey: Key('reps-minus-${e.exerciseId}'),
+                          plusKey: Key('reps-plus-${e.exerciseId}'),
+                          onMinus: () => setState(
+                            () => e.reps = (e.reps - 1).clamp(1, 100),
+                          ),
+                          onPlus: () => setState(
+                            () => e.reps = (e.reps + 1).clamp(1, 100),
+                          ),
+                        ),
+                      ),
+                      Container(width: 1, height: 58, color: context.border),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'WEIGHT',
+                              style: AppType.metaSm.copyWith(
+                                color: context.textTertiary,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            TextFormField(
+                              key: Key('target-weight-${e.exerciseId}'),
+                              initialValue: e.weightKg != null
+                                  ? formatWeight(e.weightKg!, unit)
+                                  : '',
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                    decimal: true,
+                                  ),
+                              textAlign: TextAlign.center,
+                              style: AppType.data.copyWith(
+                                color: context.textPrimary,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              onChanged: (raw) {
+                                final v = double.tryParse(
+                                  raw.trim().replaceAll(',', '.'),
+                                );
+                                e.weightKg = v == null
+                                    ? null
+                                    : displayToKg(v, unit);
+                              },
+                              decoration: InputDecoration(
+                                isDense: true,
+                                hintText: '—',
+                                suffixText: unitLabel,
+                                suffixStyle: AppType.metaSm.copyWith(
+                                  color: context.textTertiary,
+                                ),
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 10,
+                                ),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(
+                                    AppRadius.input,
+                                  ),
+                                  borderSide: BorderSide(color: context.border),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(
+                                    AppRadius.input,
+                                  ),
+                                  borderSide: BorderSide(color: context.border),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(
+                                    AppRadius.input,
+                                  ),
+                                  borderSide: BorderSide(color: context.accent),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 14,
+            ),
+            Rule(),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        'SET TYPES',
+                        style: AppType.meta.copyWith(
+                          color: context.textTertiary,
+                        ),
+                      ),
+                      const Spacer(),
+                      Text(
+                        '${e.workingSets} working',
+                        style: AppType.metaSm.copyWith(
+                          color: context.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: AppSpace.x2),
+                  Wrap(
+                    spacing: 14,
+                    runSpacing: 8,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      _MiniStepper(
+                        label: 'Warm-up',
+                        labelWidth: 56,
+                        value: e.warmupSets,
+                        minusKey: Key('warmup-minus-${e.exerciseId}'),
+                        plusKey: Key('warmup-plus-${e.exerciseId}'),
+                        onMinus: () => setState(
+                          () => e.warmupSets = (e.warmupSets - 1).clamp(
+                            0,
+                            e.workingSets + e.warmupSets,
+                          ),
+                        ),
+                        onPlus: () => setState(
+                          () => e.warmupSets = (e.warmupSets + 1).clamp(
+                            0,
+                            e.sets - e.dropSets - e.failureSets,
+                          ),
+                        ),
+                      ),
+                      _MiniStepper(
+                        label: 'Drop',
+                        value: e.dropSets,
+                        minusKey: Key('drop-minus-${e.exerciseId}'),
+                        plusKey: Key('drop-plus-${e.exerciseId}'),
+                        onMinus: () => setState(
+                          () => e.dropSets = (e.dropSets - 1).clamp(
+                            0,
+                            e.workingSets + e.dropSets,
+                          ),
+                        ),
+                        onPlus: () => setState(
+                          () => e.dropSets = (e.dropSets + 1).clamp(
+                            0,
+                            e.sets - e.warmupSets - e.failureSets,
+                          ),
+                        ),
+                      ),
+                      _MiniStepper(
+                        label: 'Fail',
+                        value: e.failureSets,
+                        minusKey: Key('failure-minus-${e.exerciseId}'),
+                        plusKey: Key('failure-plus-${e.exerciseId}'),
+                        onMinus: () => setState(
+                          () => e.failureSets = (e.failureSets - 1).clamp(
+                            0,
+                            e.workingSets + e.failureSets,
+                          ),
+                        ),
+                        onPlus: () => setState(
+                          () => e.failureSets = (e.failureSets + 1).clamp(
+                            0,
+                            e.sets - e.warmupSets - e.dropSets,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            Rule(),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 8, 14, 10),
+              child: Wrap(
+                spacing: 8,
                 runSpacing: 8,
                 crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  _MiniStepper(
-                    label: 'Warm-up',
-                    labelWidth: 58,
-                    value: e.warmupSets,
-                    minusKey: Key('warmup-minus-${e.exerciseId}'),
-                    plusKey: Key('warmup-plus-${e.exerciseId}'),
-                    onMinus: () => setState(() => e.warmupSets =
-                        (e.warmupSets - 1).clamp(0, e.workingSets + e.warmupSets)),
-                    onPlus: () => setState(() => e.warmupSets = (e.warmupSets + 1)
-                        .clamp(0, e.sets - e.dropSets - e.failureSets)),
-                  ),
-                  _MiniStepper(
-                    label: 'Drop',
-                    value: e.dropSets,
-                    minusKey: Key('drop-minus-${e.exerciseId}'),
-                    plusKey: Key('drop-plus-${e.exerciseId}'),
-                    onMinus: () => setState(() => e.dropSets =
-                        (e.dropSets - 1).clamp(0, e.workingSets + e.dropSets)),
-                    onPlus: () => setState(() => e.dropSets = (e.dropSets + 1)
-                        .clamp(0, e.sets - e.warmupSets - e.failureSets)),
-                  ),
-                  _MiniStepper(
-                    label: 'Fail',
-                    value: e.failureSets,
-                    minusKey: Key('failure-minus-${e.exerciseId}'),
-                    plusKey: Key('failure-plus-${e.exerciseId}'),
-                    onMinus: () => setState(() => e.failureSets = (e.failureSets - 1)
-                        .clamp(0, e.workingSets + e.failureSets)),
-                    onPlus: () => setState(() => e.failureSets =
-                        (e.failureSets + 1)
-                            .clamp(0, e.sets - e.warmupSets - e.dropSets)),
-                  ),
-                  Text(
-                    '${e.workingSets} working',
-                    style: TextStyle(fontSize: 12, color: context.textTertiary),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
                 children: [
                   if (!isLast)
-                    FilterChip(
+                    _LedgerToggle(
                       key: Key('superset-${e.exerciseId}'),
-                      label: const Text('Superset with next'),
+                      label: 'Superset with next',
                       selected: e.linkNext,
-                      showCheckmark: false,
-                      onSelected: (v) => setState(() => e.linkNext = v),
-                      selectedColor:
-                          context.accent.withValues(alpha: 0.18),
-                      labelStyle: TextStyle(
-                        color: e.linkNext
-                            ? context.accent
-                            : context.textSecondary,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 12,
-                      ),
-                      side: BorderSide(
-                        color: e.linkNext
-                            ? context.accent
-                            : context.border,
-                      ),
+                      onTap: () => setState(() => e.linkNext = !e.linkNext),
                     ),
                   _RestControl(
                     id: 'rest-${e.exerciseId}',
                     restSeconds: e.restSeconds,
-                    defaultSeconds:
-                        ref.read(settingsProvider).restWorkingSec,
+                    defaultSeconds: ref.read(settingsProvider).restWorkingSec,
                     onChanged: (v) => setState(() => e.restSeconds = v),
                   ),
                 ],
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _BackButton extends StatelessWidget {
+  const _BackButton();
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      tooltip: 'Back',
+      onPressed: () => Navigator.of(context).maybePop(),
+      icon: LedgerGlyph(
+        LedgerGlyphType.chevronLeft,
+        size: 18,
+        color: context.textPrimary,
+      ),
+    );
+  }
+}
+
+class _DraftSummary extends StatelessWidget {
+  const _DraftSummary({
+    required this.exercises,
+    required this.sets,
+    required this.working,
+  });
+
+  final int exercises;
+  final int sets;
+  final int working;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpace.x3, vertical: 9),
+      decoration: BoxDecoration(
+        color: context.surface,
+        border: Border.all(color: context.border),
+        borderRadius: BorderRadius.circular(AppRadius.data),
+      ),
+      child: Row(
+        children: [
+          Text(
+            '$exercises EX',
+            style: AppType.metaSm.copyWith(color: context.textSecondary),
+          ),
+          const SizedBox(width: AppSpace.x3),
+          Text(
+            '$sets SETS',
+            style: AppType.metaSm.copyWith(color: context.textSecondary),
+          ),
+          const SizedBox(width: AppSpace.x3),
+          Text(
+            '$working WORKING',
+            style: AppType.metaSm.copyWith(color: context.textTertiary),
+          ),
+          const Spacer(),
+          Text(
+            'DRAG TO REORDER',
+            style: AppType.metaSm.copyWith(color: context.textTertiary),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmptyDraft extends StatelessWidget {
+  const _EmptyDraft();
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpace.x5,
+        0,
+        AppSpace.x5,
+        AppSpace.x5,
+      ),
+      children: [
+        LedgerPanel(
+          grid: true,
+          padding: const EdgeInsets.fromLTRB(18, 20, 18, 20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '00',
+                style: AppType.meta.copyWith(color: context.textTertiary),
+              ),
+              const SizedBox(height: AppSpace.x2),
+              Text(
+                'No exercises yet',
+                style: AppType.h2.copyWith(color: context.textPrimary),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Tap Add Exercise below to start writing the plan.',
+                style: AppType.bodySm.copyWith(color: context.textSecondary),
+              ),
             ],
           ),
         ),
-      ),
+      ],
+    );
+  }
+}
+
+class _TargetStepper extends StatelessWidget {
+  const _TargetStepper({
+    required this.label,
+    required this.value,
+    required this.minusKey,
+    required this.plusKey,
+    required this.onMinus,
+    required this.onPlus,
+  });
+
+  final String label;
+  final int value;
+  final Key minusKey;
+  final Key plusKey;
+  final VoidCallback onMinus;
+  final VoidCallback onPlus;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label.toUpperCase(),
+          style: AppType.metaSm.copyWith(color: context.textTertiary),
+        ),
+        const SizedBox(height: 4),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            _SmallStepButton(key: minusKey, icon: Icons.remove, onTap: onMinus),
+            SizedBox(
+              width: 28,
+              child: Center(
+                child: Text(
+                  '$value',
+                  style: AppType.data.copyWith(
+                    color: context.textPrimary,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
+            _SmallStepButton(key: plusKey, icon: Icons.add, onTap: onPlus),
+          ],
+        ),
+      ],
     );
   }
 }
@@ -557,39 +895,121 @@ class _MiniStepper extends StatelessWidget {
       children: [
         SizedBox(
           width: labelWidth,
-          child: Text(label,
-              style:
-                  TextStyle(fontSize: 12, color: context.textSecondary)),
+          child: Text(
+            label,
+            style: AppType.metaSm.copyWith(color: context.textSecondary),
+          ),
         ),
-        _btn(Icons.remove, minusKey, onMinus),
+        _SmallStepButton(key: minusKey, icon: Icons.remove, onTap: onMinus),
         SizedBox(
           width: 26,
           child: Center(
-            child: Text('$value',
-                style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
-                    fontFeatures: [FontFeature.tabularFigures()])),
+            child: Text(
+              '$value',
+              style: AppType.data.copyWith(
+                color: context.textPrimary,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
           ),
         ),
-        _btn(Icons.add, plusKey, onPlus),
+        _SmallStepButton(key: plusKey, icon: Icons.add, onTap: onPlus),
       ],
     );
   }
+}
 
-  Widget _btn(IconData icon, Key key, VoidCallback onTap) => SizedBox(
-        width: 44,
-        height: 44,
-        child: IconButton(
-          key: key,
-          padding: EdgeInsets.zero,
-          iconSize: 18,
-          visualDensity: VisualDensity.compact,
-          constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
-          onPressed: onTap,
-          icon: Icon(icon),
+class _SmallStepButton extends StatelessWidget {
+  const _SmallStepButton({super.key, required this.icon, required this.onTap});
+
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 34,
+      height: 34,
+      child: IconButton(
+        padding: EdgeInsets.zero,
+        iconSize: 15,
+        visualDensity: VisualDensity.compact,
+        constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
+        style: IconButton.styleFrom(
+          backgroundColor: context.surfaceElevated,
+          foregroundColor: context.textPrimary,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadius.data),
+            side: BorderSide(color: context.border),
+          ),
         ),
-      );
+        onPressed: onTap,
+        icon: Icon(icon),
+      ),
+    );
+  }
+}
+
+class _LedgerToggle extends StatelessWidget {
+  const _LedgerToggle({
+    super.key,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      selected: selected,
+      button: true,
+      child: Material(
+        color: selected
+            ? context.accent.withValues(alpha: 0.10)
+            : Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          splashColor: context.accent.withValues(alpha: 0.06),
+          child: Container(
+            height: 34,
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            decoration: BoxDecoration(
+              border: Border.all(
+                color: selected ? context.accent : context.border,
+              ),
+              borderRadius: BorderRadius.circular(AppRadius.data),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: selected ? context.accent : Colors.transparent,
+                    border: Border.all(
+                      color: selected ? context.accent : context.textTertiary,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 7),
+                Text(
+                  label,
+                  style: AppType.metaSm.copyWith(
+                    color: selected ? context.accent : context.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 /// Rest override for one routine entry: a "Default" chip plus −/+ steppers
@@ -627,15 +1047,16 @@ class _RestControl extends StatelessWidget {
               onChanged(defaultSeconds.clamp(0, 600));
             }
           },
-          selectedColor: context.accent.withValues(alpha: 0.18),
-          labelStyle: TextStyle(
-            color:
-                _isDefault ? context.accent : context.textSecondary,
-            fontWeight: FontWeight.w600,
-            fontSize: 12,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadius.data),
+            side: BorderSide(
+              color: _isDefault ? context.accent : context.border,
+            ),
           ),
-          side: BorderSide(
-            color: _isDefault ? context.accent : context.border,
+          selectedColor: context.accent.withValues(alpha: 0.10),
+          backgroundColor: Colors.transparent,
+          labelStyle: AppType.metaSm.copyWith(
+            color: _isDefault ? context.accent : context.textSecondary,
           ),
         ),
         if (!_isDefault) ...[
@@ -643,36 +1064,43 @@ class _RestControl extends StatelessWidget {
           Text(
             formatRest(restSeconds),
             key: Key('$id-value'),
-            style: TextStyle(fontSize: 12, color: context.textSecondary),
+            style: AppType.metaSm.copyWith(color: context.textSecondary),
           ),
-          SizedBox(
-            width: 44,
-            height: 44,
-            child: IconButton(
-              key: Key('$id-minus'),
-              padding: EdgeInsets.zero,
-              iconSize: 18,
-              visualDensity: VisualDensity.compact,
-              constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
-              onPressed: () => onChanged((value - 15).clamp(0, 600)),
-              icon: const Icon(Icons.remove),
-            ),
+          _SmallStepButton(
+            key: Key('$id-minus'),
+            icon: Icons.remove,
+            onTap: () => onChanged((value - 15).clamp(0, 600)),
           ),
-          SizedBox(
-            width: 44,
-            height: 44,
-            child: IconButton(
-              key: Key('$id-plus'),
-              padding: EdgeInsets.zero,
-              iconSize: 18,
-              visualDensity: VisualDensity.compact,
-              constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
-              onPressed: () => onChanged((value + 15).clamp(0, 600)),
-              icon: const Icon(Icons.add),
-            ),
+          _SmallStepButton(
+            key: Key('$id-plus'),
+            icon: Icons.add,
+            onTap: () => onChanged((value + 15).clamp(0, 600)),
           ),
         ],
       ],
     );
   }
 }
+
+InputDecoration _fieldDecoration(
+  BuildContext context, {
+  required String hint,
+}) => InputDecoration(
+  hintText: hint,
+  hintStyle: AppType.h2.copyWith(color: context.textTertiary),
+  filled: true,
+  fillColor: context.surface,
+  contentPadding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+  border: OutlineInputBorder(
+    borderRadius: BorderRadius.circular(AppRadius.input),
+    borderSide: BorderSide(color: context.border),
+  ),
+  enabledBorder: OutlineInputBorder(
+    borderRadius: BorderRadius.circular(AppRadius.input),
+    borderSide: BorderSide(color: context.border),
+  ),
+  focusedBorder: OutlineInputBorder(
+    borderRadius: BorderRadius.circular(AppRadius.input),
+    borderSide: BorderSide(color: context.accent),
+  ),
+);

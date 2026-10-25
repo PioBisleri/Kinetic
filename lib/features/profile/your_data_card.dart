@@ -11,7 +11,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/utils/bmi.dart';
 import '../../core/utils/height_units.dart';
 import '../../core/utils/weight_units.dart';
-import '../../core/widgets/section_card.dart';
+import '../../core/ledger/ledger.dart';
 import '../health/live_activity_service.dart';
 import 'body_metric_log.dart';
 import 'weight_trend.dart';
@@ -31,26 +31,23 @@ class YourDataCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    return const Column(
       children: [
-        SectionCard(
-          title: 'Body',
-          icon: Icons.accessibility_new_rounded,
-          children: const [
-            _NameField(),
-            _HeightField(),
-            _DobRow(),
-            _SexRow(),
-            _BodyFatField(),
-            _GoalRow(),
-          ],
+        LedgerGroup(
+          index: '01',
+          title: 'Identity',
+          meta: 'personal',
+          children: [_NameField(), _DobRow(), _SexRow(), _GoalRow()],
         ),
-        const SizedBox(height: 16),
-        SectionCard(
-          title: 'Stats',
-          icon: Icons.query_stats_rounded,
-          children: const [
+        SizedBox(height: AppSpace.x6),
+        LedgerGroup(
+          index: '02',
+          title: 'Body & stats',
+          meta: 'measured',
+          children: [
             _BodyweightRow(),
+            _HeightField(),
+            _BodyFatField(),
             _BmiRow(),
             _WeightTrendRow(),
           ],
@@ -63,6 +60,93 @@ class YourDataCard extends StatelessWidget {
 /// Partial upsert onto the local profile row — provided columns only.
 Future<void> _writeProfile(WidgetRef ref, ProfilesCompanion values) =>
     ref.read(databaseProvider).profiles.insertOnConflictUpdate(values);
+
+/// Shared profile-row treatment: hairline icon, plain title, one-line
+/// explainer, and a compact boxed control aligned with the bodyweight row.
+class _ProfileFieldRow extends StatelessWidget {
+  const _ProfileFieldRow({
+    super.key,
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.control,
+    this.subtitleColor,
+    this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final Widget control;
+  final Color? subtitleColor;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      dense: true,
+      contentPadding: const EdgeInsets.fromLTRB(14, 2, 14, 2),
+      leading: Icon(icon, size: 20, color: context.textTertiary),
+      title: Text(
+        title,
+        style: AppType.body.copyWith(
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
+          height: 1.3,
+        ),
+      ),
+      subtitle: Text(
+        subtitle,
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          fontSize: 11.5,
+          height: 1.3,
+          color: subtitleColor ?? context.textTertiary,
+        ),
+      ),
+      trailing: control,
+      onTap: onTap,
+    );
+  }
+}
+
+/// The box around every editable/derived value, matching the bodyweight
+/// field's filled control.
+class _ControlBox extends StatelessWidget {
+  const _ControlBox({required this.width, required this.child});
+
+  final double width;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: width,
+      constraints: const BoxConstraints(minHeight: 36),
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      alignment: Alignment.centerRight,
+      decoration: BoxDecoration(
+        color: context.surfaceElevated,
+        borderRadius: BorderRadius.circular(AppRadius.input),
+      ),
+      child: child,
+    );
+  }
+}
+
+InputDecoration _boxDecoration({String? suffix, String? hint}) =>
+    InputDecoration(
+      isDense: true,
+      filled: false,
+      hintText: hint,
+      suffixText: suffix,
+      counterText: '',
+      border: InputBorder.none,
+      enabledBorder: InputBorder.none,
+      focusedBorder: InputBorder.none,
+      contentPadding: EdgeInsets.zero,
+    );
 
 /// Name shown in exports and backups.
 class _NameField extends ConsumerStatefulWidget {
@@ -106,26 +190,21 @@ class _NameFieldState extends ConsumerState<_NameField> {
   @override
   Widget build(BuildContext context) {
     _hydrate(ref.watch(profileProvider).value?.username);
-    ref.listen(
-        profileProvider, (_, next) => _hydrate(next.value?.username));
+    ref.listen(profileProvider, (_, next) => _hydrate(next.value?.username));
 
-    return ListTile(
-      dense: true,
-      title: const Text('Name'),
-      trailing: SizedBox(
+    return _ProfileFieldRow(
+      icon: Icons.badge_outlined,
+      title: 'Name',
+      subtitle: 'Shown in exports and backups',
+      control: _ControlBox(
         width: 150,
         child: TextField(
           key: const Key('profile-name'),
           controller: _controller,
           textAlign: TextAlign.right,
-          style: const TextStyle(fontSize: 14),
+          style: const TextStyle(fontSize: 13),
           maxLength: 30,
-          decoration: const InputDecoration(
-            isDense: true,
-            hintText: 'Add',
-            counterText: '',
-            contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-          ),
+          decoration: _boxDecoration(),
           onChanged: (_) => _dirty = true,
           onSubmitted: _save,
         ),
@@ -179,9 +258,8 @@ class _HeightFieldState extends ConsumerState<_HeightField> {
     }
   }
 
-  String _trim(double cm) => cm == cm.roundToDouble()
-      ? cm.toStringAsFixed(0)
-      : cm.toStringAsFixed(1);
+  String _trim(double cm) =>
+      cm == cm.roundToDouble() ? cm.toStringAsFixed(0) : cm.toStringAsFixed(1);
 
   Future<void> _save(double? cm) async {
     if (!isValidHeightCm(cm)) {
@@ -219,32 +297,30 @@ class _HeightFieldState extends ConsumerState<_HeightField> {
     final unit = ref.watch(settingsProvider).unit;
     final heightCm = ref.watch(profileProvider).value?.heightCm;
     if (!_dirty && _shownUnit != unit) _hydrate(heightCm, unit);
-    ref.listen(profileProvider,
-        (_, next) => _hydrate(next.value?.heightCm, unit));
+    ref.listen(
+      profileProvider,
+      (_, next) => _hydrate(next.value?.heightCm, unit),
+    );
 
-    const contentPadding = EdgeInsets.symmetric(horizontal: 10, vertical: 10);
     final digits = [FilteringTextInputFormatter.digitsOnly];
+    final subtitle = _heightError ?? 'Used for BMI';
 
     if (unit == UnitSystem.kg) {
-      return ListTile(
-        dense: true,
-        title: const Text('Height'),
-        trailing: SizedBox(
+      return _ProfileFieldRow(
+        icon: Icons.straighten,
+        title: 'Height',
+        subtitle: subtitle,
+        subtitleColor: _heightError == null ? null : context.danger,
+        control: _ControlBox(
           width: 110,
           child: TextField(
             key: const Key('profile-height'),
             controller: _cm,
             textAlign: TextAlign.right,
             keyboardType: TextInputType.number,
-            style: const TextStyle(fontSize: 14),
+            style: const TextStyle(fontSize: 13),
             inputFormatters: digits,
-            decoration: InputDecoration(
-              isDense: true,
-              hintText: 'Add',
-              suffixText: 'cm',
-              contentPadding: contentPadding,
-              errorText: _heightError,
-            ),
+            decoration: _boxDecoration(suffix: 'cm'),
             onChanged: (_) => _dirty = true,
             onSubmitted: _saveMetric,
           ),
@@ -252,49 +328,39 @@ class _HeightFieldState extends ConsumerState<_HeightField> {
       );
     }
 
-    return ListTile(
-      dense: true,
-      title: const Text('Height'),
-      trailing: Row(
+    return _ProfileFieldRow(
+      icon: Icons.straighten,
+      title: 'Height',
+      subtitle: subtitle,
+      subtitleColor: _heightError == null ? null : context.danger,
+      control: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          SizedBox(
+          _ControlBox(
             width: 64,
             child: TextField(
               key: const Key('profile-height'),
               controller: _ft,
               textAlign: TextAlign.right,
               keyboardType: TextInputType.number,
-              style: const TextStyle(fontSize: 14),
+              style: const TextStyle(fontSize: 13),
               inputFormatters: digits,
-              decoration: InputDecoration(
-                isDense: true,
-                hintText: '—',
-                suffixText: 'ft',
-                contentPadding: contentPadding,
-                errorText: _heightError,
-              ),
+              decoration: _boxDecoration(suffix: 'ft'),
               onChanged: (_) => _dirty = true,
               onSubmitted: _saveImperial,
             ),
           ),
           const SizedBox(width: 6),
-          SizedBox(
+          _ControlBox(
             width: 64,
             child: TextField(
               key: const Key('profile-height-in'),
               controller: _in,
               textAlign: TextAlign.right,
               keyboardType: TextInputType.number,
-              style: const TextStyle(fontSize: 14),
+              style: const TextStyle(fontSize: 13),
               inputFormatters: digits,
-              decoration: InputDecoration(
-                isDense: true,
-                hintText: '—',
-                suffixText: 'in',
-                contentPadding: contentPadding,
-                errorText: _heightError,
-              ),
+              decoration: _boxDecoration(suffix: 'in'),
               onChanged: (_) => _dirty = true,
               onSubmitted: _saveImperial,
             ),
@@ -325,42 +391,56 @@ class _DobRow extends ConsumerWidget {
     final date = iso == null ? null : DateTime.tryParse(iso);
     final age = date == null ? null : _age(date);
 
-    return ListTile(
+    return _ProfileFieldRow(
       key: const Key('profile-dob'),
-      dense: true,
-      title: const Text('Date of birth'),
-      subtitle: date == null
-          ? null
-          : Text(
-              age == null ? '' : '$age years old',
-              style: TextStyle(fontSize: 12, color: context.textTertiary),
-            ),
-      trailing: TextButton(
-        key: const Key('profile-dob-pick'),
-        onPressed: () async {
-          final picked = await showDatePicker(
-            context: context,
-            initialDate: date ?? DateTime(2000),
-            firstDate: DateTime(1900),
-            lastDate: DateTime.now(),
-          );
-          if (picked == null || !context.mounted) return;
-          await _writeProfile(
-            ref,
-            ProfilesCompanion.insert(
-              id: 'local',
-              updatedAt: DateTime.now(),
-              birthDate: Value(DateFormat('yyyy-MM-dd').format(picked)),
-            ),
-          );
-        },
-        child: Text(
-          date == null
-              ? 'Add'
-              : DateFormat('MMM d, yyyy').format(date),
-          style: TextStyle(
-            fontSize: 13,
-            color: date == null ? context.textTertiary : context.textPrimary,
+      icon: Icons.cake_outlined,
+      title: 'Date of birth',
+      subtitle: age == null ? 'Sets age-aware context' : '$age years old',
+      control: _ControlBox(
+        width: 150,
+        child: InkWell(
+          key: const Key('profile-dob-pick'),
+          borderRadius: BorderRadius.circular(AppRadius.input),
+          onTap: () async {
+            final picked = await showDatePicker(
+              context: context,
+              initialDate: date ?? DateTime(2000),
+              firstDate: DateTime(1900),
+              lastDate: DateTime.now(),
+            );
+            if (picked == null || !context.mounted) return;
+            await _writeProfile(
+              ref,
+              ProfilesCompanion.insert(
+                id: 'local',
+                updatedAt: DateTime.now(),
+                birthDate: Value(DateFormat('yyyy-MM-dd').format(picked)),
+              ),
+            );
+          },
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              Flexible(
+                child: Text(
+                  date == null ? '—' : DateFormat('MMM d, yyyy').format(date),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: date == null
+                        ? context.textTertiary
+                        : context.textPrimary,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Icon(
+                Icons.calendar_today_outlined,
+                size: 13,
+                color: context.textTertiary,
+              ),
+            ],
           ),
         ),
       ),
@@ -373,35 +453,46 @@ class _DobRow extends ConsumerWidget {
 class _SexRow extends ConsumerWidget {
   const _SexRow();
 
-  static const _labels = {
-    'female': 'Female',
-    'male': 'Male',
-    'other': 'Other',
-  };
+  static const _labels = {'female': 'Female', 'male': 'Male', 'other': 'Other'};
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final sex = ref.watch(profileProvider).value?.sex;
-    return ListTile(
-      dense: true,
-      title: const Text('Sex'),
-      trailing: DropdownButton<String>(
-        key: const Key('profile-sex'),
-        value: _labels.containsKey(sex) ? sex : null,
-        underline: const SizedBox.shrink(),
-        hint: Text('Add',
-            style: TextStyle(fontSize: 14, color: context.textTertiary)),
-        style: TextStyle(fontSize: 14, color: context.textPrimary),
-        items: [
-          for (final e in _labels.entries)
-            DropdownMenuItem(value: e.key, child: Text(e.value)),
-        ],
-        onChanged: (v) => _writeProfile(
-          ref,
-          ProfilesCompanion.insert(
-            id: 'local',
-            updatedAt: DateTime.now(),
-            sex: Value(v),
+    return _ProfileFieldRow(
+      icon: Icons.people_outline,
+      title: 'Sex',
+      subtitle: 'Stored for age-aware stats',
+      control: _ControlBox(
+        width: 104,
+        child: DropdownButtonHideUnderline(
+          child: DropdownButton<String>(
+            key: const Key('profile-sex'),
+            value: _labels.containsKey(sex) ? sex : null,
+            alignment: Alignment.centerRight,
+            isDense: true,
+            isExpanded: true,
+            icon: Icon(
+              Icons.keyboard_arrow_down,
+              size: 17,
+              color: context.textTertiary,
+            ),
+            hint: Text(
+              '—',
+              style: TextStyle(fontSize: 13, color: context.textTertiary),
+            ),
+            style: TextStyle(fontSize: 12.5, color: context.textPrimary),
+            items: [
+              for (final e in _labels.entries)
+                DropdownMenuItem(value: e.key, child: Text(e.value)),
+            ],
+            onChanged: (v) => _writeProfile(
+              ref,
+              ProfilesCompanion.insert(
+                id: 'local',
+                updatedAt: DateTime.now(),
+                sex: Value(v),
+              ),
+            ),
           ),
         ),
       ),
@@ -436,9 +527,8 @@ class _BodyFatFieldState extends ConsumerState<_BodyFatField> {
     if (_controller.text != text) _controller.text = text;
   }
 
-  String _trim(double v) => v == v.roundToDouble()
-      ? v.toStringAsFixed(0)
-      : v.toStringAsFixed(1);
+  String _trim(double v) =>
+      v == v.roundToDouble() ? v.toStringAsFixed(0) : v.toStringAsFixed(1);
 
   Future<void> _save(String text) async {
     final pct = double.tryParse(text.trim().replaceAll(',', '.'));
@@ -463,27 +553,23 @@ class _BodyFatFieldState extends ConsumerState<_BodyFatField> {
     _hydrate(ref.watch(profileProvider).value?.bodyFatPct);
     ref.listen(profileProvider, (_, next) => _hydrate(next.value?.bodyFatPct));
 
-    return ListTile(
-      dense: true,
-      title: const Text('Body fat'),
-      trailing: SizedBox(
+    return _ProfileFieldRow(
+      icon: Icons.percent,
+      title: 'Body fat',
+      subtitle: _error ?? 'Optional composition estimate',
+      subtitleColor: _error == null ? null : context.danger,
+      control: _ControlBox(
         width: 110,
         child: TextField(
           key: const Key('profile-bf'),
           controller: _controller,
           textAlign: TextAlign.right,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          style: const TextStyle(fontSize: 14),
+          style: const TextStyle(fontSize: 13),
           inputFormatters: [
             FilteringTextInputFormatter.allow(RegExp(r'^\d{0,2}(\.\d?)?$')),
           ],
-          decoration: InputDecoration(
-            isDense: true,
-            hintText: 'Add',
-            suffixText: '%',
-            contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-            errorText: _error,
-          ),
+          decoration: _boxDecoration(suffix: '%'),
           onChanged: (_) => _dirty = true,
           onSubmitted: _save,
         ),
@@ -506,26 +592,41 @@ class _GoalRow extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final goal = ref.watch(profileProvider).value?.trainingGoal;
-    return ListTile(
-      dense: true,
-      title: const Text('Goal'),
-      trailing: DropdownButton<String>(
-        key: const Key('profile-goal'),
-        value: _labels.containsKey(goal) ? goal : null,
-        underline: const SizedBox.shrink(),
-        hint: Text('Add',
-            style: TextStyle(fontSize: 14, color: context.textTertiary)),
-        style: TextStyle(fontSize: 14, color: context.textPrimary),
-        items: [
-          for (final e in _labels.entries)
-            DropdownMenuItem(value: e.key, child: Text(e.value)),
-        ],
-        onChanged: (v) => _writeProfile(
-          ref,
-          ProfilesCompanion.insert(
-            id: 'local',
-            updatedAt: DateTime.now(),
-            trainingGoal: Value(v),
+    return _ProfileFieldRow(
+      icon: Icons.flag_outlined,
+      title: 'Goal',
+      subtitle: 'Default training direction',
+      control: _ControlBox(
+        width: 150,
+        child: DropdownButtonHideUnderline(
+          child: DropdownButton<String>(
+            key: const Key('profile-goal'),
+            value: _labels.containsKey(goal) ? goal : null,
+            alignment: Alignment.centerRight,
+            isDense: true,
+            isExpanded: true,
+            icon: Icon(
+              Icons.keyboard_arrow_down,
+              size: 17,
+              color: context.textTertiary,
+            ),
+            hint: Text(
+              '—',
+              style: TextStyle(fontSize: 13, color: context.textTertiary),
+            ),
+            style: TextStyle(fontSize: 12.5, color: context.textPrimary),
+            items: [
+              for (final e in _labels.entries)
+                DropdownMenuItem(value: e.key, child: Text(e.value)),
+            ],
+            onChanged: (v) => _writeProfile(
+              ref,
+              ProfilesCompanion.insert(
+                id: 'local',
+                updatedAt: DateTime.now(),
+                trainingGoal: Value(v),
+              ),
+            ),
           ),
         ),
       ),
@@ -538,16 +639,12 @@ class _BodyweightRow extends StatelessWidget {
   const _BodyweightRow();
 
   @override
-  Widget build(BuildContext context) => ListTile(
-        dense: true,
-        leading: const Icon(Icons.monitor_weight_outlined, size: 22),
-        title: const Text('Bodyweight'),
-        subtitle: const Text(
-          'Powers Muscle Grade strength scores',
-          style: TextStyle(fontSize: 12),
-        ),
-        trailing: SizedBox(width: 110, child: const _BodyweightField()),
-      );
+  Widget build(BuildContext context) => const _ProfileFieldRow(
+    icon: Icons.monitor_weight_outlined,
+    title: 'Bodyweight',
+    subtitle: 'Powers Muscle Grade scores',
+    control: _ControlBox(width: 110, child: _BodyweightField()),
+  );
 }
 
 /// Bodyweight input, shown in display units and stored in kg on the local
@@ -627,15 +724,14 @@ class _BodyweightFieldState extends ConsumerState<_BodyweightField> {
       inputFormatters: [
         FilteringTextInputFormatter.allow(RegExp(r'^\d{0,3}(\.\d?)?$')),
       ],
-      decoration: InputDecoration(
-        isDense: true,
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-        suffixText: unit == UnitSystem.lbs ? 'lb' : 'kg',
-        suffixStyle:
-            TextStyle(fontSize: 12, color: context.textTertiary),
-        errorText: _error,
-      ),
+      style: const TextStyle(fontSize: 13),
+      decoration: _boxDecoration(suffix: unit == UnitSystem.lbs ? 'lb' : 'kg')
+          .copyWith(
+            suffixStyle: TextStyle(fontSize: 11, color: context.textTertiary),
+            errorText: _error,
+            errorStyle: TextStyle(fontSize: 9, color: context.danger),
+            errorMaxLines: 1,
+          ),
       onChanged: (_) => _dirty = true,
       onSubmitted: (text) => _save(text, unit),
     );
@@ -655,24 +751,27 @@ class _BmiRow extends ConsumerWidget {
       weightKg: profile?.bodyweightKg,
     );
 
-    return ListTile(
+    return _ProfileFieldRow(
       key: const Key('profile-bmi'),
-      dense: true,
-      title: const Text('BMI'),
-      trailing: bmi == null
-          ? Text(
-              'Add height + weight',
-              style:
-                  TextStyle(fontSize: 13, color: context.textTertiary),
-            )
-          : Text(
-              '${bmi.toStringAsFixed(1)} · ${bmiLabel(bmiCategory(bmi))}',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-                color: context.textSecondary,
-              ),
-            ),
+      icon: Icons.calculate_outlined,
+      title: 'BMI',
+      subtitle: 'Derived from height + bodyweight',
+      control: _ControlBox(
+        width: 150,
+        child: Text(
+          bmi == null
+              ? 'Add height + weight'
+              : '${bmi.toStringAsFixed(1)} · ${bmiLabel(bmiCategory(bmi))}',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.right,
+          style: TextStyle(
+            fontSize: bmi == null ? 10.5 : 12,
+            fontWeight: bmi == null ? FontWeight.w400 : FontWeight.w700,
+            color: bmi == null ? context.textTertiary : context.textSecondary,
+          ),
+        ),
+      ),
     );
   }
 }
@@ -692,27 +791,25 @@ class _WeightTrendRow extends ConsumerWidget {
     if (points.isEmpty) {
       subtitle = 'Weigh in above to start the chart';
     } else if (points.length == 1) {
-      subtitle = '${formatWeight(points.first.weightKg, unit)} $lbl'
+      subtitle =
+          '${formatWeight(points.first.weightKg, unit)} $lbl'
           ' · 1 entry';
     } else {
       final delta = trendDelta(points)!;
-      subtitle = '${formatWeight(points.last.weightKg, unit)} $lbl · '
+      subtitle =
+          '${formatWeight(points.last.weightKg, unit)} $lbl · '
           '${delta >= 0 ? '+' : '-'}${formatWeight(delta.abs(), unit)} $lbl'
           ' / ${weightTrendWeeks}w';
     }
 
-    return ListTile(
+    return _ProfileFieldRow(
       key: const Key('profile-weight-trend'),
-      dense: true,
-      title: const Text('Weight trend'),
-      subtitle: Text(
-        subtitle,
-        style: TextStyle(fontSize: 12, color: context.textTertiary),
-      ),
-      trailing: Icon(
-        Icons.chevron_right,
-        size: 20,
-        color: context.textTertiary,
+      icon: Icons.show_chart,
+      title: 'Weight trend',
+      subtitle: subtitle,
+      control: _ControlBox(
+        width: 36,
+        child: Icon(Icons.chevron_right, size: 19, color: context.textTertiary),
       ),
       onTap: points.isEmpty ? null : () => showWeightTrendSheet(context),
     );

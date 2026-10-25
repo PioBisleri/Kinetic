@@ -54,8 +54,9 @@ void main() {
         overrides: [
           databaseProvider.overrideWithValue(db),
           sharedPreferencesProvider.overrideWithValue(prefs),
-          balancePairsProvider
-              .overrideWith((_) => Future.value(_loadSeedPairs())),
+          balancePairsProvider.overrideWith(
+            (_) => Future.value(_loadSeedPairs()),
+          ),
         ],
         child: const KineticApp(),
       ),
@@ -79,28 +80,32 @@ void main() {
     int reps = 5,
   }) async {
     final id = 'w-${seq++}';
-    await db.workouts.insertOnConflictUpdate(WorkoutsCompanion.insert(
-      id: id,
-      userId: 'local',
-      startedAt: day,
-      updatedAt: day,
-      status: const Value('completed'),
-      endedAt: Value(day.add(const Duration(hours: 1))),
-      durationSec: const Value(3600),
-      totalVolume: const Value(0),
-    ));
-    await db.workoutSets.insertOnConflictUpdate(WorkoutSetsCompanion.insert(
-      id: 's-$id',
-      workoutId: id,
-      exerciseId: exerciseId,
-      orderIndex: 0,
-      setType: const Value('working'),
-      weightKg: Value(weightKg),
-      reps: Value(reps),
-      isCompleted: const Value(true),
-      loggedAt: Value(day),
-      updatedAt: day,
-    ));
+    await db.workouts.insertOnConflictUpdate(
+      WorkoutsCompanion.insert(
+        id: id,
+        userId: 'local',
+        startedAt: day,
+        updatedAt: day,
+        status: const Value('completed'),
+        endedAt: Value(day.add(const Duration(hours: 1))),
+        durationSec: const Value(3600),
+        totalVolume: const Value(0),
+      ),
+    );
+    await db.workoutSets.insertOnConflictUpdate(
+      WorkoutSetsCompanion.insert(
+        id: 's-$id',
+        workoutId: id,
+        exerciseId: exerciseId,
+        orderIndex: 0,
+        setType: const Value('working'),
+        weightKg: Value(weightKg),
+        reps: Value(reps),
+        isCompleted: const Value(true),
+        loggedAt: Value(day),
+        updatedAt: day,
+      ),
+    );
     await RollupService(db).recomputeDay(day);
   }
 
@@ -109,10 +114,18 @@ void main() {
 
     expect(find.byKey(const Key('period-12')), findsOneWidget);
     expect(
-      tester.widget<ChoiceChip>(find.byKey(const Key('period-12'))).selected,
-      isTrue,
+      tester
+          .widget<Text>(
+            find.descendant(
+              of: find.byKey(const Key('period-12')),
+              matching: find.text('12W'),
+            ),
+          )
+          .style
+          ?.color,
+      AppColors.accent,
     );
-    expect(find.textContaining('No finished workouts yet'), findsOneWidget);
+    expect(find.text('No data yet.'), findsOneWidget);
     expect(
       tester.widget<Text>(find.byKey(const Key('stat-workouts'))).data,
       '0',
@@ -123,8 +136,9 @@ void main() {
     await endApp(tester);
   });
 
-  testWidgets('renders stats, charts and calendar from real data',
-      (tester) async {
+  testWidgets('renders stats, charts and calendar from real data', (
+    tester,
+  ) async {
     final today = dayOf(DateTime.now());
     await seedWorkout(addDays(today, -2), weightKg: 60, reps: 5); // 300 kg
     await seedWorkout(addDays(today, -1), weightKg: 65, reps: 5); // 325 kg
@@ -154,7 +168,9 @@ void main() {
     expect(find.text('Barbell Bench Press'), findsWidgets);
 
     // Yesterday's calendar cell is marked as trained (may need a scroll).
-    final cellKey = ValueKey('cal-${addDays(today, -1).millisecondsSinceEpoch}');
+    final cellKey = ValueKey(
+      'cal-${addDays(today, -1).millisecondsSinceEpoch}',
+    );
     await tester.scrollUntilVisible(find.byKey(cellKey), 200);
     await tester.pumpAndSettle();
     final cell = tester.widget<Container>(find.byKey(cellKey));
@@ -170,12 +186,21 @@ void main() {
     await tester.tap(find.byKey(const Key('period-4')));
     await tester.pumpAndSettle();
 
-    final container =
-        ProviderScope.containerOf(tester.element(find.byType(AnalyticsPage)));
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(AnalyticsPage)),
+    );
     expect(container.read(analyticsPeriodProvider), 4);
     expect(
-      tester.widget<ChoiceChip>(find.byKey(const Key('period-4'))).selected,
-      isTrue,
+      tester
+          .widget<Text>(
+            find.descendant(
+              of: find.byKey(const Key('period-4')),
+              matching: find.text('4W'),
+            ),
+          )
+          .style
+          ?.color,
+      AppColors.accent,
     );
     expect(find.byType(BarChart), findsOneWidget);
 
@@ -208,12 +233,21 @@ void main() {
     await tester.tap(find.byKey(const Key('period-0')));
     await tester.pumpAndSettle();
 
-    final container =
-        ProviderScope.containerOf(tester.element(find.byType(AnalyticsPage)));
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(AnalyticsPage)),
+    );
     expect(container.read(analyticsPeriodProvider), 0);
     expect(
-      tester.widget<ChoiceChip>(find.byKey(const Key('period-0'))).selected,
-      isTrue,
+      tester
+          .widget<Text>(
+            find.descendant(
+              of: find.byKey(const Key('period-0')),
+              matching: find.text('ALL'),
+            ),
+          )
+          .style
+          ?.color,
+      AppColors.accent,
     );
     expect(
       tester.widget<Text>(find.byKey(const Key('stat-workouts'))).data,
@@ -227,8 +261,38 @@ void main() {
     await endApp(tester);
   });
 
-  testWidgets('grade board, heat map and balance render from rollups',
-      (tester) async {
+  testWidgets('body map labels a tapped muscle and clears on demand', (
+    tester,
+  ) async {
+    await seedWorkout(dayOf(DateTime.now()));
+    await pumpApp(tester);
+
+    final figure = find.byKey(const Key('heat-figure'));
+    await tester.scrollUntilVisible(figure, 200);
+    await tester.ensureVisible(figure);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('heat-muscle-label')), findsNothing);
+    expect(find.text('TAP A MUSCLE TO INSPECT'), findsOneWidget);
+
+    final box = tester.getRect(figure);
+    await tester.tapAt(Offset(box.center.dx, box.top + box.height * 0.37));
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<Text>(find.byKey(const Key('heat-muscle-label'))).data,
+      'Abs',
+    );
+
+    await tester.tapAt(Offset(box.center.dx, box.top + box.height * 0.37));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('heat-muscle-label')), findsNothing);
+    expect(find.text('TAP A MUSCLE TO INSPECT'), findsOneWidget);
+
+    await endApp(tester);
+  });
+
+  testWidgets('grade board, heat map and balance render from rollups', (
+    tester,
+  ) async {
     final today = dayOf(DateTime.now());
     // A finished workout gets us past the empty-state gate…
     await seedWorkout(addDays(today, -3));
@@ -257,20 +321,29 @@ void main() {
 
     await pumpApp(tester);
 
-    // Grade board: every graded muscle gets a keyed cell (cardio excluded).
-    await tester.scrollUntilVisible(find.byKey(const Key('grade-chest')), 200);
+    // Grade board: six priority rows, all grades behind the sheet.
+    await tester.scrollUntilVisible(find.byKey(const Key('grades-all')), 200);
     await tester.pumpAndSettle();
+    expect(find.text('Muscle Grades'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('grades-all')));
+    await tester.pumpAndSettle();
+    expect(find.text('All grades'), findsOneWidget);
     expect(find.byKey(const Key('grade-chest')), findsOneWidget);
     expect(find.byKey(const Key('grade-quads')), findsOneWidget);
     expect(find.byKey(const Key('grade-cardio')), findsNothing);
-    expect(find.text('Muscle Grades'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('grades-close')));
+    await tester.pumpAndSettle();
 
-    // Body heat map: both views + legend.
+    // Body map: one large plate with a front/back toggle.
     await tester.scrollUntilVisible(find.byKey(const Key('heat-front')), 200);
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('heat-back')), findsOneWidget);
-    expect(find.text('Body Heat Map'), findsOneWidget);
-    expect(find.text('Fresh'), findsOneWidget);
+    expect(find.byKey(const Key('heat-figure')), findsOneWidget);
+    expect(find.text('Muscle map'), findsOneWidget);
+    expect(find.text('FRESH'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('heat-back')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('heat-figure')), findsOneWidget);
 
     // Balance: chest (9000) towers over the back side (800).
     await tester.scrollUntilVisible(find.text('Chest vs Back'), 200);

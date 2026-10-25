@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/database/database.dart';
+import '../../../core/ledger/ledger.dart';
 import '../../../core/settings/settings.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/weight_units.dart';
@@ -14,13 +15,13 @@ import '../domain/exercise_progress.dart';
 /// All-time day-level history for one exercise — records are never
 /// window-scoped, so this reads every `ExerciseHistory` row.
 final exercisePointsProvider = StreamProvider.autoDispose
-    .family<List<ProgressPoint>, String>(
-  (ref, id) {
-    final db = ref.watch(databaseProvider);
-    final q = db.exerciseHistory.select()
-      ..where((h) => h.exerciseId.equals(id))
-      ..orderBy([(h) => OrderingTerm.asc(h.date)]);
-    return q.watch().map((rows) => [
+    .family<List<ProgressPoint>, String>((ref, id) {
+      final db = ref.watch(databaseProvider);
+      final q = db.exerciseHistory.select()
+        ..where((h) => h.exerciseId.equals(id))
+        ..orderBy([(h) => OrderingTerm.asc(h.date)]);
+      return q.watch().map(
+        (rows) => [
           for (final r in rows)
             ProgressPoint(
               date: r.date,
@@ -29,13 +30,23 @@ final exercisePointsProvider = StreamProvider.autoDispose
               topReps: r.topReps,
               volumeKg: r.totalVolume,
             ),
-        ]);
-  },
-);
+        ],
+      );
+    });
 
 const _months = [
-  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
 ];
 
 String _fmtDate(DateTime d) => '${d.day} ${_months[d.month - 1]}';
@@ -61,91 +72,86 @@ class _ExerciseProgressCardState extends ConsumerState<ExerciseProgressCard> {
     final unit = ref.watch(settingsProvider).unit;
     final pointsAsync = ref.watch(exercisePointsProvider(widget.exerciseId));
     final points = pointsAsync.value;
-    final progress = points == null
-        ? null
-        : ExerciseProgress.compute(points);
+    final progress = points == null ? null : ExerciseProgress.compute(points);
 
     if (progress == null) {
       // First session (or still loading) — invite rather than show blanks.
-      return Card(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Text(
-            pointsAsync.isLoading
-                ? 'Loading progress…'
-                : 'Log a session to see your progress.',
-            style: TextStyle(fontSize: 13, color: context.textTertiary),
-          ),
+      return ChartCard(
+        index: '02',
+        title: 'Progress',
+        subtitle: 'all-time records · trend',
+        child: Text(
+          pointsAsync.isLoading
+              ? 'Loading progress…'
+              : 'Log a session to see your progress.',
+          style: AppType.bodySm.copyWith(color: context.textTertiary),
         ),
       );
     }
 
     final weeks = ref.watch(analyticsPeriodProvider);
-    final trendRows = ref
-            .watch(exerciseTrendProvider(
-                (exerciseId: widget.exerciseId, weeks: weeks)))
+    final trendRows =
+        ref
+            .watch(
+              exerciseTrendProvider((
+                exerciseId: widget.exerciseId,
+                weeks: weeks,
+              )),
+            )
             .value ??
         const [];
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    'Progress',
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleMedium
-                        ?.copyWith(fontWeight: FontWeight.w700),
-                  ),
-                ),
-                const PeriodChips(),
-              ],
-            ),
-            const SizedBox(height: 14),
-            _RecordsRow(progress: progress, unit: unit),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                _SeriesChip(
+    return ChartCard(
+      index: '02',
+      title: 'Progress',
+      subtitle: 'all-time records · trend',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Align(
+            alignment: Alignment.centerRight,
+            child: PeriodChips(compact: true),
+          ),
+          const SizedBox(height: AppSpace.x3),
+          _RecordsRow(progress: progress, unit: unit),
+          const SizedBox(height: AppSpace.x2),
+          const Rule(),
+          const SizedBox(height: AppSpace.x3),
+          Row(
+            children: [
+              Expanded(
+                child: _SeriesChip(
                   key: const Key('series-e1rm'),
                   label: 'e1RM',
                   selected: _series == ExerciseSeries.e1rm,
-                  onTap: () =>
-                      setState(() => _series = ExerciseSeries.e1rm),
+                  onTap: () => setState(() => _series = ExerciseSeries.e1rm),
                 ),
-                const SizedBox(width: 8),
-                _SeriesChip(
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: _SeriesChip(
                   key: const Key('series-volume'),
                   label: 'Volume',
                   selected: _series == ExerciseSeries.volume,
-                  onTap: () =>
-                      setState(() => _series = ExerciseSeries.volume),
+                  onTap: () => setState(() => _series = ExerciseSeries.volume),
                 ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            ExerciseTrendChart(
-              key: const Key('progress-chart'),
-              rows: trendRows,
-              // "All" anchors the axis at this exercise's first logged day.
-              since: chartStart(
-                weeks,
-                DateTime.now(),
-                [for (final r in trendRows) r.date],
               ),
-              unit: unit,
-              series: _series,
-            ),
-            const SizedBox(height: 8),
-            _LastSessionBlock(progress: progress, unit: unit),
-          ],
-        ),
+            ],
+          ),
+          const SizedBox(height: AppSpace.x2),
+          ExerciseTrendChart(
+            key: const Key('progress-chart'),
+            rows: trendRows,
+            // "All" anchors the axis at this exercise's first logged day.
+            since: chartStart(weeks, DateTime.now(), [
+              for (final r in trendRows) r.date,
+            ]),
+            unit: unit,
+            series: _series,
+          ),
+          const SizedBox(height: AppSpace.x3),
+          _LastSessionBlock(progress: progress, unit: unit),
+        ],
       ),
     );
   }
@@ -165,28 +171,29 @@ class _SeriesChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(999),
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: selected
-              ? context.accent.withValues(alpha: 0.16)
-              : context.surfaceElevated,
-          borderRadius: BorderRadius.circular(999),
-          border: Border.all(
-            color: selected
-                ? context.accent.withValues(alpha: 0.6)
-                : context.border,
+    final color = selected ? context.accent : context.textSecondary;
+    return Material(
+      color: selected
+          ? context.accent.withValues(alpha: 0.12)
+          : Colors.transparent,
+      borderRadius: BorderRadius.circular(AppRadius.data),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppRadius.data),
+        onTap: onTap,
+        child: Container(
+          height: 32,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppRadius.data),
+            border: Border.all(
+              color: selected
+                  ? context.accent.withValues(alpha: 0.55)
+                  : context.border,
+            ),
           ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
-            color: selected ? context.accent : context.textSecondary,
+          child: Text(
+            label.toUpperCase(),
+            style: AppType.meta.copyWith(color: color, letterSpacing: 1.2),
           ),
         ),
       ),
@@ -204,13 +211,14 @@ class _RecordsRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final set = progress.bestSet.value;
-    return Row(
+    return StatBlocks(
+      padding: const EdgeInsets.symmetric(vertical: AppSpace.x2),
       children: [
         _RecordTile(
           key: const Key('record-e1rm'),
           value: progress.bestE1rm.value > 0
               ? '${formatWeight(progress.bestE1rm.value, unit)} '
-                  '${unitLabel(unit)}'
+                    '${unitLabel(unit)}'
               : '—',
           label: 'Best e1RM',
           date: _fmtDate(progress.bestE1rm.date),
@@ -227,7 +235,7 @@ class _RecordsRow extends StatelessWidget {
           key: const Key('record-volume'),
           value: progress.bestVolumeDay.value > 0
               ? '${compactNumber(kgToDisplay(progress.bestVolumeDay.value, unit))} '
-                  '${unitLabel(unit)}'
+                    '${unitLabel(unit)}'
               : '—',
           label: 'Volume record',
           date: _fmtDate(progress.bestVolumeDay.date),
@@ -251,30 +259,23 @@ class _RecordTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Expanded(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: 17,
-              fontWeight: FontWeight.w800,
-              color: context.accent,
-            ),
-          ),
-          const SizedBox(height: 2),
-
-          Text(
-            '$label · $date',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(fontSize: 11, color: context.textTertiary),
-          ),
-        ],
-      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          value,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: AppType.dataLg.copyWith(color: context.signal),
+        ),
+        const SizedBox(height: 3),
+        Text(
+          '$label · $date',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: AppType.metaSm.copyWith(color: context.textTertiary),
+        ),
+      ],
     );
   }
 }
@@ -292,81 +293,66 @@ class _LastSessionBlock extends StatelessWidget {
     final cmp = progress.comparison;
     final label = unitLabel(unit);
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: context.surfaceElevated,
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: context.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Rule(),
+        Padding(
+          padding: const EdgeInsets.only(top: 11, bottom: 6),
+          child: Row(
             children: [
               Text(
                 'Last session',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: context.textSecondary,
+                style: AppType.bodySm.copyWith(
+                  color: context.textPrimary,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
               const Spacer(),
               Text(
                 _fmtDate(newest.date),
-                style: TextStyle(fontSize: 12, color: context.textTertiary),
+                style: AppType.metaSm.copyWith(color: context.textTertiary),
               ),
             ],
           ),
-          const SizedBox(height: 6),
-          Text(
-            newest.topWeightKg > 0
-                ? '${formatWeight(newest.topWeightKg, unit)} $label'
+        ),
+        Text(
+          newest.topWeightKg > 0
+              ? '${formatWeight(newest.topWeightKg, unit)} $label'
                     ' × ${newest.topReps}'
-                : '—',
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w800,
-              color: context.textPrimary,
-            ),
+              : '—',
+          style: AppType.dataLg.copyWith(color: context.textPrimary),
+        ),
+        const SizedBox(height: AppSpace.x2),
+        if (cmp == null)
+          Text(
+            'First session logged — comparisons appear from the next one.',
+            style: AppType.bodySm.copyWith(color: context.textTertiary),
+          )
+        else
+          Row(
+            children: [
+              _DeltaChip(
+                key: const Key('delta-e1rm'),
+                label: 'e1RM',
+                deltaKg: cmp.e1rmDeltaKg,
+                unit: unit,
+              ),
+              const SizedBox(width: 6),
+              _DeltaChip(
+                key: const Key('delta-volume'),
+                label: 'Volume',
+                deltaKg: cmp.volumeDeltaKg,
+                unit: unit,
+              ),
+              const Spacer(),
+              Text(
+                'vs previous',
+                style: AppType.metaSm.copyWith(color: context.textTertiary),
+              ),
+            ],
           ),
-          const SizedBox(height: 8),
-          if (cmp == null)
-            Text(
-              'First session logged — comparisons appear from the next one.',
-              style:
-                  TextStyle(fontSize: 12, color: context.textTertiary),
-            )
-          else
-            Row(
-              children: [
-                _DeltaChip(
-                  key: const Key('delta-e1rm'),
-                  label: 'e1RM',
-                  deltaKg: cmp.e1rmDeltaKg,
-                  unit: unit,
-                ),
-                const SizedBox(width: 8),
-                _DeltaChip(
-                  key: const Key('delta-volume'),
-                  label: 'Volume',
-                  deltaKg: cmp.volumeDeltaKg,
-                  unit: unit,
-                ),
-                const Spacer(),
-                Text(
-                  'vs previous',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: context.textTertiary,
-                  ),
-                ),
-              ],
-            ),
-        ],
-      ),
+      ],
     );
   }
 }
@@ -390,26 +376,24 @@ class _DeltaChip extends StatelessWidget {
     final color = up
         ? AppColors.gradeA
         : down
-            ? AppColors.heatHot
-            : context.textTertiary;
-    final sign = up ? '+' : down ? '-' : '±';
-    final amount = deltaKg == 0
-        ? '0'
-        : formatWeight(deltaKg.abs(), unit);
+        ? AppColors.heatHot
+        : context.textTertiary;
+    final sign = up
+        ? '+'
+        : down
+        ? '-'
+        : '±';
+    final amount = deltaKg == 0 ? '0' : formatWeight(deltaKg.abs(), unit);
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: color.withValues(alpha: 0.55)),
+        borderRadius: BorderRadius.circular(AppRadius.data),
       ),
       child: Text(
         '$label $sign$amount ${unitLabel(unit)}',
-        style: TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
-          color: color,
-        ),
+        style: AppType.metaSm.copyWith(color: color, letterSpacing: 0.3),
       ),
     );
   }

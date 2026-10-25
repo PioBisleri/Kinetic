@@ -56,8 +56,10 @@ class GradeEngine {
   // ---- components ---------------------------------------------------------
 
   /// Log-normalised volume score for [volumeKg] accumulated over the window.
-  static double volumeScore(double volumeKg,
-      {double weeksInWindow = volumeWeekTargetWeeks}) {
+  static double volumeScore(
+    double volumeKg, {
+    double weeksInWindow = volumeWeekTargetWeeks,
+  }) {
     final target = volumeWeekTarget * weeksInWindow;
     if (volumeKg <= 0) return 0;
     final score =
@@ -91,10 +93,13 @@ class GradeEngine {
     required double hoursSinceTrained,
   }) {
     final frequency =
-        (daysTrained / (targetSessions <= 0 ? defaultTargetSessions : targetSessions))
+        (daysTrained /
+                (targetSessions <= 0 ? defaultTargetSessions : targetSessions))
             .clamp(0.0, 1.0);
-    final freshness = (1 - hoursSinceTrained / freshnessHalfWindowH)
-        .clamp(0.0, 1.0);
+    final freshness = (1 - hoursSinceTrained / freshnessHalfWindowH).clamp(
+      0.0,
+      1.0,
+    );
     return (100 * frequency * (0.6 + 0.4 * freshness)).clamp(0.0, 100.0);
   }
 
@@ -121,7 +126,8 @@ class GradeEngine {
       hoursSinceTrained: hoursSinceTrained,
     );
 
-    final score = weights.volume * v + weights.strength * s + weights.consistency * c;
+    final score =
+        weights.volume * v + weights.strength * s + weights.consistency * c;
     return GradeResult(
       muscleId: muscleId,
       score: score.clamp(0.0, 100.0),
@@ -183,9 +189,7 @@ class GradeEngine {
     }
     final h = hoursSinceTrained.round();
     if (hoursSinceTrained <= 24) {
-      return h == 0
-          ? 'Fresh — trained just now'
-          : 'Fresh — trained ${h}h ago';
+      return h == 0 ? 'Fresh — trained just now' : 'Fresh — trained ${h}h ago';
     }
     return 'Cooling — trained ${h}h ago, credit is fading';
   }
@@ -221,5 +225,3 @@ class BalanceStatus {
   final bool isBalanced;
   final double? ratio;
 }
-
-

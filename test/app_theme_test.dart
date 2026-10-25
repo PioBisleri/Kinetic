@@ -9,14 +9,14 @@ void main() {
   test('theme textTheme carries the shared scales (dark + light)', () {
     for (final theme in [AppTheme.dark(), AppTheme.light()]) {
       final display = theme.textTheme.displaySmall!;
-      expect(display.fontSize, 24);
+      expect(display.fontSize, 26);
       expect(display.fontWeight, FontWeight.w800);
-      expect(display.letterSpacing, -0.5);
+      expect(display.letterSpacing, -0.6);
 
       final caption = theme.textTheme.labelSmall!;
-      expect(caption.fontSize, 11);
-      expect(caption.fontWeight, FontWeight.w800);
-      expect(caption.letterSpacing, 1.1);
+      expect(caption.fontSize, 10.5);
+      expect(caption.fontWeight, FontWeight.w600);
+      expect(caption.letterSpacing, 1.6);
 
       // Unfilled entries stay Material's own defaults (ListTiles etc.).
       expect(theme.textTheme.titleMedium!.fontSize, isNot(17));
@@ -34,9 +34,9 @@ void main() {
       home: const Scaffold(body: SectionCard(title: 'History', children: [])),
     ));
     final text = tester.widget<Text>(find.text('HISTORY'));
-    expect(text.style!.fontSize, 11);
-    expect(text.style!.fontWeight, FontWeight.w800);
-    expect(text.style!.letterSpacing, 1.1);
+    expect(text.style!.fontSize, 10.5);
+    expect(text.style!.fontWeight, FontWeight.w600);
+    expect(text.style!.letterSpacing, 1.6);
   });
 
   test('AppStyles title/body idioms', () {

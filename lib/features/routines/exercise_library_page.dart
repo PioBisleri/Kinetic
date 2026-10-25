@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/database/database.dart';
 import '../../core/database/database_providers.dart';
+import '../../core/ledger/ledger.dart';
 import '../../core/search/smart_search.dart';
 import '../../core/theme/app_theme.dart';
 
@@ -21,7 +22,8 @@ class CategoryFilterNotifier extends Notifier<String?> {
 
 final categoryFilterProvider =
     NotifierProvider<CategoryFilterNotifier, String?>(
-        CategoryFilterNotifier.new);
+      CategoryFilterNotifier.new,
+    );
 
 final exercisesProvider = StreamProvider<List<Exercise>>((ref) {
   final db = ref.watch(databaseProvider);
@@ -70,8 +72,11 @@ class _ExerciseLibraryPageState extends ConsumerState<ExerciseLibraryPage> {
     // Ranked once for both the count row and the list; null while the
     // catalog stream is still loading.
     final ranked = switch (exercises) {
-      AsyncData(:final value) =>
-        searchCatalog(value, _query, muscleNames: muscleNames),
+      AsyncData(:final value) => searchCatalog(
+        value,
+        _query,
+        muscleNames: muscleNames,
+      ),
       _ => null,
     };
     final String countText;
@@ -85,151 +90,360 @@ class _ExerciseLibraryPageState extends ConsumerState<ExerciseLibraryPage> {
     }
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Exercise Library')),
+      appBar: const TailBar(title: 'Exercise Library', showMenu: false),
       floatingActionButton: FloatingActionButton(
         key: const Key('create-exercise'),
         tooltip: 'New exercise',
+        elevation: 0,
+        highlightElevation: 0,
+        backgroundColor: context.accent,
+        foregroundColor: onAccent(context.accent),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadius.control),
+        ),
         onPressed: () => context.push('/library/new'),
-        child: const Icon(Icons.add),
+        child: LedgerGlyph(
+          LedgerGlyphType.plus,
+          color: onAccent(context.accent),
+          size: 20,
+        ),
       ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-            child: TextField(
-              key: const Key('library-search'),
-              controller: _searchCtrl,
-              onChanged: (v) => setState(() => _query = v),
-              textInputAction: TextInputAction.search,
-              decoration: InputDecoration(
-                hintText: 'Search…',
-                prefixIcon: const Icon(Icons.search, size: 20),
-                suffixIcon: _query.isEmpty
-                    ? null
-                    : IconButton(
-                        key: const Key('library-search-clear'),
-                        icon: const Icon(Icons.close, size: 18),
-                        onPressed: () {
-                          _searchCtrl.clear();
-                          setState(() => _query = '');
-                        },
+      body: SafeArea(
+        top: false,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpace.x5,
+                AppSpace.x2,
+                AppSpace.x5,
+                0,
+              ),
+              child: _SearchBox(
+                controller: _searchCtrl,
+                query: _query,
+                onChanged: (v) => setState(() => _query = v),
+                onClear: () {
+                  _searchCtrl.clear();
+                  setState(() => _query = '');
+                },
+              ),
+            ),
+            const SizedBox(height: AppSpace.x3),
+            _CategoryRail(filter: filter),
+            const SizedBox(height: AppSpace.x5),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpace.x5),
+              child: SectionHead(
+                index: '01',
+                title: 'Catalog',
+                meta: countText,
+              ),
+            ),
+            const SizedBox(height: AppSpace.x3),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpace.x5,
+                  0,
+                  AppSpace.x5,
+                  AppSpace.x5,
+                ),
+                child: Container(
+                  clipBehavior: Clip.antiAlias,
+                  decoration: BoxDecoration(
+                    color: context.surface,
+                    borderRadius: BorderRadius.circular(AppRadius.data),
+                    border: Border.all(color: context.border),
+                  ),
+                  child: exercises.when(
+                    loading: () => const Center(
+                      child: SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
                       ),
-              ),
-            ),
-          ),
-          SizedBox(
-            height: 44,
-            // SingleChildScrollView + Row (not ListView.builder): only 7
-            // static chips — eager build guarantees they all exist.
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                children: [
-                  for (var i = 0; i < _categories.length; i++) ...[
-                    if (i > 0) const SizedBox(width: 8),
-                    Builder(builder: (context) {
-                      final (id, label) = _categories[i];
-                      final selected =
-                          id == 'all' ? filter == null : filter == id;
-                      return ChoiceChip(
-                        label: Text(label),
-                        selected: selected,
-                        onSelected: (_) => ref
-                            .read(categoryFilterProvider.notifier)
-                            .set(id == 'all' ? null : id),
-                        selectedColor:
-                            context.accent.withValues(alpha: 0.18),
-                        labelStyle: TextStyle(
-                          color: selected
-                              ? context.accent
-                              : context.textSecondary,
-                          fontWeight: FontWeight.w600,
-                        ),
-                        side: BorderSide(
-                          color: selected ? context.accent : context.border,
-                        ),
-                        showCheckmark: false,
-                      );
-                    }),
-                  ],
-                ],
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Row(
-              children: [
-                Text(
-                  countText,
-                  style:
-                      TextStyle(fontSize: 12, color: context.textSecondary),
-                ),
-                const Spacer(),
-                Text(
-                  'Tap an exercise for details',
-                  style:
-                      TextStyle(fontSize: 12, color: context.textTertiary),
-                ),
-              ],
-            ),
-          ),
-          Expanded(
-            child: exercises.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => Center(child: Text('Error: $e')),
-              data: (list) {
-                final items = ranked ?? list;
-                if (items.isEmpty) {
-                  return _query.isEmpty
-                      ? const SizedBox.shrink()
-                      : Center(
-                          child: Text(
-                            'No exercises match "$_query"',
-                            style:
-                                TextStyle(color: context.textSecondary),
-                          ),
-                        );
-                }
-                return ListView.separated(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                  itemCount: items.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 8),
-                  itemBuilder: (context, i) {
-                    final e = items[i];
-                    return Card(
-                      child: ListTile(
-                        contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 4),
-                        title: Text(
-                          e.name,
-                          style:
-                              const TextStyle(fontWeight: FontWeight.w600),
-                        ),
-                        subtitle: Text(
-                          '${e.category[0].toUpperCase()}${e.category.substring(1)} · '
-                          '${e.mechanics} · ${e.primaryMuscleId.replaceAll('_', ' ')}'
-                          '${e.isCustom ? ' · Custom' : ''}',
-                          style: TextStyle(
-                            fontSize: 12,
+                    ),
+                    error: (e, _) => Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(AppSpace.x4),
+                        child: Text(
+                          'Error: $e',
+                          textAlign: TextAlign.center,
+                          style: AppType.bodySm.copyWith(
                             color: context.textSecondary,
                           ),
                         ),
-                        trailing: e.defaultMetric == 'weight_reps'
-                            ? Icon(Icons.fitness_center,
-                                size: 18, color: context.textTertiary)
-                            : Icon(Icons.timer_outlined,
-                                size: 18, color: context.textTertiary),
-                        onTap: () => context.push('/library/${e.id}'),
                       ),
-                    );
-                  },
-                );
-              },
+                    ),
+                    data: (list) {
+                      final items = ranked ?? list;
+                      if (items.isEmpty) {
+                        return Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(AppSpace.x4),
+                            child: Text(
+                              _query.isEmpty
+                                  ? 'No exercises yet.'
+                                  : 'No exercises match "$_query"',
+                              textAlign: TextAlign.center,
+                              style: AppType.bodySm.copyWith(
+                                color: context.textSecondary,
+                              ),
+                            ),
+                          ),
+                        );
+                      }
+                      return ListView.separated(
+                        padding: EdgeInsets.zero,
+                        itemCount: items.length,
+                        separatorBuilder: (_, _) => const Rule(),
+                        itemBuilder: (context, i) => _ExerciseRow(
+                          exercise: items[i],
+                          onTap: () => context.push('/library/${items[i].id}'),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SearchBox extends StatelessWidget {
+  const _SearchBox({
+    required this.controller,
+    required this.query,
+    required this.onChanged,
+    required this.onClear,
+  });
+
+  final TextEditingController controller;
+  final String query;
+  final ValueChanged<String> onChanged;
+  final VoidCallback onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 42,
+      padding: const EdgeInsets.only(left: 12, right: 4),
+      decoration: BoxDecoration(
+        color: context.surface,
+        borderRadius: BorderRadius.circular(AppRadius.data),
+        border: Border.all(color: context.border),
+      ),
+      child: Row(
+        children: [
+          LedgerGlyph(
+            LedgerGlyphType.search,
+            size: 17,
+            color: context.textTertiary,
+          ),
+          const SizedBox(width: 9),
+          Expanded(
+            child: TextField(
+              key: const Key('library-search'),
+              controller: controller,
+              onChanged: onChanged,
+              textInputAction: TextInputAction.search,
+              style: AppType.bodySm.copyWith(color: context.textPrimary),
+              decoration: InputDecoration(
+                isDense: true,
+                filled: false,
+                hintText: 'Find a movement',
+                hintStyle: AppType.bodySm.copyWith(color: context.textTertiary),
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                contentPadding: EdgeInsets.zero,
+              ),
             ),
           ),
+          if (query.isNotEmpty)
+            SizedBox(
+              width: 34,
+              height: 34,
+              child: IconButton(
+                key: const Key('library-search-clear'),
+                tooltip: 'Clear search',
+                padding: EdgeInsets.zero,
+                onPressed: onClear,
+                icon: LedgerGlyph(
+                  LedgerGlyphType.close,
+                  size: 15,
+                  color: context.textSecondary,
+                ),
+              ),
+            ),
         ],
+      ),
+    );
+  }
+}
+
+class _CategoryRail extends ConsumerWidget {
+  const _CategoryRail({required this.filter});
+
+  final String? filter;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Container(
+      height: 38,
+      margin: const EdgeInsets.symmetric(horizontal: AppSpace.x5),
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(AppRadius.data),
+        border: Border.all(color: context.border),
+      ),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            for (var i = 0; i < _categories.length; i++) ...[
+              if (i > 0) Container(width: 1, color: context.border),
+              Builder(
+                builder: (context) {
+                  final (id, label) = _categories[i];
+                  final selected = id == 'all' ? filter == null : filter == id;
+                  return _CategoryTab(
+                    label: label,
+                    selected: selected,
+                    onTap: () => ref
+                        .read(categoryFilterProvider.notifier)
+                        .set(id == 'all' ? null : id),
+                  );
+                },
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CategoryTab extends StatelessWidget {
+  const _CategoryTab({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: selected
+          ? context.accent.withValues(alpha: 0.08)
+          : Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        splashColor: context.accent.withValues(alpha: 0.06),
+        child: Container(
+          height: 36,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          decoration: BoxDecoration(
+            border: Border(
+              bottom: BorderSide(
+                color: selected ? context.accent : Colors.transparent,
+                width: 2,
+              ),
+            ),
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            label,
+            style: AppType.bodySm.copyWith(
+              fontSize: 12,
+              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+              color: selected ? context.accent : context.textSecondary,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ExerciseRow extends StatelessWidget {
+  const _ExerciseRow({required this.exercise, required this.onTap});
+
+  final Exercise exercise;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final category =
+        '${exercise.category[0].toUpperCase()}${exercise.category.substring(1)}';
+    final meta =
+        '$category · ${exercise.mechanics} · '
+        '${exercise.primaryMuscleId.replaceAll('_', ' ')}'
+        '${exercise.isCustom ? ' · Custom' : ''}';
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        splashColor: context.accent.withValues(alpha: 0.05),
+        highlightColor: context.accent.withValues(alpha: 0.03),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      exercise.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppType.body.copyWith(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        height: 1.25,
+                        color: context.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      meta,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 11,
+                        height: 1.3,
+                        color: context.textTertiary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                exercise.defaultMetric == 'weight_reps' ? 'LOAD' : 'TIME',
+                style: AppType.metaSm.copyWith(color: context.textTertiary),
+              ),
+              const SizedBox(width: 8),
+              LedgerGlyph(
+                LedgerGlyphType.chevronRight,
+                size: 15,
+                color: context.textTertiary,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

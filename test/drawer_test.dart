@@ -7,13 +7,11 @@ import 'package:kinetic/app.dart';
 import 'package:kinetic/core/database/database.dart';
 import 'package:kinetic/core/database/seed_service.dart';
 import 'package:kinetic/core/settings/settings.dart';
-import 'package:kinetic/core/theme/app_theme.dart';
 import 'package:kinetic/features/workout/live_workout_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Round 4 — the shell drawer: frosted-glass panel (blur + translucent tint
-/// from the app's own tokens), tab shortcuts mirroring the bottom bar, and
-/// the non-tab destinations.
+/// Round 4/14 — the shell drawer: an opaque ledger index, tab shortcuts
+/// mirroring the bottom bar, and the non-tab destinations.
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
@@ -55,46 +53,46 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('drawer is frosted glass carrying the full navigation set',
-      (tester) async {
+  testWidgets('drawer is an opaque ledger index carrying the navigation set', (
+    tester,
+  ) async {
     await pumpApp(tester);
     await openDrawer(tester);
 
-    // Frosted glass: a blur filter with the app-tinted translucent panel
-    // behind it (60% of the theme surface — dark, light or AMOLED). The
-    // tint is a Material so ListTiles can still paint on it.
-    final blur = find.descendant(
-      of: find.byType(Drawer),
-      matching: find.byType(BackdropFilter),
+    // Opaque ledger sheet — no blur, no translucent panel.
+    expect(
+      find.descendant(
+        of: find.byType(Drawer),
+        matching: find.byType(BackdropFilter),
+      ),
+      findsNothing,
     );
-    expect(blur, findsOneWidget);
-    final tint = tester.widget<Material>(
-      find.descendant(of: blur, matching: find.byType(Material)).first,
-    );
-    expect(tint.color, AppColors.surface.withValues(alpha: 0.60));
+    final drawer = tester.widget<Drawer>(find.byType(Drawer));
+    expect(drawer.backgroundColor!.a, 1.0);
 
-    // The shell keeps a light scrim so the blurred page stays readable.
+    // The shell dims the page behind the separate ledger sheet.
     final shell = tester.widget<Scaffold>(
       find.byWidgetPredicate((s) => s is Scaffold && s.drawer != null),
     );
-    expect(shell.drawerScrimColor, Colors.black.withValues(alpha: 0.35));
+    expect(shell.drawerScrimColor, Colors.black.withValues(alpha: 0.45));
 
     // Header + Start Workout + tabs + app destinations + version footer.
     expect(find.text('KINETIC'), findsOneWidget);
     expect(find.text('Offline-first training log'), findsOneWidget);
     expect(find.byKey(const Key('drawer-start-workout')), findsOneWidget);
+    expect(find.text('SESSION'), findsOneWidget);
     expect(find.text('NAVIGATE'), findsOneWidget);
     for (var i = 0; i < 5; i++) {
       expect(find.byKey(Key('drawer-tab-$i')), findsOneWidget);
     }
-    // The app destinations sit below the fold once the drawer carries
-    // five nav tiles — scroll the (lazily built) tail into view first.
-    final drawerScrollable = find
+
+    // Route tiles sit below the fold — scroll the ledger index to the tail.
+    var drawerScrollable = find
         .descendant(of: find.byType(Drawer), matching: find.byType(Scrollable))
         .first;
     await tester.scrollUntilVisible(
-      find.text('Kinetic · offline-first'),
-      60,
+      find.byKey(const Key('drawer-settings')),
+      100,
       scrollable: drawerScrollable,
     );
     await tester.pumpAndSettle();
@@ -108,20 +106,21 @@ void main() {
     await endApp(tester);
   });
 
-  testWidgets('drawer tab shortcuts switch branches and tint the active row',
-      (tester) async {
+  testWidgets('drawer tab shortcuts switch branches and tint the active row', (
+    tester,
+  ) async {
     await pumpApp(tester);
     await openDrawer(tester);
 
-    // Home is the visible branch → its row uses the filled icon in teal.
-    Icon iconOf(int tab) => tester.widget<Icon>(find.descendant(
-          of: find.byKey(Key('drawer-tab-$tab')),
-          matching: find.byType(Icon),
-        ));
-    expect(iconOf(0).icon, Icons.play_circle_rounded);
-    expect(iconOf(0).color, AppColors.accent);
-    expect(iconOf(1).icon, Icons.list_alt_rounded);
-    expect(iconOf(1).color, AppColors.textSecondary);
+    // Home is the visible branch → its ledger row is marked selected.
+    Finder selectedRow(int tab) => find.ancestor(
+      of: find.byKey(Key('drawer-tab-$tab')),
+      matching: find.byWidgetPredicate(
+        (w) => w is Semantics && w.properties.selected == true,
+      ),
+    );
+    expect(selectedRow(0), findsOneWidget);
+    expect(selectedRow(1), findsNothing);
 
     await tester.tap(find.byKey(const Key('drawer-tab-2')));
     await tester.pumpAndSettle();
@@ -130,14 +129,15 @@ void main() {
 
     // Reopen: the shortcut moved the shell, so the active row follows.
     await openDrawer(tester);
-    expect(iconOf(2).icon, Icons.insights);
-    expect(iconOf(2).color, AppColors.accent);
+    expect(selectedRow(0), findsNothing);
+    expect(selectedRow(2), findsOneWidget);
 
     await endApp(tester);
   });
 
-  testWidgets('Start Workout in the drawer boots the live logger',
-      (tester) async {
+  testWidgets('Start Workout in the drawer boots the live logger', (
+    tester,
+  ) async {
     await pumpApp(tester);
     await openDrawer(tester);
 
@@ -150,28 +150,37 @@ void main() {
     await endApp(tester);
   });
 
-  testWidgets('drawer reaches the Exercise Library and Settings',
-      (tester) async {
+  testWidgets('drawer reaches the Exercise Library and Settings', (
+    tester,
+  ) async {
     await pumpApp(tester);
     await openDrawer(tester);
+    var drawerScrollable = find
+        .descendant(of: find.byType(Drawer), matching: find.byType(Scrollable))
+        .first;
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('drawer-library')),
+      100,
+      scrollable: drawerScrollable,
+    );
+    await tester.pumpAndSettle();
 
     await tester.tap(find.byKey(const Key('drawer-library')));
     await tester.pumpAndSettle();
-    expect(
-      find.widgetWithText(AppBar, 'Exercise Library'), findsOneWidget);
+    expect(find.widgetWithText(AppBar, 'Exercise Library'), findsOneWidget);
 
     tester.state<NavigatorState>(find.byType(Navigator)).pop();
     await tester.pumpAndSettle();
 
     await openDrawer(tester);
-    // The Diet tile pushed Settings below the fold (lazily built) in the
-    // test viewport; drag until it exists, then tap.
-    final drawerScrollable = find
+    // Settings sits below the fold in the test viewport; scroll the ledger
+    // index until the route tile exists, then tap.
+    drawerScrollable = find
         .descendant(of: find.byType(Drawer), matching: find.byType(Scrollable))
         .first;
     await tester.scrollUntilVisible(
       find.byKey(const Key('drawer-settings')),
-      60,
+      100,
       scrollable: drawerScrollable,
     );
     await tester.pumpAndSettle();

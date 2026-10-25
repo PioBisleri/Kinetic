@@ -7,6 +7,7 @@ import 'package:kinetic/app.dart';
 import 'package:kinetic/core/database/database.dart';
 import 'package:kinetic/core/database/seed_service.dart';
 import 'package:kinetic/core/settings/settings.dart';
+import 'package:kinetic/core/ledger/nav.dart';
 import 'package:kinetic/core/theme/app_theme.dart';
 import 'package:kinetic/features/settings/settings_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -125,7 +126,7 @@ void main() {
     await tester.pageBack();
     await tester.pumpAndSettle();
 
-    final navContext = tester.element(find.byType(NavigationBar));
+    final navContext = tester.element(find.byType(AppBottomNav));
     expect(navContext.background, AppColors.amoledBackground);
     expect(navContext.surface, AppColors.amoledSurface);
 

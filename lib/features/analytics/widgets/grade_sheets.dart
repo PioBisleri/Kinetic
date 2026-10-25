@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+
 import '../../../core/widgets/app_dialog.dart';
+
 import 'package:intl/intl.dart';
 
 import '../../../core/settings/settings.dart';
@@ -21,28 +23,26 @@ Future<void> showGradeBreakdownSheet(
   required int targetSessions,
   required double hoursSinceTrained,
   required UnitSystem unit,
-}) =>
-    showAppSheet<void>(
-      context: context,
-      builder: (_) => _GradeBreakdownSheet(
-        muscleName: muscleName,
-        result: result,
-        volumeKg30d: volumeKg30d,
-        bestE1RmKg: bestE1RmKg,
-        bodyweightKg: bodyweightKg,
-        daysTrained30d: daysTrained30d,
-        targetSessions: targetSessions,
-        hoursSinceTrained: hoursSinceTrained,
-        unit: unit,
-      ),
-    );
+}) => showAppSheet<void>(
+  context: context,
+  builder: (_) => _GradeBreakdownSheet(
+    muscleName: muscleName,
+    result: result,
+    volumeKg30d: volumeKg30d,
+    bestE1RmKg: bestE1RmKg,
+    bodyweightKg: bodyweightKg,
+    daysTrained30d: daysTrained30d,
+    targetSessions: targetSessions,
+    hoursSinceTrained: hoursSinceTrained,
+    unit: unit,
+  ),
+);
 
 /// Info button on the Muscle Grades card → how the whole thing works.
-Future<void> showHowGradesWorkSheet(BuildContext context) =>
-    showAppSheet<void>(
-      context: context,
-      builder: (_) => const _HowGradesWorkSheet(),
-    );
+Future<void> showHowGradesWorkSheet(BuildContext context) => showAppSheet<void>(
+  context: context,
+  builder: (_) => const _HowGradesWorkSheet(),
+);
 
 /// Display weight with grouping: '34,640' / '4,409.25'.
 String _weight(double kg, UnitSystem unit) {
@@ -51,8 +51,7 @@ String _weight(double kg, UnitSystem unit) {
   return NumberFormat.decimalPattern().format(v);
 }
 
-String _mult(double v) =>
-    v == v.roundToDouble() ? v.toStringAsFixed(0) : '$v';
+String _mult(double v) => v == v.roundToDouble() ? v.toStringAsFixed(0) : '$v';
 
 class _GradeBreakdownSheet extends StatelessWidget {
   const _GradeBreakdownSheet({
@@ -136,9 +135,7 @@ class _GradeBreakdownSheet extends StatelessWidget {
                 Expanded(
                   child: Text(
                     muscleName,
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleLarge
+                    style: Theme.of(context).textTheme.titleLarge
                         ?.copyWith(fontWeight: FontWeight.w700),
                   ),
                 ),
@@ -196,8 +193,7 @@ class _GradeBreakdownSheet extends StatelessWidget {
             const SizedBox(height: 14),
             Row(
               children: [
-                Icon(Icons.schedule_rounded,
-                    size: 15, color: context.accent),
+                Icon(Icons.schedule_rounded, size: 15, color: context.accent),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -225,8 +221,14 @@ class _GradeBreakdownSheet extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                for (final (letter, min)
-                    in const [('S', 90), ('A', 78), ('B', 64), ('C', 48), ('D', 30), ('F', 0)])
+                for (final (letter, min) in const [
+                  ('S', 90),
+                  ('A', 78),
+                  ('B', 64),
+                  ('C', 48),
+                  ('D', 30),
+                  ('F', 0),
+                ])
                   _tierChip(context, letter, min),
               ],
             ),
@@ -343,9 +345,7 @@ class _HowGradesWorkSheet extends StatelessWidget {
             const SizedBox(height: 16),
             Text(
               'How grades work',
-              style: Theme.of(context)
-                  .textTheme
-                  .titleMedium
+              style: Theme.of(context).textTheme.titleMedium
                   ?.copyWith(fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 4),

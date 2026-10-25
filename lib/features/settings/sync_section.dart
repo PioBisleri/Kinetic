@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+
 import '../../core/widgets/app_dialog.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -51,28 +53,28 @@ class _SyncSectionState extends ConsumerState<SyncSection> {
   }
 
   Future<void> _signIn() => _run(() async {
-        await Supabase.instance.client.auth.signInWithPassword(
-          email: _email.text.trim(),
-          password: _password.text,
-        );
-        await ref.read(syncControllerProvider.notifier).syncNow();
-      });
+    await Supabase.instance.client.auth.signInWithPassword(
+      email: _email.text.trim(),
+      password: _password.text,
+    );
+    await ref.read(syncControllerProvider.notifier).syncNow();
+  });
 
   Future<void> _signUp() => _run(() async {
-        final res = await Supabase.instance.client.auth.signUp(
-          email: _email.text.trim(),
-          password: _password.text,
-        );
-        if (res.session == null) {
-          _message = 'Check your inbox to confirm your account, then sign in.';
-        } else {
-          await ref.read(syncControllerProvider.notifier).syncNow();
-        }
-      });
+    final res = await Supabase.instance.client.auth.signUp(
+      email: _email.text.trim(),
+      password: _password.text,
+    );
+    if (res.session == null) {
+      _message = 'Check your inbox to confirm your account, then sign in.';
+    } else {
+      await ref.read(syncControllerProvider.notifier).syncNow();
+    }
+  });
 
   Future<void> _signOut() => _run(() async {
-        await Supabase.instance.client.auth.signOut();
-      });
+    await Supabase.instance.client.auth.signOut();
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -80,19 +82,20 @@ class _SyncSectionState extends ConsumerState<SyncSection> {
     final auth = ref.watch(authStateProvider).value;
     if (!configured) return _notConfigured();
 
-    final session = auth?.session ?? Supabase.instance.client.auth.currentSession;
+    final session =
+        auth?.session ?? Supabase.instance.client.auth.currentSession;
     if (session == null) return _signInForm(context);
     return _account(context, session.user.email ?? session.user.id);
   }
 
   Widget _notConfigured() => const ListTile(
-        leading: Icon(Icons.cloud_off_rounded),
-        title: Text('Cloud sync not configured'),
-        subtitle: Text(
-          'Rebuild with --dart-define=SUPABASE_URL=… and '
-          '--dart-define=SUPABASE_ANON_KEY=… to enable sync.',
-        ),
-      );
+    leading: Icon(Icons.cloud_off_rounded),
+    title: Text('Cloud sync not configured'),
+    subtitle: Text(
+      'Rebuild with --dart-define=SUPABASE_URL=… and '
+      '--dart-define=SUPABASE_ANON_KEY=… to enable sync.',
+    ),
+  );
 
   Widget _signInForm(BuildContext context) {
     final theme = Theme.of(context);
@@ -239,10 +242,10 @@ class _SyncSectionState extends ConsumerState<SyncSection> {
                   Text(
                     enabled
                         ? 'Your synced data is encrypted with AES-256-GCM. '
-                            'The server only sees ciphertext.'
+                              'The server only sees ciphertext.'
                         : 'Your passphrase derives the encryption key. '
-                            'It never leaves this device. If you lose it, '
-                            'synced data cannot be recovered.',
+                              'It never leaves this device. If you lose it, '
+                              'synced data cannot be recovered.',
                     style: TextStyle(
                       fontSize: 13,
                       color: sheetContext.textSecondary,
@@ -269,14 +272,18 @@ class _SyncSectionState extends ConsumerState<SyncSection> {
                         if (passphrase == null || passphrase.length < 8) {
                           ScaffoldMessenger.of(sheetContext).showSnackBar(
                             const SnackBar(
-                              content: Text('Passphrase must be at least 8 characters.'),
+                              content: Text(
+                                'Passphrase must be at least 8 characters.',
+                              ),
                             ),
                           );
                           return;
                         }
                         final prefs = ref.read(sharedPreferencesProvider);
                         await prefs.setString('sync.passphrase', passphrase);
-                        ref.read(syncEncryptionEnabledProvider.notifier).enable();
+                        ref
+                            .read(syncEncryptionEnabledProvider.notifier)
+                            .enable();
                         ref.read(syncEncryptionEpochProvider.notifier).bump();
                         if (sheetContext.mounted) {
                           Navigator.of(sheetContext).pop();
@@ -334,10 +341,7 @@ class _SyncSectionState extends ConsumerState<SyncSection> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Text(
-                    'Rotate passphrase',
-                    style: AppStyles.title,
-                  ),
+                  const Text('Rotate passphrase', style: AppStyles.title),
                   const SizedBox(height: 8),
                   Text(
                     'This re-encrypts all your synced data with a new passphrase. '
@@ -366,7 +370,9 @@ class _SyncSectionState extends ConsumerState<SyncSection> {
                       if (newPassphrase == null || newPassphrase.length < 8) {
                         ScaffoldMessenger.of(sheetContext).showSnackBar(
                           const SnackBar(
-                            content: Text('Passphrase must be at least 8 characters.'),
+                            content: Text(
+                              'Passphrase must be at least 8 characters.',
+                            ),
                           ),
                         );
                         return;

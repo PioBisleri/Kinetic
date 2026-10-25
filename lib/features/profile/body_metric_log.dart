@@ -12,15 +12,13 @@ import '../../core/utils/day_key.dart';
 /// must move *now*, or a correction to an old day could never win
 /// remotely. Called by the Profile bodyweight field whenever the value
 /// actually changes.
-Future<void> logBodyWeight(
-  AppDatabase db,
-  double kg, {
-  DateTime? now,
-}) {
+Future<void> logBodyWeight(AppDatabase db, double kg, {DateTime? now}) {
   final at = now ?? DateTime.now();
-  return db.bodyMetrics.insertOnConflictUpdate(BodyMetricsCompanion.insert(
-    id: dayKey(at),
-    weightKg: Value(kg),
-    updatedAt: DateTime.now().toUtc(),
-  ));
+  return db.bodyMetrics.insertOnConflictUpdate(
+    BodyMetricsCompanion.insert(
+      id: dayKey(at),
+      weightKg: Value(kg),
+      updatedAt: DateTime.now().toUtc(),
+    ),
+  );
 }

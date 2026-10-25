@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+
 import '../../../core/widgets/app_dialog.dart';
+
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -12,11 +14,10 @@ import 'landmarks_card.dart' show zoneColor;
 /// "How landmarks work" — the sheet behind the card's info button
 /// (Round 6): the three definitions, how sets are counted, and a zone
 /// legend, so every number on the card is accounted for.
-Future<void> showLandmarksInfoSheet(BuildContext context) =>
-    showAppSheet<void>(
-      context: context,
-      builder: (_) => const _LandmarksInfoSheet(),
-    );
+Future<void> showLandmarksInfoSheet(BuildContext context) => showAppSheet<void>(
+  context: context,
+  builder: (_) => const _LandmarksInfoSheet(),
+);
 
 class _LandmarksInfoSheet extends StatelessWidget {
   const _LandmarksInfoSheet();
@@ -24,13 +25,22 @@ class _LandmarksInfoSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const defs = [
-      ('MEV', 'Minimum effective',
-          'Below this many hard sets a week, a muscle is unlikely to grow.'),
-      ('MAV', 'Maximum adaptive',
-          'Top of the productive sweet spot — past it, returns shrink '
-              'while recovery cost keeps rising.'),
-      ('MRV', 'Maximum recoverable',
-          'Beyond this, recovery lags behind stimulus — junk volume.'),
+      (
+        'MEV',
+        'Minimum effective',
+        'Below this many hard sets a week, a muscle is unlikely to grow.',
+      ),
+      (
+        'MAV',
+        'Maximum adaptive',
+        'Top of the productive sweet spot — past it, returns shrink '
+            'while recovery cost keeps rising.',
+      ),
+      (
+        'MRV',
+        'Maximum recoverable',
+        'Beyond this, recovery lags behind stimulus — junk volume.',
+      ),
     ];
     const legend = [
       (LandmarkZone.belowMev, 'Under MEV'),
@@ -59,7 +69,10 @@ class _LandmarksInfoSheet extends StatelessWidget {
             Text(
               'How landmarks work',
               style: const TextStyle(
-                  fontSize: 20, fontWeight: FontWeight.w800, letterSpacing: -0.4),
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.4,
+              ),
             ),
             const SizedBox(height: 12),
             for (final (code, name, blurb) in defs) ...[
@@ -68,17 +81,19 @@ class _LandmarksInfoSheet extends StatelessWidget {
                   Text(
                     code,
                     style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w800,
-                        color: context.accent),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                      color: context.accent,
+                    ),
                   ),
                   const SizedBox(width: 8),
                   Text(
                     name,
                     style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: context.textPrimary),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: context.textPrimary,
+                    ),
                   ),
                 ],
               ),
@@ -95,9 +110,10 @@ class _LandmarksInfoSheet extends StatelessWidget {
             Text(
               'How sets are counted',
               style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: context.textPrimary),
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: context.textPrimary,
+              ),
             ),
             const SizedBox(height: 4),
             Text(
@@ -133,7 +149,9 @@ class _LandmarksInfoSheet extends StatelessWidget {
                       Text(
                         label,
                         style: TextStyle(
-                            fontSize: 11, color: context.textTertiary),
+                          fontSize: 11,
+                          color: context.textTertiary,
+                        ),
                       ),
                     ],
                   ),
@@ -187,8 +205,7 @@ class _LandmarkEditSheet extends ConsumerStatefulWidget {
   final bool edited;
 
   @override
-  ConsumerState<_LandmarkEditSheet> createState() =>
-      _LandmarkEditSheetState();
+  ConsumerState<_LandmarkEditSheet> createState() => _LandmarkEditSheetState();
 }
 
 class _LandmarkEditSheetState extends ConsumerState<_LandmarkEditSheet> {
@@ -223,8 +240,7 @@ class _LandmarkEditSheetState extends ConsumerState<_LandmarkEditSheet> {
     }
     final lm = Landmark(mev: mev, mav: mav, mrv: mrv);
     if (!lm.isValid) {
-      setState(
-          () => _error = 'Keep them ordered: 1 ≤ MEV < MAV < MRV ≤ 99');
+      setState(() => _error = 'Keep them ordered: 1 ≤ MEV < MAV < MRV ≤ 99');
       return;
     }
     await LandmarkStore(ref.read(databaseProvider)).save(widget.muscleId, lm);
@@ -261,9 +277,10 @@ class _LandmarkEditSheetState extends ConsumerState<_LandmarkEditSheet> {
                 child: Text(
                   'Edit landmarks',
                   style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.4),
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.4,
+                  ),
                 ),
               ),
               if (widget.edited)
@@ -314,7 +331,8 @@ class _LandmarkEditSheetState extends ConsumerState<_LandmarkEditSheet> {
                   key: const Key('landmark-reset'),
                   onPressed: _reset,
                   style: TextButton.styleFrom(
-                      foregroundColor: AppColors.heatHot),
+                    foregroundColor: AppColors.heatHot,
+                  ),
                   child: const Text('Reset'),
                 ),
               const Spacer(),
@@ -355,9 +373,10 @@ class _FieldRow extends StatelessWidget {
           child: Text(
             label,
             style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                color: context.textPrimary),
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: context.textPrimary,
+            ),
           ),
         ),
         Expanded(
@@ -368,10 +387,11 @@ class _FieldRow extends StatelessWidget {
             textAlign: TextAlign.center,
             inputFormatters: [FilteringTextInputFormatter.digitsOnly],
             style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w700,
-                color: context.textPrimary,
-                fontFeatures: const [FontFeature.tabularFigures()]),
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+              color: context.textPrimary,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
             decoration: InputDecoration(
               hintText: hint,
               hintStyle: TextStyle(fontSize: 12, color: context.textTertiary),

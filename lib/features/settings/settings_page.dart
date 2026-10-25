@@ -4,16 +4,27 @@ import 'package:permission_handler/permission_handler.dart';
 
 import '../../core/notifications/weekly_reminder_service.dart';
 import '../../core/notifications/water_reminder_service.dart';
+import '../../core/ledger/ledger.dart';
 import '../../core/settings/settings.dart';
 import '../../core/sync/sync_providers.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/rest_format.dart';
 import '../../core/widgets/app_dialog.dart';
-import '../../core/widgets/section_card.dart';
 import '../health/live_activity_service.dart';
+import 'data_section.dart';
 import 'sync_section.dart';
 
 const _dayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+/// Square-ish ledger controls instead of M3's full pill shape.
+final ButtonStyle _segmentedStyle = ButtonStyle(
+  shape: WidgetStatePropertyAll(
+    RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(AppRadius.control),
+    ),
+  ),
+  visualDensity: VisualDensity.compact,
+);
 
 String _fmtTime(int hour, int minute) =>
     '${hour.toString().padLeft(2, '0')}:'
@@ -33,54 +44,63 @@ class SettingsPage extends ConsumerWidget {
     final syncConfigured = ref.watch(supabaseConfiguredProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Settings')),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          SectionCard(
-            title: 'Units',
-            icon: Icons.straighten_rounded,
-            children: [
-              ListTile(
-                title: const Text('Weight units'),
-                trailing: SegmentedButton<UnitSystem>(
-                  segments: const [
-                    ButtonSegment(value: UnitSystem.kg, label: Text('kg')),
-                    ButtonSegment(value: UnitSystem.lbs, label: Text('lbs')),
-                  ],
-                  selected: {settings.unit},
-                  onSelectionChanged: (s) => notifier.setUnit(s.first),
-                  showSelectedIcon: false,
-                ),
-              ),
-              SwitchListTile(
-                title: const Text('Micro-loading plates'),
-                subtitle: const Text('Include 1.25 kg / 2.5 lb plates'),
-                value: settings.microLoading,
-                onChanged: notifier.setMicroLoading,
-              ),
-            ],
+      appBar: const TailBar(
+        title: 'Settings',
+        meta: 'Units · rhythm · data',
+        showMenu: false,
+      ),
+      body: SafeArea(
+        top: false,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpace.x5,
+            AppSpace.x2,
+            AppSpace.x5,
+            AppSpace.x8,
           ),
-          const SizedBox(height: 20),
-          const _AppearanceSection(),
-          const SizedBox(height: 20),
-          if (syncConfigured) ...[
-            const SectionCard(
-              title: 'Sync',
-              icon: Icons.cloud_sync_outlined,
-              children: [SyncSection()],
+          children: [
+            LedgerGroup(
+              title: 'Units',
+              children: [
+                ListTile(
+                  title: const Text('Weight units'),
+                  trailing: SegmentedButton<UnitSystem>(
+                    style: _segmentedStyle,
+                    segments: const [
+                      ButtonSegment(value: UnitSystem.kg, label: Text('kg')),
+                      ButtonSegment(value: UnitSystem.lbs, label: Text('lbs')),
+                    ],
+                    selected: {settings.unit},
+                    onSelectionChanged: (s) => notifier.setUnit(s.first),
+                    showSelectedIcon: false,
+                  ),
+                ),
+                SwitchListTile(
+                  title: const Text('Micro-loading plates'),
+                  subtitle: const Text('Include 1.25 kg / 2.5 lb plates'),
+                  value: settings.microLoading,
+                  onChanged: notifier.setMicroLoading,
+                ),
+              ],
             ),
             const SizedBox(height: 20),
+            const _AppearanceSection(),
+            const SizedBox(height: 20),
+            if (syncConfigured) ...[
+              const LedgerGroup(title: 'Sync', children: [SyncSection()]),
+              const SizedBox(height: 20),
+            ],
+            const _RemindersSection(),
+            const SizedBox(height: 20),
+            const _NutritionSection(),
+            const SizedBox(height: 20),
+            const _LiveActivitySection(),
+            const SizedBox(height: 20),
+            const _RestSection(),
+            const SizedBox(height: 20),
+            const DataPrivacyAboutSections(),
           ],
-          const _RemindersSection(),
-          const SizedBox(height: 20),
-          const _NutritionSection(),
-          const SizedBox(height: 20),
-          const _LiveActivitySection(),
-          const SizedBox(height: 20),
-          const _RestSection(),
-          const SizedBox(height: 20),
-        ],
+        ),
       ),
     );
   }
@@ -97,35 +117,45 @@ class _AppearanceSection extends ConsumerWidget {
     final settings = ref.watch(settingsProvider);
     final notifier = ref.read(settingsProvider.notifier);
 
-    return SectionCard(
+    return LedgerGroup(
       title: 'Appearance',
-      icon: Icons.palette_outlined,
       children: [
-        ListTile(
-          title: const Text('Theme'),
-          trailing: SegmentedButton<ThemeMode>(
-            key: const Key('theme-mode-segments'),
-            segments: const [
-              ButtonSegment(
-                value: ThemeMode.system,
-                icon: Icon(Icons.brightness_auto_rounded, size: 18),
-                label: Text('Auto'),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Theme',
+                style: AppType.body.copyWith(color: context.textPrimary),
               ),
-              ButtonSegment(
-                value: ThemeMode.light,
-                icon: Icon(Icons.light_mode_rounded, size: 18),
-                label: Text('Light'),
-              ),
-              ButtonSegment(
-                value: ThemeMode.dark,
-                icon: Icon(Icons.dark_mode_rounded, size: 18),
-                label: Text('Dark'),
+              const SizedBox(height: 10),
+              SegmentedButton<ThemeMode>(
+                key: const Key('theme-mode-segments'),
+                style: _segmentedStyle,
+                segments: const [
+                  ButtonSegment(
+                    value: ThemeMode.system,
+                    icon: Icon(Icons.brightness_auto_rounded, size: 18),
+                    label: Text('Auto'),
+                  ),
+                  ButtonSegment(
+                    value: ThemeMode.light,
+                    icon: Icon(Icons.light_mode_rounded, size: 18),
+                    label: Text('Light'),
+                  ),
+                  ButtonSegment(
+                    value: ThemeMode.dark,
+                    icon: Icon(Icons.dark_mode_rounded, size: 18),
+                    label: Text('Dark'),
+                  ),
+                ],
+                showSelectedIcon: false,
+                selected: {settings.themeMode},
+                onSelectionChanged: (s) =>
+                    ref.read(settingsProvider.notifier).setThemeMode(s.first),
               ),
             ],
-            showSelectedIcon: false,
-            selected: {settings.themeMode},
-            onSelectionChanged: (s) =>
-                ref.read(settingsProvider.notifier).setThemeMode(s.first),
           ),
         ),
         if (settings.themeMode == ThemeMode.dark)
@@ -161,7 +191,8 @@ class _AppearanceSection extends ConsumerWidget {
             final ok = await confirmAction(
               context,
               title: 'Reset appearance?',
-              message: 'Returns to the shipped look: dark theme, the Kinetic '
+              message:
+                  'Returns to the shipped look: dark theme, the Kinetic '
                   'teal accent and AMOLED black off.',
               confirmLabel: 'Reset',
             );
@@ -206,8 +237,11 @@ class _AccentSwatch extends StatelessWidget {
           ),
         ),
         child: selected
-            ? Icon(Icons.check_rounded,
-                size: 20, color: onAccent(palette.color))
+            ? Icon(
+                Icons.check_rounded,
+                size: 20,
+                color: onAccent(palette.color),
+              )
             : null,
       ),
     );
@@ -223,9 +257,8 @@ class _RemindersSection extends ConsumerWidget {
     final settings = ref.watch(settingsProvider);
     final notifier = ref.read(settingsProvider.notifier);
 
-    return SectionCard(
+    return LedgerGroup(
       title: 'Reminders',
-      icon: Icons.notifications_none_rounded,
       children: [
         SwitchListTile(
           key: const Key('reminder-toggle'),
@@ -260,7 +293,9 @@ class _RemindersSection extends ConsumerWidget {
                     selected: settings.reminderWeekday == day,
                     onSelected: (_) async {
                       await notifier.setReminderWeekday(day);
-                      await ref.read(weeklyReminderProvider).schedule(
+                      await ref
+                          .read(weeklyReminderProvider)
+                          .schedule(
                             weekday: day,
                             hour: settings.reminderHour,
                             minute: settings.reminderMinute,
@@ -274,8 +309,9 @@ class _RemindersSection extends ConsumerWidget {
             key: const Key('reminder-time'),
             leading: const Icon(Icons.schedule_outlined),
             title: const Text('Time'),
-            trailing:
-                Text(_fmtTime(settings.reminderHour, settings.reminderMinute)),
+            trailing: Text(
+              _fmtTime(settings.reminderHour, settings.reminderMinute),
+            ),
             onTap: () async {
               final picked = await showTimePicker(
                 context: context,
@@ -286,7 +322,9 @@ class _RemindersSection extends ConsumerWidget {
               );
               if (picked == null) return;
               await notifier.setReminderTime(picked.hour, picked.minute);
-              await ref.read(weeklyReminderProvider).schedule(
+              await ref
+                  .read(weeklyReminderProvider)
+                  .schedule(
                     weekday: settings.reminderWeekday,
                     hour: picked.hour,
                     minute: picked.minute,
@@ -308,9 +346,8 @@ class _NutritionSection extends ConsumerWidget {
     final settings = ref.watch(settingsProvider);
     final notifier = ref.read(settingsProvider.notifier);
 
-    return SectionCard(
+    return LedgerGroup(
       title: 'Nutrition & Health',
-      icon: Icons.restaurant_menu_rounded,
       children: [
         SwitchListTile(
           key: const Key('water-reminder-toggle'),
@@ -340,8 +377,10 @@ class _NutritionSection extends ConsumerWidget {
             onTap: () async {
               final picked = await showTimePicker(
                 context: context,
-                initialTime:
-                    TimeOfDay(hour: settings.waterStartHour, minute: 0),
+                initialTime: TimeOfDay(
+                  hour: settings.waterStartHour,
+                  minute: 0,
+                ),
               );
               if (picked == null) return;
               await notifier.setWaterReminder(
@@ -367,8 +406,7 @@ class _NutritionSection extends ConsumerWidget {
             onTap: () async {
               final picked = await showTimePicker(
                 context: context,
-                initialTime:
-                    TimeOfDay(hour: settings.waterEndHour, minute: 0),
+                initialTime: TimeOfDay(hour: settings.waterEndHour, minute: 0),
               );
               if (picked == null) return;
               await notifier.setWaterReminder(
@@ -477,9 +515,8 @@ class _LiveActivitySection extends ConsumerWidget {
     final settings = ref.watch(settingsProvider);
     final notifier = ref.read(settingsProvider.notifier);
 
-    return SectionCard(
+    return LedgerGroup(
       title: 'Live activity',
-      icon: Icons.monitor_heart_outlined,
       children: [
         SwitchListTile(
           key: const Key('settings-live-toggle'),
@@ -579,8 +616,7 @@ class _BatteryExemptionRowState extends ConsumerState<_BatteryExemptionRow>
   }
 
   Future<void> _check() async {
-    final exempt =
-        await ref.read(liveActivityProvider).batteryExempt();
+    final exempt = await ref.read(liveActivityProvider).batteryExempt();
     if (mounted) setState(() => _exempt = exempt);
   }
 
@@ -605,9 +641,7 @@ class _BatteryExemptionRowState extends ConsumerState<_BatteryExemptionRow>
       onTap: exempt
           ? null
           : () async {
-              await ref
-                  .read(liveActivityProvider)
-                  .requestBatteryExempt();
+              await ref.read(liveActivityProvider).requestBatteryExempt();
               // Re-check shortly after: the dialog launch is async and
               // the status refresh also happens on resume.
               await Future<void>.delayed(const Duration(milliseconds: 800));
@@ -626,9 +660,8 @@ class _RestSection extends ConsumerWidget {
     final settings = ref.watch(settingsProvider);
     final notifier = ref.read(settingsProvider.notifier);
 
-    return SectionCard(
+    return LedgerGroup(
       title: 'Rest',
-      icon: Icons.timer_outlined,
       children: [
         _RestRow(
           id: 'rest-warmup',
