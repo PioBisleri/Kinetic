@@ -2,7 +2,7 @@
 
 ![Flutter](https://img.shields.io/badge/Flutter-3.47-02569B?logo=flutter&logoColor=white)
 ![Dart](https://img.shields.io/badge/Dart-3.13-0175C2?logo=dart&logoColor=white)
-![tests](https://img.shields.io/badge/tests-356%20passing-22D3A5)
+![tests](https://img.shields.io/badge/tests-367%20passing-22D3A5)
 ![Android](https://img.shields.io/badge/platform-Android-3DDC84?logo=android&logoColor=white)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
@@ -24,6 +24,8 @@ database is always the source of truth.
   calendar, a body heat map, and the F–S Muscle Grade per muscle.
 - **Private by design** — no social features exist in the codebase.
   Export JSON/CSV backups yourself; delete anything, any time.
+- **First-run setup** — pick units, an optional name/goal, and your starting
+  bodyweight/height on a three-pane ledger; skipping is always allowed.
 
 ## Features
 
@@ -108,6 +110,17 @@ Three tiers, resolved routine → exercise → app settings:
 - Home-screen widget: this week's volume, streak and next-up routine —
   tap it to boot (or resume) straight into the logger
 
+### Design language — Workshop Ledger (v0.2.0)
+An industrial logbook with a warm skin: warm charcoal (`#0C0B09`) or paper
+(`#F4F1EA`) surfaces, hairline rules, dot grids, numbered sections,
+stamps, tally marks and buttons that physically travel 3 px. Type is
+**Bricolage Grotesque** for display, **Archivo** for body/UI, and
+**JetBrains Mono** for data and meta labels. One accent fill per screen;
+ember (`#FF8A3D`) is reserved for records only. Home, Analytics, History,
+Profile, Settings, Diet, Exercise Library, Exercise Detail, Routines and the
+live workout logger are migrated; the drawer is now an opaque ledger index and
+the shared exercise/set sheets use the same skin (Round 14).
+
 ## Tech stack
 
 | Layer | Choice |
@@ -166,7 +179,7 @@ term drives the body heat map.
 flutter pub get
 dart run build_runner build --delete-conflicting-outputs   # after schema edits
 flutter analyze
-flutter test          # 340 tests
+flutter test          # 367 tests
 flutter run
 ```
 
@@ -209,7 +222,7 @@ Drop both overrides when upstream ships fixed versions.
 ```text
 lib/
   main.dart                  boot order: DB → seed → prefs → optional Supabase
-  app.dart                   router, 4-tab shell, frosted-glass drawer
+  app.dart                   router, 5-tab shell, opaque ledger drawer
   core/
     database/                Drift schema (v9, 17 tables) + seed service
     settings/                units, theme, plates, rest tiers (SharedPreferences)
@@ -285,9 +298,28 @@ assets/seed/                 19 muscle groups, 89 exercises
   calorie estimates (MET 4.5, no fabrication without a weigh-in), an
   estimated-burn line on workout details, and a 1000× stride-math fix
   in the live notification
+- **Round 11 ✅ (v0.2.0, pilot)** Workshop Ledger design system — bundled
+  Bricolage Grotesque / Archivo / JetBrains Mono, warm charcoal + paper
+  tokens, hand-drawn glyphs, stamped panels, tally marks and push-key
+  buttons; Home and Analytics migrated as the sign-off pilot
+- **Round 12 ✅ (v0.2.0)** Workshop Ledger sweep, part 1 — chaptered
+  Analytics with compact landmarks/grades and see-all sheets, a rebuilt
+  front/back body map with tap-to-inspect muscles, ledger History, Profile
+  reduced to identity/body with unified field rows, Data/Privacy/About/Danger
+  moved into a restyled Settings, and Diet + Exercise Library on the ledger
+  skin
+- **Round 13 ✅ (v0.2.0)** Exercise Detail and body-map polish, plus first-run
+  onboarding — a three-pane welcome/profile/baseline flow with skippable
+  setup, existing-install protection, and deferred step-permission prompt
+- **Round 14 ✅ (v0.2.0)** Workshop Ledger completion — opaque sidebar index,
+  Routines list, routine builder/editor, live workout logger, exercise picker
+  and set editor; drag/reorder and all existing behavior preserved
 
 ## Roadmap
 
+- **Design sweep** — complete across the shell and pushed flows: Home,
+  Analytics, History, Profile, Settings, Diet, Exercise Library, Exercise
+  Detail, Routines, the live logger and the shared sheets (v0.2.0)
 - **Encrypted sync** — wired end-to-end in v0.1.5 (format-2 ciphertext
   + rejection of undecryptable rows); remaining: bring the Supabase
   project up (apply `schema.sql`) and on-device verification

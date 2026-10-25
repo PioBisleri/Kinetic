@@ -2,8 +2,8 @@
 
 > Offline-first fitness tracker (Hevy-like), personal analytics only — **no social
 > features, ever**. This file exists so the project can move to another machine
-> without losing context. Last updated: **2026-10-23**, at **v0.1.6+7**,
-> schema **v9**, **356 tests green**, all CI runs **passing**.
+> without losing context. Last updated: **2026-10-26**, at **v0.2.0+8**,
+> schema **v9**, **367 tests green**, CI passing through the last push.
 
 ---
 
@@ -11,17 +11,21 @@
 
 | Item | State |
 |---|---|
-| Version | `0.1.6+7` (`pubspec.yaml`) |
+| Version | `0.2.0+8` (`pubspec.yaml`) |
 | DB schema | **v9** (`AppDatabase.schemaVersion`) |
-| Tests | **356 passing**, 57 test files, `flutter analyze` clean |
-| Repo | `main` @ `4a5c0a1` (Rounds 9 / 9.1 / 9.2 pushed); Round 10 **uncommitted** |
+| Tests | **367 passing**, 59 test files, `flutter analyze` clean |
+| Repo | `main` @ `5a25070` (through Round 10); Rounds 11–14 **uncommitted** |
 | Remote | `origin` = `git@github.com:PioBisleri/Kinetic.git` (public) |
-| Pushed | everything **through `4a5c0a1`** (this handoff doc) |
-| CI | GitHub Actions `CI` — all runs `conclusion: success` (analyze + test on Flutter 3.47.5) |
-| Supabase | **project NOT live**, `supabase/schema.sql` **never applied** — encryption now wired end-to-end (v0.1.5, §9A) but unverified against a real server |
+| Pushed | everything **through `5a25070`** (Round 10 handoff) |
+| CI | GitHub Actions `CI` — passing through `5a25070` (analyze + test on Flutter 3.47.5) |
+| Supabase | **project NOT live**, `supabase/schema.sql` **never applied** — encryption wired end-to-end (v0.1.5, §9A) but unverified against a real server |
 | Device | `R9ZY305521H`; release APK signed with the **debug key** (intentional) |
 
-✅ **All commits are pushed** — a fresh clone of `origin/main` gives the full state.
+⚠️ **Rounds 11–14 are uncommitted** — the working tree holds the Workshop
+Ledger design system, bundled fonts, the Home/Analytics pilot, the
+History/Profile/Settings/Analytics sweep, the exercise-detail ledger,
+first-run onboarding, and the Round 14 drawer/routines/logger redesign.
+Round 10 and earlier are pushed at `5a25070`.
 
 ---
 
@@ -55,7 +59,7 @@ cd kinetic
 export PATH="$HOME/development/flutter/bin:$PATH"   # adjust to your Flutter path
 flutter --no-version-check pub get
 flutter --no-version-check analyze
-flutter --no-version-check test          # expect: 278 passing
+flutter --no-version-check test          # expect: 367 passing
 ```
 
 ⚠️ **Always pass `--no-version-check`.** The tool's periodic update check does a
@@ -89,7 +93,7 @@ to `kinetic-v<version>.apk` in the repo root. Extra args pass through, e.g.:
 export PATH="$HOME/development/flutter/bin:$PATH"
 
 flutter --no-version-check analyze                # linter (must stay clean)
-flutter --no-version-check test                   # full suite (276)
+flutter --no-version-check test                   # full suite (367)
 flutter --no-version-check test test/foo_test.dart   # single file
 dart run build_runner build --delete-conflicting-outputs   # after ANY schema edit
 ./build-apk.sh                                    # release APK with versioned name
@@ -99,7 +103,8 @@ dart run build_runner build --delete-conflicting-outputs   # after ANY schema ed
 exit and timeouts become undiagnosable. For the full suite, run it in the
 background with streaming output. If a run seems hung, first check for stale
 dart processes (`ps aux | grep -E "[d]art|[f]lutter"`) — servers/shells have
-been restarted mid-run and left zombies.
+been restarted mid-run and left zombies. If `flutter_tester` segfaults late in a
+default-concurrency run, rerun with `--concurrency=2`; the suite passes clean.
 
 ---
 
@@ -503,6 +508,186 @@ Android 4×2 home-screen widget (volume/streak/next-up, tap boots logger).
   `kinetic-v0.1.6.apk` (0.1.6+7 — build 7 upgrades over the device's
   stray 0.1.6+6 install without a downgrade flag).
 
+**Round 11 — Workshop Ledger design system + pilot (v0.2.0+8):**
+- Direction: **Workshop Ledger** — industrial logbook bones with a warm,
+  playful skin. Warm charcoal/paper palette, numbered ledger panels,
+  hairline rules, dot grids, stamps, tally marks, and 3 px-travel "push
+  keys" replace the previous M3 surfaces. Chosen after an "industrial
+  logbook" pitch was softened from cold to warm.
+- **Bundled type** (`assets/fonts/`, ~416 KB, OFL licences committed):
+  **Bricolage Grotesque** (display, never below 19 px), **Archivo**
+  (body/UI), **JetBrains Mono** (data/meta). Wired in `pubspec.yaml`
+  under `assets/fonts/` + the three `fonts:` families.
+- `lib/core/theme/app_theme.dart` rewritten as tokens, not one-off styles:
+  `AppColors` (warm dark / paper light / AMOLED), `AppAccent` (the 8
+  palettes survive), `onAccent`, **`signal` = ember `#FF8A3D`** (fixed,
+  record-only — never decorative), `AppSpace`, `AppRadius` (data 2 /
+  control 6 / input 4), `AppMotion` (120/160 ms), `AppType`
+  (hero/h1/h2/body/button/meta/data with tabular figures), `AmoledTokens`,
+  `AppColorsContext`, `AppTheme.dark/light`, `InstantPageTransitions`.
+  `danger` stays `#E53935` so the existing theme test remains valid.
+- Component library `lib/core/ledger/`: `panel.dart` (`Rule`, `DotGrid`,
+  `LedgerPanel`, `SectionHead`), `rows.dart` (`LedgerRow`, `Metric`,
+  `StatBlocks`, `SignalChip`), `stamp.dart` (`Stamp` −5°, `Tally`),
+  `push_key.dart` (3 px press travel + haptic + disabled), `glyphs.dart`
+  (hand-drawn `CustomPainter` set + `tabGlyph`), `nav.dart`
+  (`AppBottomNav`, keys `nav-0..4`), `tail_bar.dart` (`TailBar` with mono
+  meta subline), `motion.dart` (`CountUp`), barrel `ledger.dart`.
+- **Pilot screens only** (sign-off gate before sweeping the app):
+  * **Home** — `TailBar` + date/week meta; `_StartBlock` (accent-top
+    panel, READY eyebrow, "Start a session", `PushKey`, START FROM
+    ROUTINE); `_ActiveBlock` (ember dot, elapsed mono, resume key);
+    `_TodaySection` ledger rows (`home-today-water|steps|kcal`);
+    `_HomeStats` dot-grid `StatBlocks` + ember `Tally`; recent workouts
+    as tappable/deletable ledger rows (`home-recent-<id>`) with a dry
+    empty state ("The bar is still on the floor.").
+  * **Analytics** — `ChartCard` rebuilt as numbered ledger panels
+    **01 Weekly volume → 07 Balance** across `charts`, `landmarks_card`,
+    `grade_board`, `body_map`, `balance_card`; `PeriodChips` is now a
+    mono segmented control with a `compact` variant; `StatsRow` →
+    `StatBlocks` (`stat-workouts|stat-streak|stat-volume`); mono axis
+    labels; chart/cell radii down to 1–3; ledger loading/empty panels.
+- Test coupling handled without churn: nav labels stay **title case**
+  (`Home`, `Routines`, …) and `PushKey` renders labels **as-is** (no
+  `.toUpperCase()`), preserving ~35 existing assertions.
+  `PeriodChips(compact: true)` is required inside the `Row` header in
+  `exercise_progress_card.dart` — the unbounded width otherwise throws
+  "RenderFlex children have non-zero flex but incoming width constraints
+  are unbounded". `amoled_theme_test` now finds `AppBottomNav` instead of
+  `NavigationBar`.
+- Screenshot review fixes: hamburger was Material-icon tofu in goldens →
+  `LedgerGlyph.menu`; `SectionHead` title/meta flex rebalanced (title
+  flex 3, meta ellipsised) so "RECENT WORKOUTS · TAP TO REVIEW" fits;
+  `Tally` hidden when streak < 2 (a lone mark read as a glitch); landmarks
+  info icon → hand-drawn `LedgerGlyph.info`; START FROM ROUTINE spacing
+  tightened. Temporary golden harness (`test/_preview_test.dart` +
+  `test/preview/`) was used for review and **removed before commit**.
+- Verify: **365 tests green** (356 + 7 new `test/ledger_test.dart` + body-map
+  inspect + phone-width profile guard), `flutter analyze` clean, release APK
+  `kinetic-v0.2.0.apk` (0.2.0+8)
+  rebuilt. **Device was unplugged the whole round**, so install and
+  on-device smoke are still pending.
+- Anti-slop rules now enforced: no gradients, glassmorphism, purple/blue,
+  emoji, drop shadows, stock illustrations, radii > 6, or more than one
+  accent fill per screen; ≤ 2 stamps per viewport; Bricolage never below
+  19 px; ember signal is record-only.
+- Still on the old skin after the pilot: Routines, History, Profile,
+  Settings, Diet, the workout logger, and sheets/dialogs — Rounds 12–13
+  sweep them onto the same system.
+
+**Round 12 — Workshop Ledger sweep, part 1 (v0.2.0+8):**
+- **Ledger primitives:** `ChapterHead` (numbered chapter rule) and
+  `LedgerGroup` (titled ledger card) added to `lib/core/ledger/panel.dart`;
+  new `ProgressRule` segmented meter in `progress_rule.dart`; both exported
+  from `ledger.dart`. `LedgerPanel` wraps its body in a transparent
+  `Material` so `ListTile` ink splashes stay visible (fixes the runtime
+  "ListTile background color or ink splashes may be invisible" assertion).
+  `datePickerTheme` added to the shared theme.
+- **Analytics restructured into one chaptered scroll:** `00 Window` hero
+  with period chips + stat blocks, then `01 Training` (weekly volume,
+  strength, consistency), `02 Muscle` (compact landmarks + six lowest
+  grades + large body map), `03 Balance`. Per-card numbers were removed
+  from the chart cards; chapter numbers now carry the sequence.
+- **Compact summaries with see-all sheets:** landmarks preview the six
+  priority muscles (`above MRV → below MEV → above MAV → productive`),
+  grades preview the six lowest scores; `landmarks-all` / `grades-all`
+  open 90%-height sheets (`landmarks-sheet`, `grades-sheet`) listing all
+  18 gradeable muscles. Rows are built in a `SingleChildScrollView` so
+  every `landmark-<id>` / `grade-<id>` key exists for tests.
+- **Body map rebuilt:** one larger figure (`heat-figure`) with a Front/Back
+  toggle (`heat-front`, `heat-back`), flat anatomical lens shapes and a
+  hairline anatomy overlay — no blur or gradient. `heatColorFor` and the
+  48–72 h freshness fade are unchanged.
+- **History restyled as a ledger index:** `TailBar`, ledger date panel,
+  square day strip, uppercase sub-tab rail, `_HistorySection` panels,
+  `ProgressRule` meters, and a flat sparkline. All six sub-tabs and every
+  `history-*` key survive.
+- **Profile reduced to identity/body:** `TailBar` + ledger hero + square
+  avatar; `YourDataCard` uses `LedgerGroup` sections `01 Identity` and
+  `02 Body & stats`. All profile/data semantics and keys are unchanged.
+- **Data/privacy/about/danger moved from Profile to Settings**
+  (`lib/features/settings/data_section.dart`): export JSON/CSV, import,
+  privacy, about and the four destructive actions (including the
+  type-DELETE dialog) now live under Settings. Order is Data → Privacy →
+  About → Danger. Existing keys (`export-json`, `export-csv`,
+  `import-json`, `delete-history`, `delete-routines`,
+  `delete-custom-exercises`, `delete-all`, `confirm-delete-all`) survive.
+- **Settings restyled:** ledger groups for Units, Appearance, Sync,
+  Reminders, Nutrition & Health, Live activity and Rest, then the moved
+  data sections. The pushed Settings route now passes `showMenu: false` so
+  `TailBar` shows the automatic back arrow again (Round 12 briefly left it
+  showing a dead hamburger).
+- **Tests:** analytics page test covers the see-all grades sheet, heat
+  toggle/figure, `Muscle map` and `FRESH`; landmarks test covers the
+  see-all sheet; grade transparency opens the all-grades sheet before
+  tapping `grade-chest`; History tab label assertions tolerate the
+  uppercase rail; widget test reaches data/deletion from Settings.
+  **365 tests green**, `flutter analyze` clean.
+- **Follow-up polish (same round):** Profile rows now share one treatment —
+  hairline icon, title, explainer subtitle and a compact boxed control — and
+  the `Add` placeholders are gone (empty values show `—` or blank). Diet and
+  Exercise Library moved onto the ledger skin (`TailBar`, numbered sections,
+  `LedgerPanel` list, square controls); Settings gained a vertical-safe theme
+  control and Android nav-bar padding. The body map was redrawn with tapered
+  anatomy and muscle-specific shapes (pecs, lats, traps, abs, quads, glutes,
+  calves…), and tapping a muscle now enlarges it 14%, outlines it and shows a
+  named freshness label (`heat-muscle-label`, `heat-clear`). The analytics test
+  taps the abs to verify label + toggle-off. Phone-width screenshot review
+  caught a Profile header overflow at 360 px (fixed with an ellipsised trailing
+  label + regression test). Release APK `kinetic-v0.2.0.apk` rebuilt; install
+  and smoke review followed in Round 13.
+
+**Round 13 — Exercise detail, body-map polish, first-run onboarding (v0.2.0+8):**
+- **Exercise detail migrated:** `/library/:id` now uses `TailBar`, the ledger
+  header, and chaptered panels for the e1RM/volume series, progress chart,
+  muscle contributions, and record deltas (`series-e1rm`, `series-volume`,
+  `progress-chart`, `contribution-*`, `record-*`, `delta-*`). Catalog
+  exercises hide delete; custom exercises keep `edit-exercise` /
+  `delete-exercise` / `confirm-delete`. Device-reviewed against Barbell Bench
+  Press with no crashes or overflows.
+- **Body-map polish:** added hands, feet and a pelvis ellipse; widened the
+  shoulders (`0.047 → 0.052`); removed elbow-circle artifacts; replaced the
+  rectangular abs with a tapered path and set the rectus-abdominis region to
+  `BodyRegion(0.5, 0.372, 0.125, 0.182)`. User approved the result on-device.
+- **First-run onboarding:** `/onboarding` sits outside the shell and shows
+  three ledger panes — welcome/trust, profile + goal + units, and optional
+  bodyweight/height. It writes the `local` profile, logs the first weigh-in,
+  persists units, and starts the step tracker only after completion. `SKIP`
+  at the top and `SKIP FOR NOW` on the welcome pane both complete setup
+  without a profile. Gate uses `onboarding_done`; existing installs with a
+  profile, workout or body metric are auto-marked done so nobody is trapped
+  after an update.
+- **Responsive fixes found by tests:** the onboarding header no longer
+  overflows at 360 px, and bodyweight/height fields are explicitly width
+  constrained inside their rows.
+- Verify: **367 tests green** (365 + 2 `test/onboarding_test.dart`),
+  `flutter analyze` clean, release APK rebuilt. On-device onboarding smoke is
+  still pending — the device was unplugged (`adb devices` empty) after the
+  body-map/exercise-detail review.
+
+**Round 14 — Drawer, Routines, builder and live logger (v0.2.0+8):**
+- **Sidebar:** rewritten as an opaque ledger index (no blur or translucent
+  tint) with a 0.45 scrim, numbered Session/Navigate/App sections, custom
+  glyph tab rows, route-code tiles and a mono footer. Existing `drawer-*`
+  keys and Start Workout behavior are unchanged.
+- **Routines:** a plan-index masthead with counts, `NEW ROUTINE` and a
+  `LIBRARY` action; ledger empty state; routine panels with exercise/set
+  meta and outlined start keys. `new-routine`, `open-library`,
+  `start-routine-<id>` and the existing copy are preserved.
+- **Routine builder:** `TailBar` with Save/meta, identity name field, draft
+  summary, numbered entry panels, target/set-type steppers, superset/rest
+  controls and a fixed Add Exercise key. Drag handle, rest `FilterChip` and
+  all existing test keys remain.
+- **Live logger:** elapsed `TailBar` with menu/notes/finish actions, session
+  summary and progress rule, numbered exercise panels, ledger set rows and
+  empty state, plus a ledger add-exercise sheet and set editor. Finish guard,
+  set logging, supersets, notes and discard behavior are unchanged.
+- **Tests:** drawer tests now assert the opaque index and selected semantics;
+  the reorder test uses a phone viewport with an incremental drag so the
+  reorderable list can auto-scroll. Verify: **367 tests green**,
+  `flutter analyze` clean. On-device smoke remains pending — `adb devices` is
+  still empty. Release APK rebuilt as `kinetic-v0.2.0.apk`.
+
 ---
 
 ## 7. Design decisions & hard rules (do not break)
@@ -511,9 +696,10 @@ Android 4×2 home-screen widget (volume/streak/next-up, tap boots logger).
 - **kg is canonical** in storage; lbs/lb plates are display/UX only.
 - **Import = JSON-only, replace-all** (older backups normalize on the way in).
 - App id `com.kinetic.kinetic`; release APKs signed with the **debug** key.
-- **Aesthetic:** dark-first, minimalist, ultra-flat hairline UI (radius 4–6),
-  teal accents on controls, translucent/blurred drawer ("frosted glass" over
-  the active tab). App-consistent palette; flat = no heavy cards/shadows.
+- **Aesthetic:** Workshop Ledger — warm charcoal/paper, Bricolage/Archivo/
+  JetBrains Mono, hairline panels, numbered sections, stamps and tally marks.
+  One accent fill per screen; ember is reserved for records. The drawer is an
+  opaque ledger index (no frosted glass). No heavy cards or shadows.
 - **Transparency:** grades/suggestions must expose their math via sheets.
 - **Local-only ≠ sync:** weekly plan and volume landmarks never sync and are
   deliberately absent from `schema.sql`; everything synced uses LWW on
@@ -544,7 +730,7 @@ Android 4×2 home-screen widget (volume/streak/next-up, tap boots logger).
 
 ## 9. Testing & known pitfalls
 
-**Suite:** 318 tests / 50 files. Migration tests, widget tests (pump the real
+**Suite:** 367 tests / 59 files. Migration tests, widget tests (pump the real
 shell), sync tests with a **fake transport** (never hits network), export/import
 round-trips, delete-service wipes.
 
